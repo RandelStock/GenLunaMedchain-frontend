@@ -1,8 +1,7 @@
 // frontend/src/components/consultation/ConsultationCalendar.jsx
 import React, { useState, useEffect } from 'react';
 import { FaCalendarAlt, FaClock, FaUserMd, FaUserNurse, FaVideo, FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEdit, FaTrash, FaCheck, FaTimes } from 'react-icons/fa';
-
-const API_URL = 'http://localhost:4000';
+import API_BASE_URL from '../../config.js';
 
 const STATUS_COLORS = {
   SCHEDULED: 'bg-blue-100 text-blue-800',
@@ -49,12 +48,15 @@ const ConsultationCalendar = () => {
   const loadConsultations = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/consultations?date_from=${selectedDate}&date_to=${selectedDate}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      const wallet = localStorage.getItem('connectedWalletAddress') || '';
+      const response = await fetch(`${API_BASE_URL}/consultations?date_from=${selectedDate}&date_to=${selectedDate}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+            'x-wallet-address': wallet
+          }
         }
-      });
-      
+      );
       const data = await response.json();
       if (data.success) {
         setConsultations(data.data || []);
@@ -99,18 +101,8 @@ const ConsultationCalendar = () => {
   };
 
   const getConsultationsForTime = (time) => {
-    // Convert 24-hour format to 12-hour format for comparison
-    const formatTo12Hour = (time24) => {
-      if (!time24) return '';
-      const [hours, minutes] = time24.split(':');
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-      return `${hour12}:${minutes} ${ampm}`;
-    };
-    
-    const time12Hour = formatTo12Hour(time);
-    return consultations.filter(c => c.scheduled_time === time12Hour);
+    // Compare directly using 24-hour time strings stored in DB
+    return consultations.filter(c => c.scheduled_time === time);
   };
 
   const renderTimeSlot = (time) => {

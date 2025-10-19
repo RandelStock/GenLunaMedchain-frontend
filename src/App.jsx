@@ -49,42 +49,43 @@ import ConsultationStatistics from './components/consultation/ConsultationStatis
 // Role-based Home Router
 // ----------------------
 const RoleBasedHome = () => {
-  const { userRole, isWalletConnected, isAdmin, userAddress } = useRole();
+  const { userRole, isAdmin, isStaff, isPatient, isLoading, userAddress } = useRole();
 
   console.log("🔍 RoleBasedHome Debug:", {
     userRole,
-    isWalletConnected,
     isAdmin,
+    isStaff,
+    isPatient,
+    isLoading,
     userAddress,
     timestamp: new Date().toISOString(),
   });
 
-  // Force check for admin wallet address
-  const adminWalletAddresses = [
-    "0x7EDe510897C82b9469853a46cF5f431F04F081a9"
-  ];
-  
-  const isAdminWallet = adminWalletAddresses.some(
-    addr => userAddress && addr.toLowerCase() === userAddress.toLowerCase()
-  );
-  
-  // Override role if wallet is in admin list
-  if (isAdminWallet) {
-    console.log("🔑 Admin wallet detected, overriding role!");
-    return <AdminHome />;
+  // Show loading state while role is being fetched
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Normal role-based routing
-  const normalizedRole = userRole?.toUpperCase();
-  switch (normalizedRole) {
-    case "ADMIN":
-      return <AdminHome />;
-    case "STAFF":
-      return <StaffHome />;
-    case "PATIENT":
-    default:
-      return <PatientHome />;
+  // RoleProvider already handles admin wallet override
+  if (isAdmin) {
+    console.log("✅ Rendering AdminHome");
+    return <AdminHome />;
   }
+  
+  if (isStaff) {
+    console.log("✅ Rendering StaffHome");
+    return <StaffHome />;
+  }
+  
+  console.log("✅ Rendering PatientHome");
+  return <PatientHome />;
 };
 
 // ----------------------
@@ -118,7 +119,7 @@ const AppLayout = () => {
               }
             />
 
-            {/* Admin only - ✅ Updated to handle both ADMIN and Admin */}
+            {/* Admin only */}
             <Route
               path="/dashboard"
               element={

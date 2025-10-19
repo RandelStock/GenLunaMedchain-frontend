@@ -23,7 +23,7 @@ import logo from "../../img/logo.png";
 
 const Sidebar = () => {
   const location = useLocation();
-  const { userRole, isAdmin, isStaff, isPatient, isWalletConnected } = useRole();
+  const { userRole, isAdmin, isStaff, isPatient, isWalletConnected, isLoading } = useRole();
   const [expandedGroups, setExpandedGroups] = useState(["main"]);
 
   const toggleGroup = (groupName) => {
@@ -40,6 +40,8 @@ const Sidebar = () => {
       : "text-blue-900 hover:bg-orange-100 hover:text-blue-700";
 
   const getNavigationGroups = () => {
+    console.log("🔍 Sidebar - Role Check:", { isAdmin, isStaff, isPatient, userRole, isWalletConnected });
+
     if (!isWalletConnected) {
       return {
         main: [
@@ -50,6 +52,7 @@ const Sidebar = () => {
     }
 
     if (isAdmin) {
+      console.log("✅ Rendering ADMIN sidebar");
       return {
         main: [
           { path: "/", icon: FaHome, label: "Home" },
@@ -80,6 +83,7 @@ const Sidebar = () => {
     }
 
     if (isStaff) {
+      console.log("✅ Rendering STAFF sidebar");
       return {
         main: [
           { path: "/", icon: FaHome, label: "Home" },
@@ -109,18 +113,15 @@ const Sidebar = () => {
       };
     }
 
-    if (isPatient && isWalletConnected) {
-      return {
-        main: [
-          { path: "/", icon: FaHome, label: "Home" },
-          { path: "/calendar", icon: FaCalendarAlt, label: "Calendar" },
-          { path: "/consultation", icon: FaVideo, label: "Consultation" },
-          { path: "/profile", icon: FaUser, label: "Profile" },
-        ],
-      };
-    }
-
-    return { main: [{ path: "/", icon: FaHome, label: "Home" }] };
+    console.log("✅ Rendering PATIENT sidebar");
+    return {
+      main: [
+        { path: "/", icon: FaHome, label: "Home" },
+        { path: "/calendar", icon: FaCalendarAlt, label: "Calendar" },
+        { path: "/consultation", icon: FaVideo, label: "Consultation" },
+        { path: "/profile", icon: FaUser, label: "Profile" },
+      ],
+    };
   };
 
   const navigationGroups = getNavigationGroups();
@@ -139,6 +140,18 @@ const Sidebar = () => {
     people: FaUsers,
     system: FaHistory,
   };
+
+  // Show loading state
+  if (loading && isWalletConnected) {
+    return (
+      <div className="fixed h-screen w-[230px] bg-gradient-to-b from-blue-50 to-white text-blue-900 top-0 left-0 flex items-center justify-center shadow-lg border-r border-blue-200">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-blue-700">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed h-screen w-[230px] bg-gradient-to-b from-blue-50 to-white text-blue-900 top-0 left-0 flex flex-col shadow-lg border-r border-blue-200">
