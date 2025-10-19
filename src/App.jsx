@@ -49,17 +49,33 @@ import ConsultationStatistics from './components/consultation/ConsultationStatis
 // Role-based Home Router
 // ----------------------
 const RoleBasedHome = () => {
-  const { userRole, isWalletConnected } = useRole();
+  const { userRole, isWalletConnected, isAdmin, userAddress } = useRole();
 
   console.log("🔍 RoleBasedHome Debug:", {
     userRole,
     isWalletConnected,
+    isAdmin,
+    userAddress,
     timestamp: new Date().toISOString(),
   });
 
-  // ✅ FIXED: Handle both uppercase and capitalized role names
-  const normalizedRole = userRole?.toUpperCase();
+  // Force check for admin wallet address
+  const adminWalletAddresses = [
+    "0x7EDe510897C82b9469853a46cF5f431F04F081a9"
+  ];
+  
+  const isAdminWallet = adminWalletAddresses.some(
+    addr => userAddress && addr.toLowerCase() === userAddress.toLowerCase()
+  );
+  
+  // Override role if wallet is in admin list
+  if (isAdminWallet) {
+    console.log("🔑 Admin wallet detected, overriding role!");
+    return <AdminHome />;
+  }
 
+  // Normal role-based routing
+  const normalizedRole = userRole?.toUpperCase();
   switch (normalizedRole) {
     case "ADMIN":
       return <AdminHome />;

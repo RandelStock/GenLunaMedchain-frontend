@@ -4,7 +4,7 @@
 // 🔗 Backend API base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.MODE === 'production' 
-    ? "https://genlunamedchain-backend.onrender.com"  // Updated with deployed Render URL
+    ? "https://your-render-app.onrender.com"  // Update with your Render URL
     : "http://localhost:4000");
 
 // 🔗 Blockchain network configuration

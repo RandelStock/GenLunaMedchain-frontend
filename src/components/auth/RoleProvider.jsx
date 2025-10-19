@@ -107,20 +107,24 @@ export const RoleProvider = ({ children }) => {
     isLoading
   });
 
+  // Normalize role for consistent case comparison
+  const normalizedRole = currentRole?.toUpperCase();
+  
   const value = {
-    userRole: currentRole,
+    userRole: normalizedRole === "ADMIN" ? "ADMIN" : 
+              normalizedRole === "STAFF" ? "STAFF" : "Patient",
     userAddress,
     setUserRole,
     refreshRole,
-    isAdmin: currentRole === "ADMIN",
-    isStaff: currentRole === "STAFF", 
-    isPatient: currentRole === "PATIENT" || currentRole === "Patient",
+    isAdmin: normalizedRole === "ADMIN",
+    isStaff: normalizedRole === "STAFF", 
+    isPatient: normalizedRole === "PATIENT" || normalizedRole === "PATIENT",
     isWalletConnected: !!userAddress,
     isLoading,
-    canAddMedicine: currentRole === "ADMIN" || currentRole === "STAFF",
-    canAddReceipts: currentRole === "ADMIN" || currentRole === "STAFF",
-    canViewTransactions: currentRole === "ADMIN" || currentRole === "STAFF",
-    canAccessAdminDashboard: currentRole === "ADMIN"
+    canAddMedicine: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
+    canAddReceipts: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
+    canViewTransactions: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
+    canAccessAdminDashboard: normalizedRole === "ADMIN"
   };
 
   return (
