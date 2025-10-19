@@ -2,8 +2,8 @@
 # This file configures automatic deployment to Netlify
 
 [build]
-  # Build command - skip TypeScript check
-  command = "npm install --legacy-peer-deps && npm run build"
+  # Build command - includes optional dependencies for esbuild
+  command = "npm install --include=optional --legacy-peer-deps && npm run build"
   
   # Directory to publish
   publish = "dist"
@@ -14,20 +14,12 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
+  
   # Force npm instead of yarn
   NETLIFY_USE_YARN = "false"
-  # Skip TypeScript errors
-  SKIP_PREFLIGHT_CHECK = "true"
-  # Allow legacy peer dependencies
-  NPM_FLAGS = "--legacy-peer-deps"
   
-  # Build environment variables
-  VITE_API_BASE_URL = "https://genlunamedchain-backend.onrender.com"
-  VITE_BLOCKCHAIN_NETWORK = "polygon_amoy"
-  VITE_BLOCKCHAIN_RPC_URL = "https://polygon-amoy.blockpi.network/v1/rpc/public"
-  VITE_BLOCKCHAIN_CHAIN_ID = "80002"
-  VITE_BLOCKCHAIN_EXPLORER_URL = "https://amoy.polygonscan.com"
-  VITE_CONTRACT_ADDRESS = "0xb00597076d75C504DEcb69c55B146f83819e61C1"
+  # Skip preflight checks
+  SKIP_PREFLIGHT_CHECK = "true"
 
 # Redirect rules for SPA
 [[redirects]]
@@ -52,11 +44,11 @@
 
 # Environment-specific builds
 [context.production]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install --include=optional --legacy-peer-deps && npm run build"
   [context.production.environment]
     VITE_NODE_ENV = "production"
 
 [context.deploy-preview]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install --include=optional --legacy-peer-deps && npm run build"
   [context.deploy-preview.environment]
     VITE_NODE_ENV = "preview"
