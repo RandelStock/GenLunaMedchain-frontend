@@ -12,8 +12,8 @@
   functions = "netlify/functions"
 
 [build.environment]
-  # Node.js version
-  NODE_VERSION = "18"
+  # Node.js version - specifying exact LTS version
+  NODE_VERSION = "18.18.0"
   
   # Force npm instead of yarn
   NETLIFY_USE_YARN = "false"
