@@ -141,8 +141,8 @@ const Sidebar = () => {
     system: FaHistory,
   };
 
-  // Show loading state
-  if (loading && isWalletConnected) {
+  // Show loading state while role is being determined
+  if (isLoading && isWalletConnected) {
     return (
       <div className="fixed h-screen w-[230px] bg-gradient-to-b from-blue-50 to-white text-blue-900 top-0 left-0 flex items-center justify-center shadow-lg border-r border-blue-200">
         <div className="text-center">
