@@ -1,6 +1,5 @@
-// frontend/src/components/consultation/ConsultationCalendar.jsx
 import React, { useState, useEffect } from 'react';
-import { FaCalendarAlt, FaClock, FaUserMd, FaUserNurse, FaVideo, FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEdit, FaTrash, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaUserMd, FaUserNurse, FaVideo, FaPhone, FaMapMarkerAlt, FaCheck, FaTimes } from 'react-icons/fa';
 import API_BASE_URL from '../../config.js';
 
 const STATUS_COLORS = {
@@ -37,7 +36,6 @@ const ConsultationCalendar = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedConsultation, setSelectedConsultation] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
 
@@ -72,7 +70,7 @@ const ConsultationCalendar = () => {
   const handleStatusUpdate = async (consultationId, newStatus) => {
     try {
       setUpdating(true);
-      const response = await fetch(`${API_URL}/consultations/${consultationId}`, {
+      const response = await fetch(`${API_BASE_URL}/consultations/${consultationId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

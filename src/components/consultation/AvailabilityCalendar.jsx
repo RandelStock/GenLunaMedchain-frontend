@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaCalendarAlt, FaClock, FaCheck, FaTimes, FaUserMd, FaUserNurse } from 'react-icons/fa';
-
-const API_URL = 'http://localhost:4000';
+import API_BASE_URL from '../../config.js';
 
 const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -26,8 +25,8 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
   const loadProviders = async () => {
     try {
       const [doctorsRes, nursesRes] = await Promise.all([
-        fetch(`${API_URL}/consultations/available-doctors`),
-        fetch(`${API_URL}/consultations/available-nurses`)
+        fetch(`${API_BASE_URL}/consultations/available-doctors`),
+        fetch(`${API_BASE_URL}/consultations/available-nurses`)
       ]);
       
       const doctorsData = await doctorsRes.json();
@@ -63,7 +62,7 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
         params.append('nurse_id', selectedProviderId);
       }
       
-      const response = await fetch(`${API_URL}/consultations/available-slots?${params}`);
+      const response = await fetch(`${API_BASE_URL}/consultations/available-slots?${params}`);
       
       if (!response.ok) {
         throw new Error('Failed to load availability');
