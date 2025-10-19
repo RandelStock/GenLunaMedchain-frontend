@@ -39,7 +39,7 @@ import TransactionHistory from "./components/TransactionHistory";
 import Profile from "./components/Profile";
 import AuditLogs from "./components/AuditLogs";
 import AllAuditLogs from "./components/AllAuditLogs";
-import WalletDebug from './components/WalletDebug';
+import WalletDebug from './components/walletdebug';
 import BlockchainHistory from "./components/BlockchainHistory";
 import ScheduleCalendar from "./components/ScheduleCalendar";
 import ConsultationCalendar from './components/consultation/ConsultationCalendar';
