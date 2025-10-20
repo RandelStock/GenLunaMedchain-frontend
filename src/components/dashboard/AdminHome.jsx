@@ -17,7 +17,8 @@ import {
   FaExchangeAlt,
   FaHistory,
   FaArrowRight,
-  FaUserMd
+  FaUserMd,
+  FaEnvelope // Add this
 } from 'react-icons/fa';
 
 import {
@@ -28,6 +29,9 @@ import {
   MedicineInventoryCard,
   StaffCard
 } from './DashboardCards';
+
+// Import the EmailTestComponent
+import EmailTestComponent from '../consultation/EmailTestComponent';
 
 const AdminHome = () => {
   const receiptCount = useReceiptCount();
@@ -395,7 +399,8 @@ const AdminHome = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Main Grid - 3 Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <Link
                   to="/consultations/calendar"
                   className="block p-8 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:from-blue-100 hover:to-blue-200 transition-all shadow-md hover:shadow-xl border border-blue-200 group"
@@ -417,6 +422,20 @@ const AdminHome = () => {
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Consultation Statistics</h3>
                   <p className="text-sm text-gray-600">View consultation analytics and reports</p>
                 </Link>
+
+                {/* NEW: Email Test Card */}
+                <div className="block p-8 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-md border border-purple-200">
+                  <div className="bg-white p-4 rounded-xl inline-block mb-4 shadow-sm">
+                    <FaEnvelope className="text-4xl text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Email Service Test</h3>
+                  <p className="text-sm text-gray-600 mb-4">Test email notifications for consultations</p>
+                </div>
+              </div>
+
+              {/* Email Test Component - Full Width Below Cards */}
+              <div className="mb-8">
+                <EmailTestComponent />
               </div>
 
               {/* Quick Stats */}
