@@ -88,10 +88,10 @@ const RoleBasedHome = () => {
 // ----------------------
 const AppLayout = () => {
   const location = useLocation();
-  const { isWalletConnected } = useRole();
+  const address = useAddress();
   
   const isHomePage = location.pathname === '/';
-  const showNavigation = !isHomePage || isWalletConnected;
+  const showNavigation = !isHomePage || address;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50">

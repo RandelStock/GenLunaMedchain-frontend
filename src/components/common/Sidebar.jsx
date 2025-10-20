@@ -18,13 +18,18 @@ import {
   FaLink,
   FaCalendarAlt,
 } from "react-icons/fa";
-import { useRole } from "../auth/RoleProvider";
+import { useAddress } from "@thirdweb-dev/react"; // ✅ use ThirdWeb hook
+import { useRole } from "../auth/RoleProvider"; // your role provider
 import logo from "../../img/logo.png";
 
 const Sidebar = () => {
   const location = useLocation();
-  const { userRole, isAdmin, isStaff, isPatient, isWalletConnected, isLoading } = useRole();
+  const address = useAddress(); // ✅ wallet address from ThirdWeb
+  const { userRole, isAdmin, isStaff, isPatient, isLoading } = useRole(); // removed isWalletConnected
   const [expandedGroups, setExpandedGroups] = useState(["main"]);
+
+  // ✅ Wallet connection state
+  const isWalletConnected = !!address;
 
   const toggleGroup = (groupName) => {
     setExpandedGroups((prev) =>
@@ -109,6 +114,7 @@ const Sidebar = () => {
       };
     }
 
+    // Default: Patient
     return {
       main: [
         { path: "/", icon: FaHome, label: "Home" },
@@ -120,6 +126,7 @@ const Sidebar = () => {
   };
 
   const navigationGroups = getNavigationGroups();
+
   const groupLabels = {
     main: "Main",
     inventory: "Inventory",
@@ -178,7 +185,7 @@ const Sidebar = () => {
           ></div>
         </div>
         <div className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold text-center">
-          {userRole} View
+          {userRole || "Guest"} View
         </div>
       </div>
 
@@ -207,12 +214,20 @@ const Sidebar = () => {
               )}
 
               {(groupName === "main" || expandedGroups.includes(groupName)) && (
-                <div className={`space-y-1 ${groupName !== "main" ? "ml-2 pl-3 border-l-2 border-gray-200 mt-1" : ""}`}>
+                <div
+                  className={`space-y-1 ${
+                    groupName !== "main"
+                      ? "ml-2 pl-3 border-l-2 border-gray-200 mt-1"
+                      : ""
+                  }`}
+                >
                   {items.map(({ path, icon: Icon, label }) => (
                     <Link
                       key={path}
                       to={path}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium ${getActiveClass(path)}`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium ${getActiveClass(
+                        path
+                      )}`}
                     >
                       <Icon className="text-base" />
                       <span className="truncate">{label}</span>
