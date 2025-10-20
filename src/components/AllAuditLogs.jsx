@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FaHistory, FaFilter, FaDownload, FaChartBar, FaEye, FaEyeSlash } from 'react-icons/fa';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import API_BASE_URL from '../config';
 
 const AllAuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -36,7 +35,7 @@ const AllAuditLogs = () => {
         limit: '100'
       }).toString();
 
-      const response = await fetch(`${API_URL}/audit/all?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/audit/all?${params}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
 
@@ -58,7 +57,7 @@ const AllAuditLogs = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/audit/stats`, {
+      const response = await fetch(`${API_BASE_URL}/audit/stats`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
-import api from '../../api.js';
+import api from '../api.js';
 
 export default function BlockchainHistory() {
   const [blockchainData, setBlockchainData] = useState([]);
