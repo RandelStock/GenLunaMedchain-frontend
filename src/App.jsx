@@ -44,6 +44,9 @@ import AllAuditLogs from "./components/AllAuditLogs";
 // import WalletDebug from './components/walletdebug'; // REMOVED - Debug component
 import BlockchainHistory from "./components/BlockchainHistory";
 import ScheduleCalendar from "./components/ScheduleCalendar";
+import {
+  useAddress,
+} from "@thirdweb-dev/react";
 
 // ----------------------
 // Role-based Home Router
