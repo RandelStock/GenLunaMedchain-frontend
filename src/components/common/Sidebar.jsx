@@ -36,12 +36,10 @@ const Sidebar = () => {
 
   const getActiveClass = (path) =>
     location.pathname === path
-      ? "bg-gradient-to-r from-blue-600 to-orange-500 text-white shadow-md"
-      : "text-blue-900 hover:bg-orange-100 hover:text-blue-700";
+      ? "bg-blue-600 text-white"
+      : "text-gray-900 hover:bg-blue-50";
 
   const getNavigationGroups = () => {
-    console.log("🔍 Sidebar - Role Check:", { isAdmin, isStaff, isPatient, userRole, isWalletConnected });
-
     if (!isWalletConnected) {
       return {
         main: [
@@ -52,7 +50,6 @@ const Sidebar = () => {
     }
 
     if (isAdmin) {
-      console.log("✅ Rendering ADMIN sidebar");
       return {
         main: [
           { path: "/", icon: FaHome, label: "Home" },
@@ -83,7 +80,6 @@ const Sidebar = () => {
     }
 
     if (isStaff) {
-      console.log("✅ Rendering STAFF sidebar");
       return {
         main: [
           { path: "/", icon: FaHome, label: "Home" },
@@ -113,7 +109,6 @@ const Sidebar = () => {
       };
     }
 
-    console.log("✅ Rendering PATIENT sidebar");
     return {
       main: [
         { path: "/", icon: FaHome, label: "Home" },
@@ -141,40 +136,39 @@ const Sidebar = () => {
     system: FaHistory,
   };
 
-  // Show loading state while role is being determined
   if (isLoading && isWalletConnected) {
     return (
-      <div className="fixed h-screen w-[230px] bg-gradient-to-b from-blue-50 to-white text-blue-900 top-0 left-0 flex items-center justify-center shadow-lg border-r border-blue-200">
+      <div className="fixed h-screen w-[240px] bg-white top-0 left-0 flex items-center justify-center shadow-lg border-r border-gray-200">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-sm text-blue-700">Loading...</p>
+          <p className="text-sm text-gray-900">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed h-screen w-[230px] bg-gradient-to-b from-blue-50 to-white text-blue-900 top-0 left-0 flex flex-col shadow-lg border-r border-blue-200">
+    <div className="fixed h-screen w-[240px] bg-white top-0 left-0 flex flex-col shadow-lg border-r border-gray-200">
       {/* Logo */}
-      <div className="p-4 border-b border-blue-100 flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2 group">
+      <div className="p-4 border-b border-gray-200">
+        <Link to="/" className="flex items-center gap-3 group">
           <img
             src={logo}
             alt="Logo"
             className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
           />
           <div>
-            <p className="text-base font-bold text-blue-700">GenLuna</p>
-            <p className="text-xs text-orange-500 font-medium">MedChain</p>
+            <p className="text-base font-bold text-gray-900">GenLuna</p>
+            <p className="text-xs text-blue-600 font-medium">MedChain</p>
           </div>
         </Link>
       </div>
 
       {/* Wallet Status */}
-      <div className="px-4 py-3 border-b border-blue-100 bg-blue-50 rounded-br-xl">
-        <div className="flex items-center space-x-2 mb-2">
-          <FaWallet className="text-xs text-blue-700" />
-          <span className="text-xs font-medium">
+      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center gap-2 mb-2">
+          <FaWallet className="text-sm text-gray-900" />
+          <span className="text-xs font-medium text-gray-900">
             {isWalletConnected ? "Wallet Connected" : "No Wallet"}
           </span>
           <div
@@ -183,24 +177,24 @@ const Sidebar = () => {
             }`}
           ></div>
         </div>
-        <div className="bg-gradient-to-r from-blue-600 to-orange-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold text-center shadow">
+        <div className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold text-center">
           {userRole} View
         </div>
       </div>
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           {Object.entries(navigationGroups).map(([groupName, items]) => (
             <div key={groupName}>
               {Object.keys(navigationGroups).length > 1 && groupName !== "main" && (
                 <button
                   onClick={() => toggleGroup(groupName)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-blue-700 uppercase tracking-wide hover:bg-blue-100 rounded-md transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 uppercase tracking-wide hover:bg-gray-50 rounded-md transition-colors"
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     {React.createElement(groupIcons[groupName], {
-                      className: "text-xs text-orange-500",
+                      className: "text-sm text-blue-600",
                     })}
                     <span>{groupLabels[groupName]}</span>
                   </div>
@@ -213,25 +207,15 @@ const Sidebar = () => {
               )}
 
               {(groupName === "main" || expandedGroups.includes(groupName)) && (
-                <div
-                  className={`space-y-1 ${
-                    groupName !== "main"
-                      ? "ml-2 pl-3 border-l border-blue-200 mt-1"
-                      : ""
-                  }`}
-                >
+                <div className={`space-y-1 ${groupName !== "main" ? "ml-2 pl-3 border-l-2 border-gray-200 mt-1" : ""}`}>
                   {items.map(({ path, icon: Icon, label }) => (
                     <Link
                       key={path}
                       to={path}
-                      className={`flex items-center space-x-3 px-3 py-2.5 rounded-md transition-all ${getActiveClass(
-                        path
-                      )}`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium ${getActiveClass(path)}`}
                     >
-                      <Icon className="text-base text-orange-500" />
-                      <span className="text-sm font-medium truncate">
-                        {label}
-                      </span>
+                      <Icon className="text-base" />
+                      <span className="truncate">{label}</span>
                     </Link>
                   ))}
                 </div>
@@ -242,8 +226,8 @@ const Sidebar = () => {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-blue-100 bg-blue-50 text-center">
-        <p className="text-xs text-blue-700 font-medium">
+      <div className="p-3 border-t border-gray-200 bg-gray-50 text-center">
+        <p className="text-xs text-gray-700 font-medium">
           GenLunaMedChain v1.0
         </p>
       </div>

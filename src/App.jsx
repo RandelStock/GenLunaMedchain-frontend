@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 import ProtectedRoute from "./components/common/ProtectedRoute";
-import NetworkManager from "./components/NetworkManager";
+// import NetworkManager from "./components/NetworkManager"; // REMOVED - Uncomment if needed
 import { RoleProvider, useRole } from "./components/auth/RoleProvider";
 
 // Dashboard / role-based
@@ -30,20 +30,20 @@ import ResidentDashboard from "./components/residents/ResidentDashboard";
 
 // Consultation
 import ProviderManagement from "./components/consultation/ProviderManagement";
+import ConsultationPage from "./components/consultation/ConsultationPage";
+import ConsultationCalendar from './components/consultation/ConsultationCalendar';
+import ConsultationStatistics from './components/consultation/ConsultationStatistics';
 
 // Other pages
 import AddStaffReceiptForm from "./components/receipts/AddStaffReceiptForm";
 import ReceiptsTable from "./components/receipts/ReceiptsTable";
-import ConsultationPage from "./components/consultation/ConsultationPage";
 import TransactionHistory from "./components/TransactionHistory";
 import Profile from "./components/Profile";
 import AuditLogs from "./components/AuditLogs";
 import AllAuditLogs from "./components/AllAuditLogs";
-import WalletDebug from './components/walletdebug';
+// import WalletDebug from './components/walletdebug'; // REMOVED - Debug component
 import BlockchainHistory from "./components/BlockchainHistory";
 import ScheduleCalendar from "./components/ScheduleCalendar";
-import ConsultationCalendar from './components/consultation/ConsultationCalendar';
-import ConsultationStatistics from './components/consultation/ConsultationStatistics';
 
 // ----------------------
 // Role-based Home Router
@@ -51,40 +51,35 @@ import ConsultationStatistics from './components/consultation/ConsultationStatis
 const RoleBasedHome = () => {
   const { userRole, isAdmin, isStaff, isPatient, isLoading, userAddress } = useRole();
 
-  console.log("🔍 RoleBasedHome Debug:", {
-    userRole,
-    isAdmin,
-    isStaff,
-    isPatient,
-    isLoading,
-    userAddress,
-    timestamp: new Date().toISOString(),
-  });
+  // REMOVED DEBUG LOGS - Uncomment if you need to debug role issues:
+  // console.log("🔍 RoleBasedHome Debug:", {
+  //   userRole,
+  //   isAdmin,
+  //   isStaff,
+  //   isPatient,
+  //   isLoading,
+  //   userAddress,
+  //   timestamp: new Date().toISOString(),
+  // });
 
-  // Show loading state while role is being fetched
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+          <p className="text-gray-900 font-medium">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  // RoleProvider already handles admin wallet override
-  if (isAdmin) {
-    console.log("✅ Rendering AdminHome");
-    return <AdminHome />;
-  }
-  
-  if (isStaff) {
-    console.log("✅ Rendering StaffHome");
-    return <StaffHome />;
-  }
-  
-  console.log("✅ Rendering PatientHome");
+  // REMOVED DEBUG LOGS - Uncomment if needed:
+  // if (isAdmin) console.log("✅ Rendering AdminHome");
+  // if (isStaff) console.log("✅ Rendering StaffHome");
+  // if (isPatient) console.log("✅ Rendering PatientHome");
+
+  if (isAdmin) return <AdminHome />;
+  if (isStaff) return <StaffHome />;
   return <PatientHome />;
 };
 
@@ -95,44 +90,39 @@ const AppLayout = () => {
   const location = useLocation();
   const { isWalletConnected } = useRole();
   
-  // Hide sidebar and navbar ONLY on home page when wallet is NOT connected
   const isHomePage = location.pathname === '/';
   const showNavigation = !isHomePage || isWalletConnected;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-100">
+    <div className="flex h-screen w-full overflow-hidden bg-gray-50">
       {showNavigation && <Sidebar />}
-      <div className={`flex-1 flex flex-col min-w-0 ${showNavigation ? 'ml-[220px]' : ''}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${showNavigation ? 'ml-[240px]' : ''}`}>
         {showNavigation && <Navbar />}
-        {/* <NetworkManager /> */}
-        <main className="flex-1 overflow-auto">
+        {/* REMOVED: <NetworkManager /> - Uncomment if you need network status monitoring */}
+        <main className="flex-1 overflow-auto bg-gray-50">
           <Routes>
-            {/* Role-based landing */}
+            {/* ========================================
+                HOME & CONSULTATION (Public Access)
+            ======================================== */}
             <Route path="/" element={<RoleBasedHome />} />
             <Route path="/consultation" element={<ConsultationPage />} />
-            <Route
-              path="/audit-logs/all"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <AllAuditLogs />
-                </ProtectedRoute>
-              }
-            />
 
-            {/* Admin only */}
+            {/* ========================================
+                ADMIN DASHBOARD
+            ======================================== */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute requiredRole="ADMIN" requireWallet={true}>
                   <AdminDashboard />
-                  {/* <WalletDebug /> */}
+                  {/* REMOVED: <WalletDebug /> - Debug component for wallet testing */}
                 </ProtectedRoute>
               }
             />
 
-            {/* -------------------------
-                Medicines
-            ------------------------- */}
+            {/* ========================================
+                MEDICINE MANAGEMENT
+            ======================================== */}
             <Route
               path="/medicines"
               element={
@@ -150,9 +140,29 @@ const AppLayout = () => {
               }
             />
 
-            {/* -------------------------
-                Releases / Removals
-            ------------------------- */}
+            {/* ========================================
+                STOCK MANAGEMENT
+            ======================================== */}
+            <Route
+              path="/stock"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <AddStockForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/stock-transactions"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <StockTransactionHistory />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ========================================
+                RELEASES & REMOVALS
+            ======================================== */}
             <Route
               path="/releases"
               element={
@@ -166,6 +176,14 @@ const AppLayout = () => {
               element={
                 <ProtectedRoute requireWallet={true}>
                   <AddReleaseForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/removals"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <RemovalsDashboard />
                 </ProtectedRoute>
               }
             />
@@ -185,43 +203,10 @@ const AppLayout = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/removals"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <RemovalsDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/stock"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <AddStockForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/stock-transactions"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <StockTransactionHistory />
-                </ProtectedRoute>
-              }
-            />
 
-            <Route
-              path="/blockchain"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <BlockchainHistory />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* -------------------------
-                Residents
-            ------------------------- */}
+            {/* ========================================
+                RESIDENT MANAGEMENT
+            ======================================== */}
             <Route
               path="/residents"
               element={
@@ -247,9 +232,9 @@ const AppLayout = () => {
               }
             />
 
-            {/* -------------------------
-                Provider Management
-            ------------------------- */}
+            {/* ========================================
+                PROVIDER MANAGEMENT
+            ======================================== */}
             <Route
               path="/provider-management"
               element={
@@ -259,69 +244,9 @@ const AppLayout = () => {
               }
             />
 
-            {/* -------------------------
-                Receipts / Transactions
-            ------------------------- */}
-            <Route
-              path="/addReceipts"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <AddStaffReceiptForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/transaction-history"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <TransactionHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/receipts"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <ReceiptsTable />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* -------------------------
-                Profile & Audit
-            ------------------------- */}
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/audit-logs"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <AuditLogs />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* -------------------------
-                Calendar
-            ------------------------- */}
-            <Route
-              path="/calendar"
-              element={
-                <ProtectedRoute requireWallet={true}>
-                  <ScheduleCalendar />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* -------------------------
-                Consultation
-            ------------------------- */}
+            {/* ========================================
+                CONSULTATION MANAGEMENT
+            ======================================== */}
             <Route
               path="/consultations/calendar"
               element={
@@ -339,8 +264,85 @@ const AppLayout = () => {
               }
             />
 
-            {/* fallback public (if needed) */}
-            {/* <Route path="/medicine" element={<MedicineList />} /> */}
+            {/* ========================================
+                CALENDAR
+            ======================================== */}
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <ScheduleCalendar />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ========================================
+                RECEIPTS & TRANSACTIONS
+            ======================================== */}
+            <Route
+              path="/receipts"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <ReceiptsTable />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/addReceipts"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <AddStaffReceiptForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/transaction-history"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <TransactionHistory />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ========================================
+                BLOCKCHAIN & AUDIT
+            ======================================== */}
+            <Route
+              path="/blockchain"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <BlockchainHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <AuditLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs/all"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <AllAuditLogs />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ========================================
+                USER PROFILE
+            ======================================== */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute requireWallet={true}>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </main>
       </div>
