@@ -18,30 +18,11 @@ export const RoleProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ⭐ Admin wallet addresses - PRIORITY CHECK
-  const adminWalletAddresses = [
-    "0x7EDe510897C82b9469853a46cF5f431F04F081a9"
-  ];
-
-  // Check if current wallet is an admin wallet
-  const isAdminWallet = (address) => {
-    if (!address) return false;
-    return adminWalletAddresses.some(
-      adminAddr => adminAddr.toLowerCase() === address.toLowerCase()
-    );
-  };
-
   // Get user role from backend database
   const getUserRoleFromDatabase = async () => {
     if (!userAddress) {
       console.log('⚠️ No user address');
       return "Patient";
-    }
-
-    // 🔑 PRIORITY: Check admin wallet FIRST
-    if (isAdminWallet(userAddress)) {
-      console.log('🔑 Admin wallet detected:', userAddress);
-      return "ADMIN";
     }
 
     setIsLoading(true);
@@ -95,8 +76,7 @@ export const RoleProvider = ({ children }) => {
   useEffect(() => {
     console.log('🚀 Role effect triggered:', { 
       userAddress,
-      hasAddress: !!userAddress,
-      isAdminWallet: isAdminWallet(userAddress)
+      hasAddress: !!userAddress
     });
     
     if (userAddress) {
@@ -124,36 +104,24 @@ export const RoleProvider = ({ children }) => {
     userAddress,
     contractAddress: CONTRACT_ADDRESS,
     isWalletConnected: !!userAddress,
-    isLoading,
-    isAdminWallet: isAdminWallet(userAddress)
+    isLoading
   });
 
-  // Normalize role for consistent case comparison
-  const normalizedRole = currentRole?.toUpperCase();
-  
   const value = {
-    userRole: normalizedRole === "ADMIN" ? "ADMIN" : 
-              normalizedRole === "STAFF" ? "STAFF" : "PATIENT",
+    userRole: currentRole,
     userAddress,
     setUserRole,
     refreshRole,
-    isAdmin: normalizedRole === "ADMIN",
-    isStaff: normalizedRole === "STAFF", 
-    isPatient: normalizedRole === "PATIENT" || !normalizedRole || normalizedRole === "PATIENT",
+    isAdmin: currentRole === "ADMIN",
+    isStaff: currentRole === "STAFF", 
+    isPatient: currentRole === "PATIENT" || currentRole === "Patient",
     isWalletConnected: !!userAddress,
     isLoading,
-    canAddMedicine: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
-    canAddReceipts: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
-    canViewTransactions: normalizedRole === "ADMIN" || normalizedRole === "STAFF",
-    canAccessAdminDashboard: normalizedRole === "ADMIN"
+    canAddMedicine: currentRole === "ADMIN" || currentRole === "STAFF",
+    canAddReceipts: currentRole === "ADMIN" || currentRole === "STAFF",
+    canViewTransactions: currentRole === "ADMIN" || currentRole === "STAFF",
+    canAccessAdminDashboard: currentRole === "ADMIN"
   };
-
-  console.log('🎯 Final context values:', {
-    userRole: value.userRole,
-    isAdmin: value.isAdmin,
-    isStaff: value.isStaff,
-    isPatient: value.isPatient
-  });
 
   return (
     <RoleContext.Provider value={value}>
