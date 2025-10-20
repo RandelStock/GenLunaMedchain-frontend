@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaCheck } from 'react-icons/fa';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
