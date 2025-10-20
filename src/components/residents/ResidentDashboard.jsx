@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Users, Heart, Baby, Gift, UserCheck, MapPin } from 'lucide-react';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },

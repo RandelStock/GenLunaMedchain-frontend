@@ -4,8 +4,9 @@ import { useContract, useAddress, useSigner } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS } from "../config";
 import ContractABI from "../abi/ContractABI.json";
+import API_BASE_URL from '../../config.js';
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_URL = API_BASE_URL;
 
 export const useStockManagement = () => {
   const { contract, isLoading } = useContract(CONTRACT_ADDRESS, ContractABI.abi);

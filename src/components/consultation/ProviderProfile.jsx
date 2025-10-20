@@ -1,8 +1,9 @@
 // frontend/src/components/consultation/ProviderProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { FaUserMd, FaUserNurse, FaClock, FaCalendarAlt, FaEdit, FaSave, FaTimes, FaPlus, FaTrash, FaStar } from 'react-icons/fa';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },

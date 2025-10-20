@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useStockRemoval } from '../../hooks/useStockRemoval';
 import { useAddress } from '@thirdweb-dev/react';
 import api from '../../../api';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const REMOVAL_REASONS = [
   { value: 'EXPIRED', label: 'Expired', icon: '⏰', color: 'red' },

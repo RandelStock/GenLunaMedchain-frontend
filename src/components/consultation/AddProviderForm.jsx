@@ -1,8 +1,9 @@
 // frontend/src/components/consultation/AddProviderForm.jsx
 import React, { useState } from 'react';
 import { FaUserMd, FaUserNurse, FaSave, FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
   { value: 'MUNICIPAL', label: 'Municipal' },

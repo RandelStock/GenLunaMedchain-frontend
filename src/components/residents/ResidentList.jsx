@@ -1,7 +1,12 @@
-// residents/ResidentList.jsx
 import { useState, useEffect } from "react";
-import { useResidents } from "../../hooks/useResidents";
-import AddResidentForm from "./AddResidentForm";
+import { Search, Filter, X, Eye, Edit2, Trash2, Users, UserCheck, Heart, UserCog, Phone, MapPin, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+
+// Mock hook for demonstration
+const useResidents = () => ({
+  getResidents: async (params) => ({ data: [], pagination: { totalPages: 1 } }),
+  deleteResident: async (id) => {},
+  loading: false
+});
 
 const BARANGAYS = [
   { value: '', label: 'All Barangays' },
@@ -56,8 +61,6 @@ const ResidentList = ({ onEdit, onView }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  
-  // Modal states
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState(null);
@@ -69,7 +72,6 @@ const ResidentList = ({ onEdit, onView }) => {
   const loadResidents = async () => {
     try {
       const data = await getResidents({ ...filters, page, limit: 12 });
-      // Extract the data property from the response
       const residentsArray = data.data || data.residents || data || [];
       setResidents(residentsArray);
       setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
@@ -122,12 +124,6 @@ const ResidentList = ({ onEdit, onView }) => {
     setShowEditModal(true);
   };
 
-  const handleEditSuccess = () => {
-    setShowEditModal(false);
-    setSelectedResident(null);
-    loadResidents();
-  };
-
   const closeModals = () => {
     setShowViewModal(false);
     setShowEditModal(false);
@@ -141,67 +137,99 @@ const ResidentList = ({ onEdit, onView }) => {
   const activeFiltersCount = Object.values(filters).filter(v => v !== '').length - (filters.search ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center">
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Residents Directory</h1>
-              <p className="text-gray-600">Manage resident information and records</p>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Residents Directory</h1>
+              <p className="text-lg text-gray-800">Manage resident information and records</p>
             </div>
             <button
               onClick={() => (window.location.href = "/residents/new")}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              + Add Resident
+              <Plus size={20} />
+              Add Resident
             </button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="text-sm font-medium text-gray-600 mb-1">Total Residents</div>
-            <div className="text-2xl font-bold text-gray-900">{residents.length}</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-md border-2 border-blue-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
+            <div className="flex items-center justify-between mb-3">
+              <Users className="text-blue-600" size={32} />
+              <div className="bg-blue-100 rounded-full p-2">
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">Total Residents</div>
+            <div className="text-3xl font-bold text-gray-900">{residents.length}</div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="text-sm font-medium text-gray-600 mb-1">4Ps Members</div>
-            <div className="text-2xl font-bold text-green-600">
+
+          <div className="bg-white rounded-2xl shadow-md border-2 border-green-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
+            <div className="flex items-center justify-between mb-3">
+              <UserCheck className="text-green-600" size={32} />
+              <div className="bg-green-100 rounded-full p-2">
+                <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">4Ps Members</div>
+            <div className="text-3xl font-bold text-gray-900">
               {residents.filter(r => r.is_4ps_member).length}
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="text-sm font-medium text-gray-600 mb-1">Pregnant</div>
-            <div className="text-2xl font-bold text-pink-600">
+
+          <div className="bg-white rounded-2xl shadow-md border-2 border-pink-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
+            <div className="flex items-center justify-between mb-3">
+              <Heart className="text-pink-600" size={32} />
+              <div className="bg-pink-100 rounded-full p-2">
+                <div className="w-3 h-3 bg-pink-600 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">Pregnant</div>
+            <div className="text-3xl font-bold text-gray-900">
               {residents.filter(r => r.is_pregnant).length}
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="text-sm font-medium text-gray-600 mb-1">Senior Citizens</div>
-            <div className="text-2xl font-bold text-purple-600">
+
+          <div className="bg-white rounded-2xl shadow-md border-2 border-purple-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
+            <div className="flex items-center justify-between mb-3">
+              <UserCog className="text-purple-600" size={32} />
+              <div className="bg-purple-100 rounded-full p-2">
+                <div className="w-3 h-3 bg-purple-600 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">Senior Citizens</div>
+            <div className="text-3xl font-bold text-gray-900">
               {residents.filter(r => r.is_senior_citizen).length}
             </div>
           </div>
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 mb-8">
           <div className="flex gap-3 mb-4">
-            <input
-              type="text"
-              placeholder="Search by name..."
-              value={filters.search}
-              onChange={handleSearch}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400"
-            />
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-800" size={20} />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={filters.search}
+                onChange={handleSearch}
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500 font-medium transition-all"
+              />
+            </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors relative"
+              className="relative px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
             >
+              <Filter size={20} />
               Filters
               {activeFiltersCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
                   {activeFiltersCount}
                 </span>
               )}
@@ -210,71 +238,74 @@ const ResidentList = ({ onEdit, onView }) => {
 
           {/* Filter Panel */}
           {showFilters && (
-            <div className="pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Barangay</label>
-                <select
-                  value={filters.barangay}
-                  onChange={(e) => handleFilterChange('barangay', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  {BARANGAYS.map(b => (
-                    <option key={b.value} value={b.value}>{b.label}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="pt-6 border-t-2 border-gray-200 animate-in slide-in-from-top duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Barangay</label>
+                  <select
+                    value={filters.barangay}
+                    onChange={(e) => handleFilterChange('barangay', e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-base text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  >
+                    {BARANGAYS.map(b => (
+                      <option key={b.value} value={b.value}>{b.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Age Category</label>
-                <select
-                  value={filters.age_category}
-                  onChange={(e) => handleFilterChange('age_category', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  {AGE_CATEGORIES.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Age Category</label>
+                  <select
+                    value={filters.age_category}
+                    onChange={(e) => handleFilterChange('age_category', e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-base text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  >
+                    {AGE_CATEGORIES.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Program Status</label>
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filters.is_4ps_member === 'true'}
-                      onChange={(e) => handleFilterChange('is_4ps_member', e.target.checked ? 'true' : '')}
-                      className="mr-2 rounded"
-                    />
-                    4Ps Member
-                  </label>
-                  <label className="flex items-center text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filters.is_pregnant === 'true'}
-                      onChange={(e) => handleFilterChange('is_pregnant', e.target.checked ? 'true' : '')}
-                      className="mr-2 rounded"
-                    />
-                    Pregnant
-                  </label>
-                  <label className="flex items-center text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filters.is_senior_citizen === 'true'}
-                      onChange={(e) => handleFilterChange('is_senior_citizen', e.target.checked ? 'true' : '')}
-                      className="mr-2 rounded"
-                    />
-                    Senior Citizen
-                  </label>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Program Status</label>
+                  <div className="space-y-3">
+                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filters.is_4ps_member === 'true'}
+                        onChange={(e) => handleFilterChange('is_4ps_member', e.target.checked ? 'true' : '')}
+                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className="group-hover:text-blue-600 transition-colors">4Ps Member</span>
+                    </label>
+                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filters.is_pregnant === 'true'}
+                        onChange={(e) => handleFilterChange('is_pregnant', e.target.checked ? 'true' : '')}
+                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-pink-600 focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                      />
+                      <span className="group-hover:text-pink-600 transition-colors">Pregnant</span>
+                    </label>
+                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filters.is_senior_citizen === 'true'}
+                        onChange={(e) => handleFilterChange('is_senior_citizen', e.target.checked ? 'true' : '')}
+                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-purple-600 focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                      />
+                      <span className="group-hover:text-purple-600 transition-colors">Senior Citizen</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="col-span-full">
+              <div className="mt-6">
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="inline-flex items-center gap-2 text-base text-blue-600 hover:text-blue-800 font-bold transition-colors"
                 >
+                  <X size={18} />
                   Clear all filters
                 </button>
               </div>
@@ -284,40 +315,39 @@ const ResidentList = ({ onEdit, onView }) => {
 
         {/* Resident Cards */}
         {loading ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading residents...</p>
+          <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-16 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600"></div>
+            <p className="mt-6 text-lg text-gray-900 font-semibold">Loading residents...</p>
           </div>
         ) : residents.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <p className="mt-4 text-gray-600">No residents found</p>
+          <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-16 text-center">
+            <Users className="mx-auto h-20 w-20 text-gray-400 mb-4" />
+            <p className="text-xl text-gray-900 font-semibold">No residents found</p>
+            <p className="text-base text-gray-700 mt-2">Try adjusting your filters or search criteria</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {residents.map((res) => (
               <div
                 key={res.resident_id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
+                className="bg-white rounded-2xl shadow-md border-2 border-gray-200 hover:shadow-2xl hover:border-blue-300 transition-all duration-300 transform hover:scale-105 overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="p-4 border-b border-gray-100">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 border-b-2 border-gray-200">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-base leading-tight">
+                      <h3 className="font-bold text-gray-900 text-lg leading-tight">
                         {res.full_name}
                       </h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-sm text-gray-700 mt-1 font-medium">
                         ID: #{res.resident_id}
                       </p>
                     </div>
                     <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 ${
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ml-2 ${
                         res.gender === 'MALE'
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-pink-100 text-pink-700"
+                          ? "bg-blue-200 text-blue-900"
+                          : "bg-pink-200 text-pink-900"
                       }`}
                     >
                       {res.gender}
@@ -326,20 +356,20 @@ const ResidentList = ({ onEdit, onView }) => {
                 </div>
 
                 {/* Card Body */}
-                <div className="p-4 space-y-3">
+                <div className="p-5 space-y-4">
                   {/* Age */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Age:</span>
-                    <span className="text-sm font-semibold text-gray-900">
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                    <span className="text-sm font-semibold text-gray-800">Age:</span>
+                    <span className="text-base font-bold text-gray-900">
                       {res.age} years
                     </span>
                   </div>
 
                   {/* Barangay */}
                   {res.barangay && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Barangay:</span>
-                      <span className="text-xs text-gray-900 font-medium">
+                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
+                      <MapPin size={16} className="text-gray-800 flex-shrink-0" />
+                      <span className="text-sm text-gray-900 font-semibold truncate">
                         {getBarangayLabel(res.barangay)}
                       </span>
                     </div>
@@ -347,9 +377,9 @@ const ResidentList = ({ onEdit, onView }) => {
 
                   {/* Phone */}
                   {res.phone && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Phone:</span>
-                      <span className="text-sm text-gray-900">
+                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
+                      <Phone size={16} className="text-gray-800 flex-shrink-0" />
+                      <span className="text-sm text-gray-900 font-semibold">
                         {res.phone}
                       </span>
                     </div>
@@ -357,25 +387,25 @@ const ResidentList = ({ onEdit, onView }) => {
 
                   {/* Status Badges */}
                   {(res.is_4ps_member || res.is_pregnant || res.is_senior_citizen || res.is_birth_registered) && (
-                    <div className="pt-2 border-t border-gray-100">
-                      <div className="flex flex-wrap gap-1">
+                    <div className="pt-3 border-t-2 border-gray-200">
+                      <div className="flex flex-wrap gap-2">
                         {res.is_4ps_member && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                          <span className="px-3 py-1 bg-green-200 text-green-900 text-xs rounded-full font-bold">
                             4Ps
                           </span>
                         )}
                         {res.is_pregnant && (
-                          <span className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full font-medium">
+                          <span className="px-3 py-1 bg-pink-200 text-pink-900 text-xs rounded-full font-bold">
                             Pregnant
                           </span>
                         )}
                         {res.is_senior_citizen && (
-                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                          <span className="px-3 py-1 bg-purple-200 text-purple-900 text-xs rounded-full font-bold">
                             Senior
                           </span>
                         )}
                         {res.is_birth_registered && (
-                          <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                          <span className="px-3 py-1 bg-orange-200 text-orange-900 text-xs rounded-full font-bold">
                             Birth Reg.
                           </span>
                         )}
@@ -385,9 +415,9 @@ const ResidentList = ({ onEdit, onView }) => {
 
                   {/* Medical Conditions */}
                   {res.medical_conditions && (
-                    <div className="pt-2 border-t border-gray-100">
-                      <span className="text-xs text-gray-500 block mb-1">Medical:</span>
-                      <p className="text-xs text-gray-700 line-clamp-2">
+                    <div className="pt-3 border-t-2 border-gray-200">
+                      <span className="text-xs text-gray-800 font-bold block mb-2">Medical:</span>
+                      <p className="text-sm text-gray-900 line-clamp-2 font-medium">
                         {res.medical_conditions}
                       </p>
                     </div>
@@ -395,27 +425,29 @@ const ResidentList = ({ onEdit, onView }) => {
                 </div>
 
                 {/* Card Actions */}
-                <div className="p-4 pt-0 flex gap-2">
+                <div className="p-5 pt-0 flex gap-2">
                   <button
                     onClick={() => handleViewClick(res.resident_id)}
-                    className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105"
                     title="View Details"
                   >
+                    <Eye size={16} />
                     View
                   </button>
                   <button
                     onClick={() => handleEditClick(res.resident_id)}
-                    className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105"
                     title="Edit"
                   >
+                    <Edit2 size={16} />
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(res.resident_id)}
-                    className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-105"
                     title="Delete"
                   >
-                    Delete
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -425,24 +457,26 @@ const ResidentList = ({ onEdit, onView }) => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3">
+          <div className="mt-8 flex items-center justify-between bg-white rounded-2xl shadow-md border border-gray-200 px-6 py-4">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-3 text-base font-bold text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:scale-105"
             >
+              <ChevronLeft size={20} />
               Previous
             </button>
-            <span className="text-sm text-gray-700">
-              Page <span className="font-semibold">{page}</span> of{" "}
-              <span className="font-semibold">{totalPages}</span>
+            <span className="text-base text-gray-900 font-bold">
+              Page <span className="text-blue-600 text-xl">{page}</span> of{" "}
+              <span className="text-blue-600 text-xl">{totalPages}</span>
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-3 text-base font-bold text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:scale-105"
             >
               Next
+              <ChevronRight size={20} />
             </button>
           </div>
         )}
@@ -450,58 +484,58 @@ const ResidentList = ({ onEdit, onView }) => {
 
       {/* View Modal */}
       {showViewModal && selectedResident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Resident Details</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in duration-300">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Resident Details</h2>
               <button
                 onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all"
               >
-                ×
+                <X size={28} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
               {/* Personal Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
                   Personal Information
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Full Name</p>
-                    <p className="text-base font-medium text-gray-900">{selectedResident.full_name}</p>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Full Name</p>
+                    <p className="text-base font-bold text-gray-900">{selectedResident.full_name}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Gender</p>
-                    <p className="text-base font-medium text-gray-900">{selectedResident.gender}</p>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Gender</p>
+                    <p className="text-base font-bold text-gray-900">{selectedResident.gender}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Date of Birth</p>
-                    <p className="text-base font-medium text-gray-900">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Date of Birth</p>
+                    <p className="text-base font-bold text-gray-900">
                       {selectedResident.date_of_birth 
                         ? new Date(selectedResident.date_of_birth).toLocaleDateString()
                         : 'N/A'}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Age</p>
-                    <p className="text-base font-medium text-gray-900">{selectedResident.age} years</p>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Age</p>
+                    <p className="text-base font-bold text-gray-900">{selectedResident.age} years</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Phone</p>
-                    <p className="text-base font-medium text-gray-900">{selectedResident.phone || 'N/A'}</p>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Phone</p>
+                    <p className="text-base font-bold text-gray-900">{selectedResident.phone || 'N/A'}</p>
                   </div>
                   {selectedResident.barangay && (
-                    <div>
-                      <p className="text-sm text-gray-600">Barangay</p>
-                      <p className="text-base font-medium text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 font-semibold mb-1">Barangay</p>
+                      <p className="text-base font-bold text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
                     </div>
                   )}
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-600">Address</p>
-                    <p className="text-base font-medium text-gray-900">{selectedResident.address || 'N/A'}</p>
+                  <div className="col-span-2 bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Address</p>
+                    <p className="text-base font-bold text-gray-900">{selectedResident.address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -509,33 +543,33 @@ const ResidentList = ({ onEdit, onView }) => {
               {/* Program Status */}
               {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
                     Program Status
                   </h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-4">
                     {selectedResident.is_4ps_member && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-700 font-medium">4Ps Member</p>
+                      <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                        <p className="text-base text-green-900 font-bold">4Ps Member</p>
                       </div>
                     )}
                     {selectedResident.is_pregnant && (
-                      <div className="bg-pink-50 border border-pink-200 rounded-lg p-3">
-                        <p className="text-sm text-pink-700 font-medium">Pregnant</p>
+                      <div className="bg-pink-50 border-2 border-pink-200 rounded-xl p-4">
+                        <p className="text-base text-pink-900 font-bold">Pregnant</p>
                         {selectedResident.pregnancy_due_date && (
-                          <p className="text-xs text-pink-600 mt-1">
+                          <p className="text-sm text-pink-800 font-semibold mt-2">
                             Due: {new Date(selectedResident.pregnancy_due_date).toLocaleDateString()}
                           </p>
                         )}
                       </div>
                     )}
                     {selectedResident.is_senior_citizen && (
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                        <p className="text-sm text-purple-700 font-medium">Senior Citizen</p>
+                      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                        <p className="text-base text-purple-900 font-bold">Senior Citizen</p>
                       </div>
                     )}
                     {selectedResident.is_birth_registered && (
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                        <p className="text-sm text-orange-700 font-medium">Birth Registered</p>
+                      <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                        <p className="text-base text-orange-900 font-bold">Birth Registered</p>
                       </div>
                     )}
                   </div>
@@ -544,19 +578,19 @@ const ResidentList = ({ onEdit, onView }) => {
 
               {/* Emergency Contact */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
                   Emergency Contact
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Contact Person</p>
-                    <p className="text-base font-medium text-gray-900">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Contact Person</p>
+                    <p className="text-base font-bold text-gray-900">
                       {selectedResident.emergency_contact || 'N/A'}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Emergency Phone</p>
-                    <p className="text-base font-medium text-gray-900">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-1">Emergency Phone</p>
+                    <p className="text-base font-bold text-gray-900">
                       {selectedResident.emergency_phone || 'N/A'}
                     </p>
                   </div>
@@ -565,19 +599,19 @@ const ResidentList = ({ onEdit, onView }) => {
 
               {/* Medical Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 pb-2 border-b">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
                   Medical Information
                 </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Medical Conditions</p>
-                    <p className="text-base font-medium text-gray-900">
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-2">Medical Conditions</p>
+                    <p className="text-base font-bold text-gray-900">
                       {selectedResident.medical_conditions || 'None reported'}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Known Allergies</p>
-                    <p className="text-base font-medium text-gray-900">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 font-semibold mb-2">Known Allergies</p>
+                    <p className="text-base font-bold text-gray-900">
                       {selectedResident.allergies || 'None reported'}
                     </p>
                   </div>
@@ -585,19 +619,19 @@ const ResidentList = ({ onEdit, onView }) => {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200 px-6 py-5 flex justify-end gap-3">
               <button
                 onClick={() => {
                   closeModals();
                   handleEditClick(selectedResident.resident_id);
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 Edit Resident
               </button>
               <button
                 onClick={closeModals}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                className="px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 Close
               </button>
@@ -608,24 +642,27 @@ const ResidentList = ({ onEdit, onView }) => {
 
       {/* Edit Modal */}
       {showEditModal && selectedResident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full my-8">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-lg">
-              <h2 className="text-2xl font-bold text-gray-900">Edit Resident</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8 animate-in zoom-in duration-300">
+            <div className="sticky top-0 bg-gradient-to-r from-yellow-500 to-orange-500 px-6 py-5 flex justify-between items-center rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white">Edit Resident</h2>
               <button
                 onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all"
               >
-                ×
+                <X size={28} />
               </button>
             </div>
 
-            <div className="max-h-[calc(90vh-120px)] overflow-y-auto">
-              <AddResidentForm
-                editData={selectedResident}
-                onSuccess={handleEditSuccess}
-                onCancel={closeModals}
-              />
+            <div className="max-h-[calc(90vh-120px)] overflow-y-auto p-6">
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
+                <p className="text-lg font-bold text-gray-900">
+                  Edit form would be integrated here with AddResidentForm component
+                </p>
+                <p className="text-base text-gray-700 mt-2">
+                  Pass editData={selectedResident} to the form
+                </p>
+              </div>
             </div>
           </div>
         </div>

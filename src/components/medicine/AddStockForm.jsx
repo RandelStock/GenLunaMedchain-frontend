@@ -3,8 +3,9 @@ import { Plus, Package, Calendar, DollarSign, Truck, MapPin, Hash, AlertCircle }
 import { useStockManagement } from '../../hooks/useStockManagement';
 import { useAddress } from '@thirdweb-dev/react';
 import api from '../../../api';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 export default function AddStockForm({ onSuccess, onCancel }) {
   const {

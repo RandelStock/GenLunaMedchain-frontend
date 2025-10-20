@@ -1,8 +1,9 @@
 // components/AuditLogs.jsx - Database audit trail (separate from blockchain)
 import { useState, useEffect } from 'react';
 import { FaHistory, FaFilter, FaDownload, FaEye, FaEyeSlash } from 'react-icons/fa';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const AuditLogs = () => {
   const [auditLogs, setAuditLogs] = useState([]);

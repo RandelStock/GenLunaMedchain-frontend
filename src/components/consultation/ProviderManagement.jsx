@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { FaUserMd, FaUserNurse, FaEdit, FaEye, FaPlus, FaSearch } from 'react-icons/fa';
 import ProviderProfile from './ProviderProfile.jsx';
 import AddProviderForm from './AddProviderForm.jsx';
+import API_BASE_URL from '../../config.js';
 
-const API_URL = 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const ProviderManagement = () => {
   const [providers, setProviders] = useState([]);

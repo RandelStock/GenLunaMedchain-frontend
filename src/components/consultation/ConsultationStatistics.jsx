@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaChartLine, FaCalendarAlt, FaUserMd, FaUserNurse, FaVideo, FaCheck, FaTimes, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 import { Line, Bar, Pie } from 'react-chartjs-2';
+import API_BASE_URL from '../../config.js';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,7 +28,8 @@ ChartJS.register(
   ArcElement
 );
 
-const API_URL = 'http://localhost:4000';
+
+const API_URL = API_BASE_URL;
 
 const ConsultationStatistics = () => {
   const [stats, setStats] = useState({

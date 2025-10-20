@@ -26,8 +26,9 @@ ChartJS.register(
   Legend,
   ArcElement
 );
+import API_BASE_URL from '../../config.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = API_BASE_URL;
 
 const REMOVAL_REASONS = {
   EXPIRED: { label: 'Expired', icon: '⏰', color: 'red' },

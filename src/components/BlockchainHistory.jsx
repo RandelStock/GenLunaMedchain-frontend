@@ -338,7 +338,7 @@ export default function BlockchainHistory() {
                           )}
                           {item.txHash && (
                             <a
-                              href={`https://sepolia.etherscan.io/tx/${item.txHash}`}
+                              href={`https://amoy.polygonscan.com/tx/${item.txHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800"

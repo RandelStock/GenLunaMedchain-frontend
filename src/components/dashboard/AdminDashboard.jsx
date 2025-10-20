@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useAddress } from "@thirdweb-dev/react";
 import { useRole } from "../auth/RoleProvider"; // ✅ Use RoleProvider instead of blockchain
 import axios from "axios";
+import API_BASE_URL from '../../config.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export default function AdminDashboard() {
   const address = useAddress();
