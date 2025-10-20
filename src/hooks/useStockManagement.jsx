@@ -4,7 +4,7 @@ import { useContract, useAddress, useSigner } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS } from "../config";
 import ContractABI from "../abi/ContractABI.json";
-import API_BASE_URL from '../../config.js';
+import API_BASE_URL from '../config.js';
 
 const API_URL = API_BASE_URL;
 
