@@ -32,6 +32,7 @@ import {
 
 // Import the EmailTestComponent
 import EmailTestComponent from '../consultation/EmailTestComponent';
+import ConsultationNotifications from '../consultation/ConsultationNotifications';
 
 const AdminHome = () => {
   const receiptCount = useReceiptCount();
@@ -49,6 +50,11 @@ const AdminHome = () => {
             Admin Dashboard
           </h1>
           <p className="text-gray-600 text-lg">Complete overview of your health center operations</p>
+        </div>
+
+        {/* Notification Bell */}
+        <div className="flex-shrink-0">
+          <ConsultationNotifications />
         </div>
 
         {/* Tab Navigation */}
