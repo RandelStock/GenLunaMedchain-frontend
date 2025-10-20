@@ -1,7 +1,7 @@
 // components/AuditLogs.jsx - Database audit trail (separate from blockchain)
 import { useState, useEffect } from 'react';
 import { FaHistory, FaFilter, FaDownload, FaEye, FaEyeSlash } from 'react-icons/fa';
-import API_BASE_URL from '../../config.js';
+import API_BASE_URL from '../config.js';
 
 const API_URL = API_BASE_URL;
 
