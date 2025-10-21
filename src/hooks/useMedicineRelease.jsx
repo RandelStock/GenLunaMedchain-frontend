@@ -3,14 +3,16 @@ import { ethers } from 'ethers';
 import { CONTRACT_ADDRESS } from '../config';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+// CORRECTED: Changed from Receipt to Removal functions
 const CONTRACT_ABI = [
-  "function storeReceiptHash(uint256 _receiptId, bytes32 _dataHash) public",
-  "function updateReceiptHash(uint256 _receiptId, bytes32 _newDataHash) public",
-  "function deleteReceiptHash(uint256 _receiptId) public",
-  "function getReceiptHash(uint256 _receiptId) public view returns (bytes32, address, uint256, bool)",
-  "event ReceiptHashStored(uint256 indexed receiptId, bytes32 dataHash, address indexed addedBy, uint256 timestamp)",
-  "event ReceiptHashUpdated(uint256 indexed receiptId, bytes32 oldHash, bytes32 newHash, address indexed updatedBy, uint256 timestamp)",
-  "event ReceiptHashDeleted(uint256 indexed receiptId, address indexed deletedBy, uint256 timestamp)"
+  "function storeRemovalHash(uint256 _removalId, bytes32 _dataHash) public",
+  "function updateRemovalHash(uint256 _removalId, bytes32 _newDataHash) public",
+  "function deleteRemovalHash(uint256 _removalId) public",
+  "function getRemovalHash(uint256 _removalId) public view returns (bytes32, address, uint256, bool)",
+  "event RemovalHashStored(uint256 indexed removalId, bytes32 dataHash, address indexed removedBy, uint256 timestamp)",
+  "event RemovalHashUpdated(uint256 indexed removalId, bytes32 oldHash, bytes32 newHash, address indexed updatedBy, uint256 timestamp)",
+  "event RemovalHashDeleted(uint256 indexed removalId, address indexed deletedBy, uint256 timestamp)"
 ];
 
 export const useMedicineRelease = () => {
@@ -45,7 +47,9 @@ export const useMedicineRelease = () => {
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
 
     console.log('Sending transaction to blockchain...', { releaseId, dataHash });
-    const tx = await contract.storeReceiptHash(releaseId, dataHash);
+    
+    // CHANGED: Use storeRemovalHash instead of storeReceiptHash
+    const tx = await contract.storeRemovalHash(releaseId, dataHash);
     
     console.log('Transaction sent:', tx.hash);
     const receipt = await tx.wait();
@@ -82,8 +86,11 @@ export const useMedicineRelease = () => {
     });
 
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
-    const tx = await contract.updateReceiptHash(releaseId, dataHash);
+    
+    // CHANGED: Use updateRemovalHash instead of updateReceiptHash
+    const tx = await contract.updateRemovalHash(releaseId, dataHash);
     const receipt = await tx.wait();
+    
     return {
       transactionHash: receipt.transactionHash,
       dataHash
@@ -102,8 +109,11 @@ export const useMedicineRelease = () => {
     await provider.send("eth_requestAccounts", []);
     const signer = provider.getSigner();
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    const tx = await contract.deleteReceiptHash(releaseId);
+    
+    // CHANGED: Use deleteRemovalHash instead of deleteReceiptHash
+    const tx = await contract.deleteRemovalHash(releaseId);
     const receipt = await tx.wait();
+    
     return { transactionHash: receipt.transactionHash };
   };
 
@@ -115,7 +125,8 @@ export const useMedicineRelease = () => {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
-    const [storedHash, addedBy, timestamp, exists] = await contract.getReceiptHash(releaseId);
+    // CHANGED: Use getRemovalHash instead of getReceiptHash
+    const [storedHash, removedBy, timestamp, exists] = await contract.getRemovalHash(releaseId);
 
     if (!exists) {
       return { verified: false, message: 'Release not found on blockchain' };
@@ -137,7 +148,7 @@ export const useMedicineRelease = () => {
       verified: storedHash === calculatedHash,
       storedHash,
       calculatedHash,
-      addedBy,
+      removedBy,
       timestamp: new Date(Number(timestamp) * 1000).toISOString()
     };
   };
@@ -213,6 +224,7 @@ export const useMedicineRelease = () => {
       const json = await response.json();
       const release = json?.data || json;
       console.log('Release created:', release);
+      
       if (!release || release.release_id === undefined || release.release_id === null) {
         throw new Error('Invalid create release response: missing release_id');
       }
@@ -249,18 +261,20 @@ export const useMedicineRelease = () => {
         console.log('Blockchain result:', blockchainResult);
 
         // Step 3: Update release with blockchain info
-        await fetch(`${API_URL}/releases/${release.release_id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'x-wallet-address': walletAddress
-          },
-          body: JSON.stringify({
-            blockchain_hash: blockchainResult?.dataHash || null,
-            blockchain_tx_hash: blockchainResult?.transactionHash || null
-          })
-        });
+        if (blockchainResult) {
+          await fetch(`${API_URL}/releases/${release.release_id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'x-wallet-address': walletAddress
+            },
+            body: JSON.stringify({
+              blockchain_hash: blockchainResult.dataHash,
+              blockchain_tx_hash: blockchainResult.transactionHash
+            })
+          });
+        }
 
         return {
           success: true,
@@ -335,10 +349,12 @@ export const useMedicineRelease = () => {
         },
         body: JSON.stringify(blockchainData)
       });
+      
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update release blockchain info');
       }
+      
       return await response.json();
     } catch (err) {
       setError(err.message);
@@ -346,7 +362,7 @@ export const useMedicineRelease = () => {
     }
   };
 
-  // Delete release - SIMPLIFIED (no duplicate blockchain store)
+  // Delete release - Database only (blockchain records stay immutable)
   const deleteRelease = async (releaseId) => {
     try {
       setLoading(true);
@@ -377,7 +393,7 @@ export const useMedicineRelease = () => {
 
       return {
         success: true,
-        message: 'Release deleted. Original blockchain record remains immutable.'
+        message: 'Release deleted successfully'
       };
     } catch (err) {
       setError(err.message);
