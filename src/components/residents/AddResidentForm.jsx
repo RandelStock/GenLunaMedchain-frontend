@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import API_BASE_URL from '../../config.js';
 // Barangay list for General Luna
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
@@ -37,7 +37,8 @@ const GENDERS = [
   { value: 'OTHER', label: 'Other' }
 ];
 
-const API_URL = 'http://localhost:4000';
+
+const API_URL = API_BASE_URL;
 
 const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
   const isEditMode = !!editData;
