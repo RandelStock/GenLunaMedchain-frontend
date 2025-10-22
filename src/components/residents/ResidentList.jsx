@@ -1,17 +1,8 @@
 import { useState, useEffect } from "react";
 import { Search, Filter, X, Eye, Edit2, Trash2, Users, UserCheck, Heart, UserCog, Phone, MapPin, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-
-// Import API_BASE_URL from your config
-// Make sure to uncomment this line in your actual file:
-// import API_BASE_URL from '../../config.js';
-
-// For this artifact, we're defining it here:
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.MODE === 'production' 
-    ? "https://genlunamedchain-backend.onrender.com"
-    : "http://localhost:4000");
-
-console.log('🔧 API URL being used:', API_BASE_URL);
+// IMPORTANT: Import api from your api.js file
+// Adjust the path based on your project structure
+import api from '../../../api.js';
 
 const BARANGAYS = [
   { value: '', label: 'All Barangays' },
@@ -79,11 +70,6 @@ const ResidentList = ({ onEdit, onView }) => {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       // Build query parameters
       const params = new URLSearchParams();
       params.append('page', page);
@@ -96,37 +82,26 @@ const ResidentList = ({ onEdit, onView }) => {
       if (filters.is_pregnant) params.append('is_pregnant', filters.is_pregnant);
       if (filters.is_senior_citizen) params.append('is_senior_citizen', filters.is_senior_citizen);
 
-      const url = `${API_BASE_URL}/residents?${params.toString()}`;
-      console.log('📡 Fetching residents from:', url);
-      console.log('🔑 Token present:', !!token);
+      console.log('📡 Fetching residents with filters:', Object.fromEntries(params));
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use api.get() exactly like MedicineList does
+      // IMPORTANT: Make sure you've imported api at the top of this file
+      const response = await api.get(`/residents?${params.toString()}`);
+      console.log('✅ API Response:', response.data);
 
-      console.log('📥 Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
-        throw new Error(`Failed to fetch residents: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ API Response:', data);
-
-      // Handle different response formats
-      const residentsArray = data.data || data.residents || data || [];
+      // Axios wraps the response in response.data
+      // Your backend might return: { data: [...residents], pagination: {...} }
+      const residentsArray = response.data.data || response.data.residents || response.data || [];
       setResidents(Array.isArray(residentsArray) ? residentsArray : []);
-      setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
+      setTotalPages(response.data.pagination?.totalPages || response.data.totalPages || 1);
+      
+      setLoading(false);
     } catch (err) {
       console.error("❌ Failed to load residents:", err);
-      setError(err.message);
+      // Axios errors have a different structure
+      const errorMessage = err.message || err.response?.data?.message || "Failed to load residents";
+      setError(errorMessage);
       setResidents([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -156,23 +131,13 @@ const ResidentList = ({ onEdit, onView }) => {
   const handleDelete = async (residentId) => {
     if (!confirm("Are you sure you want to delete this resident?")) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/residents/${residentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete resident');
-      }
-
+      // Use api.delete() like your other components
+      await api.delete(`/residents/${residentId}`);
       alert("Resident deleted successfully");
       loadResidents();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      const errorMessage = err.message || err.response?.data?.message || "Failed to delete resident";
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -382,14 +347,34 @@ const ResidentList = ({ onEdit, onView }) => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-8">
-            <p className="text-red-900 font-semibold">Error: {error}</p>
-            <button 
-              onClick={loadResidents}
-              className="mt-2 text-sm text-red-700 underline hover:text-red-900"
-            >
-              Try again
-            </button>
+          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-8">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-red-500 text-white rounded-full p-2">
+                <X size={24} />
+              </div>
+              <p className="text-xl text-red-900 font-bold">Error Loading Residents</p>
+            </div>
+            <p className="text-red-800 font-semibold mb-3">{error}</p>
+            {error.includes('authentication') || error.includes('401') || error.includes('Unauthorized') ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-700">
+                  Your session may have expired or you're not logged in.
+                </p>
+                <button
+                  onClick={() => window.location.href = '/login'}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+                >
+                  Go to Login
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={loadResidents}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+              >
+                Try Again
+              </button>
+            )}
           </div>
         )}
 
@@ -740,7 +725,7 @@ const ResidentList = ({ onEdit, onView }) => {
                   Edit form would be integrated here with AddResidentForm component
                 </p>
                 <p className="text-base text-gray-700 mt-2">
-                  Pass editData={JSON.stringify({resident_id: selectedResident.resident_id})} to the form
+                  Pass editData prop with resident_id: {selectedResident.resident_id}
                 </p>
               </div>
             </div>
