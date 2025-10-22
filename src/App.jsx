@@ -99,7 +99,7 @@ const AppLayout = () => {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50">
       {showNavigation && <Sidebar />}
-      <div className={`flex-1 flex flex-col min-w-0 ${showNavigation ? 'ml-[240px]' : ''}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${showNavigation ? 'ml-[200px]' : ''}`}>
         {showNavigation && <Navbar />}
         {/* REMOVED: <NetworkManager /> - Uncomment if you need network status monitoring */}
         <main className="flex-1 overflow-auto bg-gray-50">
