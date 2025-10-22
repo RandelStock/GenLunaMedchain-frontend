@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import API_BASE_URL from '../../config.js';
+
 // Barangay list for General Luna
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
@@ -36,7 +37,6 @@ const GENDERS = [
   { value: 'FEMALE', label: 'Female' },
   { value: 'OTHER', label: 'Other' }
 ];
-
 
 const API_URL = API_BASE_URL;
 
@@ -172,393 +172,397 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
   const currentAge = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {isEditMode ? 'Edit Resident' : 'Add New Resident'}
+    <div className="h-screen bg-white flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-300 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <h1 className="text-xl font-normal text-black">
+            {isEditMode ? 'Edit Resident' : 'Add Resident'}
           </h1>
-          <p className="text-gray-600">
-            {isEditMode ? 'Update resident information' : 'Enter complete information for the new resident'}
-          </p>
         </div>
+        <button
+          onClick={onCancel || (() => window.history.back())}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Personal Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Personal Information
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  required
-                />
-                {formErrors.first_name && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.first_name}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
-                <input
-                  type="text"
-                  name="middle_name"
-                  value={formData.middle_name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  required
-                />
-                {formErrors.last_name && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.last_name}</p>
-                )}
-              </div>
+      {/* Form Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto p-6">
+          {/* Personal Information Section */}
+          <div className="mb-8">
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">First Name</label>
+              <input
+                type="text"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                required
+              />
+              {formErrors.first_name && (
+                <p className="text-red-600 text-xs mt-1">{formErrors.first_name}</p>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
-                <input
-                  type="date"
-                  name="date_of_birth"
-                  value={formData.date_of_birth}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-                {currentAge !== null && (
-                  <p className="text-xs text-blue-600 mt-1 font-medium">Age: {currentAge} years</p>
-                )}
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Last Name</label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                required
+              />
+              {formErrors.last_name && (
+                <p className="text-red-600 text-xs mt-1">{formErrors.last_name}</p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                >
-                  {GENDERS.map(g => (
-                    <option key={g.value} value={g.value}>{g.label}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Middle Name</label>
+              <input
+                type="text"
+                name="middle_name"
+                value={formData.middle_name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="+63 XXX XXX XXXX"
-                />
-                {formErrors.phone && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>
-                )}
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Date of Birth</label>
+              <input
+                type="date"
+                name="date_of_birth"
+                value={formData.date_of_birth}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              {currentAge !== null && (
+                <p className="text-xs text-blue-600 mt-1">Age: {currentAge} years</p>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              >
+                {GENDERS.map(g => (
+                  <option key={g.value} value={g.value}>{g.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Personal Phone</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="+63 XXX XXX XXXX"
+              />
+              {formErrors.phone && (
+                <p className="text-red-600 text-xs mt-1">{formErrors.phone}</p>
+              )}
             </div>
           </div>
 
-          {/* Location Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Location & Household Information
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Barangay <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="barangay"
-                  value={formData.barangay}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  required
-                >
-                  <option value="">Select Barangay</option>
-                  {BARANGAYS.map(b => (
-                    <option key={b.value} value={b.value}>{b.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Zone/Purok</label>
-                <input
-                  type="text"
-                  name="zone"
-                  value={formData.zone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="Zone 1, Purok 2, etc."
-                />
-              </div>
+          {/* Address Info Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              <h3 className="text-base font-normal text-black">Address Info</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Household Number</label>
-                <input
-                  type="text"
-                  name="household_no"
-                  value={formData.household_no}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="e.g., 12"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Family Number</label>
-                <input
-                  type="text"
-                  name="family_no"
-                  value={formData.family_no}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="e.g., 12"
-                />
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Barangay</label>
+              <select
+                name="barangay"
+                value={formData.barangay}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                required
+              >
+                <option value="">Select Barangay</option>
+                {BARANGAYS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Complete Address</label>
-              <textarea
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Address</label>
+              <input
+                type="text"
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                rows="2"
-                placeholder="House number, street name, etc."
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Zone/Purok</label>
+              <input
+                type="text"
+                name="zone"
+                value={formData.zone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
-          {/* Program Membership */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Program Membership & Records
-            </h3>
-            
-            <div className="space-y-4">
-              <label className="flex items-center space-x-3 cursor-pointer">
+          {/* Household Details Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+              </svg>
+              <h3 className="text-base font-normal text-black">Household Details</h3>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Household Number</label>
+              <input
+                type="text"
+                name="household_no"
+                value={formData.household_no}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Family Number</label>
+              <input
+                type="text"
+                name="family_no"
+                value={formData.family_no}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Program Membership Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <h3 className="text-base font-normal text-black">Program Membership</h3>
+            </div>
+
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   name="is_4ps_member"
                   checked={formData.is_4ps_member}
                   onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">
-                  4Ps Member (Pantawid Pamilyang Pilipino Program)
-                </span>
+                <span className="text-sm text-black">4Ps Member</span>
               </label>
+            </div>
 
-              <label className="flex items-center space-x-3 cursor-pointer">
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   name="is_pregnant"
                   checked={formData.is_pregnant}
                   onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">
-                  Pregnant
-                </span>
+                <span className="text-sm text-black">Pregnant</span>
               </label>
+            </div>
 
-              {formData.is_pregnant && (
-                <div className="ml-8 space-y-3 mt-3 p-4 bg-pink-50 rounded-lg border border-pink-200">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Expected Due Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      name="pregnancy_due_date"
-                      value={formData.pregnancy_due_date}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                    />
-                    {formErrors.pregnancy_due_date && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.pregnancy_due_date}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Pregnancy Notes</label>
-                    <textarea
-                      name="pregnancy_notes"
-                      value={formData.pregnancy_notes}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                      rows="2"
-                      placeholder="Prenatal checkup schedule, complications, etc."
-                    />
-                  </div>
+            {formData.is_pregnant && (
+              <div className="ml-6 pl-4 border-l-2 border-pink-300 mb-4">
+                <div className="mb-4">
+                  <label className="block text-sm text-black mb-1">Expected Due Date</label>
+                  <input
+                    type="date"
+                    name="pregnancy_due_date"
+                    value={formData.pregnancy_due_date}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                  {formErrors.pregnancy_due_date && (
+                    <p className="text-red-600 text-xs mt-1">{formErrors.pregnancy_due_date}</p>
+                  )}
                 </div>
-              )}
+                <div className="mb-4">
+                  <label className="block text-sm text-black mb-1">Pregnancy Notes</label>
+                  <textarea
+                    name="pregnancy_notes"
+                    value={formData.pregnancy_notes}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                    rows="2"
+                  />
+                </div>
+              </div>
+            )}
 
-              <label className="flex items-center space-x-3 cursor-pointer">
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   name="is_birth_registered"
                   checked={formData.is_birth_registered}
                   onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-gray-700">
-                  Birth Registered
-                </span>
+                <span className="text-sm text-black">Birth Registered</span>
               </label>
+            </div>
 
-              {formData.is_birth_registered && (
-                <div className="ml-8 space-y-3 mt-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Registry Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        name="birth_registry_date"
-                        value={formData.birth_registry_date}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                      />
-                      {formErrors.birth_registry_date && (
-                        <p className="text-red-500 text-xs mt-1">{formErrors.birth_registry_date}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Birth Certificate Number</label>
-                      <input
-                        type="text"
-                        name="birth_certificate_no"
-                        value={formData.birth_certificate_no}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                        placeholder="Certificate number"
-                      />
-                    </div>
-                  </div>
+            {formData.is_birth_registered && (
+              <div className="ml-6 pl-4 border-l-2 border-green-300 mb-4">
+                <div className="mb-4">
+                  <label className="block text-sm text-black mb-1">Registry Date</label>
+                  <input
+                    type="date"
+                    name="birth_registry_date"
+                    value={formData.birth_registry_date}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                  {formErrors.birth_registry_date && (
+                    <p className="text-red-600 text-xs mt-1">{formErrors.birth_registry_date}</p>
+                  )}
                 </div>
-              )}
+                <div className="mb-4">
+                  <label className="block text-sm text-black mb-1">Birth Certificate Number</label>
+                  <input
+                    type="text"
+                    name="birth_certificate_no"
+                    value={formData.birth_certificate_no}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Emergency Contact Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+              </svg>
+              <h3 className="text-base font-normal text-black">Emergency Contact</h3>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Contact Person</label>
+              <input
+                type="text"
+                name="emergency_contact"
+                value={formData.emergency_contact}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Emergency Phone</label>
+              <input
+                type="tel"
+                name="emergency_phone"
+                value={formData.emergency_phone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
             </div>
           </div>
 
-          {/* Emergency Contact */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Emergency Contact
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
-                <input
-                  type="text"
-                  name="emergency_contact"
-                  value={formData.emergency_contact}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="Name of emergency contact"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Phone</label>
-                <input
-                  type="tel"
-                  name="emergency_phone"
-                  value={formData.emergency_phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  placeholder="+63 XXX XXX XXXX"
-                />
-              </div>
+          {/* Medical Information Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+              </svg>
+              <h3 className="text-base font-normal text-black">Medical Information</h3>
             </div>
-          </div>
 
-          {/* Medical Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Medical Information
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-                <textarea
-                  name="medical_conditions"
-                  value={formData.medical_conditions}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  rows="3"
-                  placeholder="Diabetes, Hypertension, etc."
-                />
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Medical Conditions</label>
+              <textarea
+                name="medical_conditions"
+                value={formData.medical_conditions}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                rows="2"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Known Allergies</label>
-                <textarea
-                  name="allergies"
-                  value={formData.allergies}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  rows="3"
-                  placeholder="Drug allergies, food allergies, etc."
-                />
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm text-black mb-1">Known Allergies</label>
+              <textarea
+                name="allergies"
+                value={formData.allergies}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                rows="2"
+              />
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm">
               {error}
             </div>
           )}
+        </div>
+      </div>
 
-          <div className="flex gap-3 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Saving...' : (isEditMode ? 'Update Resident' : 'Add Resident')}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel || (() => window.history.back())}
-              className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+      {/* Footer Actions */}
+      <div className="bg-gray-50 border-t border-gray-300 px-6 py-4 flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel || (() => window.history.back())}
+          className="px-6 py-2 bg-white border border-gray-300 text-black text-sm hover:bg-gray-50 transition-colors"
+        >
+          CANCEL
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className="px-6 py-2 bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {loading ? 'SAVING...' : 'SAVE'}
+          {!loading && (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
       </div>
     </div>
   );
