@@ -14,13 +14,7 @@ import {
   FaCalendarAlt,
   FaBoxes,
   FaUserMd,
-  FaShieldAlt,
-  FaReceipt,
-  FaHistory,
-  FaFileAlt,
-  FaChartBar,
-  FaHome,
-  FaExchangeAlt
+  FaShieldAlt
 } from 'react-icons/fa';
 
 import {
@@ -45,17 +39,10 @@ const AdminHome = () => {
         {/* Enhanced Header Section */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-blue-600 text-white p-3 rounded-xl shadow-lg">
-                <FaHome className="text-2xl" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Admin Dashboard
-                </h1>
-                <p className="text-sm text-gray-600">Welcome back! Manage your health center operations</p>
-              </div>
-            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">
+              Admin Dashboard
+            </h1>
+            <p className="text-sm text-gray-600">Welcome back! Manage your health center operations</p>
           </div>
           <ConsultationNotifications />
         </div>
@@ -134,12 +121,7 @@ const AdminHome = () => {
 
             {/* Quick Actions - Enhanced */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <FaChartBar className="text-blue-600" />
-                </div>
-                Quick Actions
-              </h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-5">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <Link
                   to="/medicines/new"
@@ -196,7 +178,7 @@ const AdminHome = () => {
                   className="group flex flex-col items-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-yellow-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaReceipt className="text-xl" />
+                    <FaClipboardList className="text-xl" />
                   </div>
                   <span className="text-sm font-semibold text-gray-900">Add Receipt</span>
                 </Link>
@@ -321,10 +303,7 @@ const AdminHome = () => {
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FaCapsules className="text-blue-600" />
-                  Medicine Inventory
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900">Medicine Inventory</h2>
                 <p className="text-sm text-gray-600">Manage all medicines and stock levels</p>
               </div>
               <div className="flex gap-2">
@@ -353,10 +332,7 @@ const AdminHome = () => {
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FaUsers className="text-indigo-600" />
-                  Resident Management
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900">Resident Management</h2>
                 <p className="text-sm text-gray-600">Manage resident records and information</p>
               </div>
               <Link
@@ -409,10 +385,7 @@ const AdminHome = () => {
         {activeTab === 'consultations' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <FaCalendarAlt className="text-blue-600" />
-                Telemedicine Consultations
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900">Telemedicine Consultations</h2>
               <p className="text-sm text-gray-600">Manage online consultations and appointments</p>
             </div>
 
@@ -442,10 +415,7 @@ const AdminHome = () => {
 
             {/* Quick Stats */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-              <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <FaChartBar className="text-gray-600" />
-                Today's Overview
-              </h4>
+              <h4 className="text-base font-bold text-gray-900 mb-4">Today's Overview</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
                   <div className="text-2xl font-bold text-blue-600 mb-1">0</div>
@@ -473,10 +443,7 @@ const AdminHome = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FaFileAlt className="text-blue-600" />
-                  Reports & Analytics
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900">Reports & Analytics</h2>
                 <p className="text-sm text-gray-600">Access comprehensive reports and data insights</p>
               </div>
 
@@ -486,7 +453,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaReceipt className="text-2xl text-blue-600" />
+                    <FaClipboardList className="text-2xl text-blue-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Receipts</h3>
                   <p className="text-sm text-gray-600">View all financial receipts</p>
@@ -498,7 +465,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaExchangeAlt className="text-2xl text-green-600" />
+                    <FaChartLine className="text-2xl text-green-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Transactions</h3>
                   <p className="text-sm text-gray-600">Complete transaction history</p>
@@ -521,7 +488,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaHistory className="text-2xl text-yellow-600" />
+                    <FaClipboardList className="text-2xl text-yellow-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Audit Logs</h3>
                   <p className="text-sm text-gray-600">System activity logs</p>
