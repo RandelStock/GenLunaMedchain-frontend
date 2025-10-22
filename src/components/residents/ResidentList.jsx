@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, X, Eye, Edit2, Trash2, Users, UserCheck, Heart, UserCog, Phone, MapPin, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, X, Eye, Edit2, Trash2, RefreshCw, FileDown, FileText, ChevronLeft, ChevronRight, ChevronDown, UserCheck, Heart, UserCog, Users } from "lucide-react";
 // IMPORTANT: Import api from your api.js file
 // Adjust the path based on your project structure
 import api from '../../../api.js';
@@ -57,10 +57,10 @@ const ResidentList = ({ onEdit, onView }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   useEffect(() => {
     loadResidents();
@@ -70,7 +70,6 @@ const ResidentList = ({ onEdit, onView }) => {
     setLoading(true);
     setError(null);
     try {
-      // Build query parameters
       const params = new URLSearchParams();
       params.append('page', page);
       params.append('limit', '12');
@@ -82,23 +81,12 @@ const ResidentList = ({ onEdit, onView }) => {
       if (filters.is_pregnant) params.append('is_pregnant', filters.is_pregnant);
       if (filters.is_senior_citizen) params.append('is_senior_citizen', filters.is_senior_citizen);
 
-      console.log('📡 Fetching residents with filters:', Object.fromEntries(params));
-
-      // Use api.get() exactly like MedicineList does
-      // IMPORTANT: Make sure you've imported api at the top of this file
       const response = await api.get(`/residents?${params.toString()}`);
-      console.log('✅ API Response:', response.data);
-
-      // Axios wraps the response in response.data
-      // Your backend might return: { data: [...residents], pagination: {...} }
       const residentsArray = response.data.data || response.data.residents || response.data || [];
       setResidents(Array.isArray(residentsArray) ? residentsArray : []);
       setTotalPages(response.data.pagination?.totalPages || response.data.totalPages || 1);
-      
       setLoading(false);
     } catch (err) {
-      console.error("❌ Failed to load residents:", err);
-      // Axios errors have a different structure
       const errorMessage = err.message || err.response?.data?.message || "Failed to load residents";
       setError(errorMessage);
       setResidents([]);
@@ -131,7 +119,6 @@ const ResidentList = ({ onEdit, onView }) => {
   const handleDelete = async (residentId) => {
     if (!confirm("Are you sure you want to delete this resident?")) return;
     try {
-      // Use api.delete() like your other components
       await api.delete(`/residents/${residentId}`);
       alert("Resident deleted successfully");
       loadResidents();
@@ -149,16 +136,113 @@ const ResidentList = ({ onEdit, onView }) => {
 
   const handleEditClick = (residentId) => {
     const resident = residents.find(r => r.resident_id === residentId);
-    setSelectedResident(resident);
-    setShowEditModal(true);
     if (onEdit) {
       onEdit(resident);
     }
   };
 
+  const handleRefresh = () => {
+    loadResidents();
+  };
+
+  const exportToCSV = () => {
+    const headers = ['ID', 'Name', 'Gender', 'Age', 'Phone', 'Barangay', 'Address', '4Ps', 'Pregnant', 'Senior', 'Birth Reg.'];
+    const csvData = residents.map(r => [
+      r.resident_id,
+      r.full_name,
+      r.gender,
+      r.age,
+      r.phone || '',
+      getBarangayLabel(r.barangay),
+      r.address || '',
+      r.is_4ps_member ? 'Yes' : 'No',
+      r.is_pregnant ? 'Yes' : 'No',
+      r.is_senior_citizen ? 'Yes' : 'No',
+      r.is_birth_registered ? 'Yes' : 'No'
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `residents_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    // Simple PDF generation using window.print()
+    const printWindow = window.open('', '_blank');
+    const tableHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Residents List</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #1e40af; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+          th { background-color: #1e40af; color: white; }
+          tr:nth-child(even) { background-color: #f9fafb; }
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
+          .badge-4ps { background-color: #dcfce7; color: #166534; }
+          .badge-pregnant { background-color: #fce7f3; color: #9f1239; }
+          .badge-senior { background-color: #f3e8ff; color: #6b21a8; }
+        </style>
+      </head>
+      <body>
+        <h1>Residents Directory</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Gender</th>
+              <th>Age</th>
+              <th>Phone</th>
+              <th>Barangay</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${residents.map(r => `
+              <tr>
+                <td>${r.resident_id}</td>
+                <td>${r.full_name}</td>
+                <td>${r.gender}</td>
+                <td>${r.age}</td>
+                <td>${r.phone || 'N/A'}</td>
+                <td>${getBarangayLabel(r.barangay)}</td>
+                <td>
+                  ${r.is_4ps_member ? '<span class="badge badge-4ps">4Ps</span>' : ''}
+                  ${r.is_pregnant ? '<span class="badge badge-pregnant">Pregnant</span>' : ''}
+                  ${r.is_senior_citizen ? '<span class="badge badge-senior">Senior</span>' : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(tableHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const closeModals = () => {
     setShowViewModal(false);
-    setShowEditModal(false);
     setSelectedResident(null);
   };
 
@@ -168,439 +252,467 @@ const ResidentList = ({ onEdit, onView }) => {
 
   const activeFiltersCount = Object.values(filters).filter(v => v !== '').length - (filters.search ? 1 : 0);
 
+  const toggleSelectAll = () => {
+    if (selectedRows.length === residents.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(residents.map(r => r.resident_id));
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    if (selectedRows.includes(id)) {
+      setSelectedRows(selectedRows.filter(rowId => rowId !== id));
+    } else {
+      setSelectedRows([...selectedRows, id]);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">Residents Directory</h1>
-              <p className="text-lg text-gray-800">Manage resident information and records</p>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-[#2b3e50] text-white px-6 py-4 shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Users size={28} />
+            <h1 className="text-2xl font-bold">Residents</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw size={18} />
+              <span className="text-sm font-medium">Refresh</span>
+            </button>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Export to CSV"
+            >
+              <FileText size={18} />
+              <span className="text-sm font-medium">CSV</span>
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Export to PDF"
+            >
+              <FileDown size={18} />
+              <span className="text-sm font-medium">PDF</span>
+            </button>
             <button
               onClick={() => (window.location.href = "/residents/new")}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="flex items-center gap-2 px-4 py-2 bg-[#f47920] hover:bg-[#e66d0f] rounded-md transition-colors font-semibold"
             >
-              <Plus size={20} />
-              Add Resident
+              + Add Resident
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-md border-2 border-blue-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
-            <div className="flex items-center justify-between mb-3">
-              <Users className="text-blue-600" size={32} />
-              <div className="bg-blue-100 rounded-full p-2">
-                <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
-              </div>
-            </div>
-            <div className="text-sm font-semibold text-gray-800 mb-1">Total Residents</div>
-            <div className="text-3xl font-bold text-gray-900">{residents.length}</div>
+      {/* Stats Bar */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Users size={20} className="text-blue-600" />
+            <span className="text-sm text-gray-600">Total:</span>
+            <span className="text-sm font-bold text-gray-900">{residents.length}</span>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-md border-2 border-green-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
-            <div className="flex items-center justify-between mb-3">
-              <UserCheck className="text-green-600" size={32} />
-              <div className="bg-green-100 rounded-full p-2">
-                <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse"></div>
-              </div>
-            </div>
-            <div className="text-sm font-semibold text-gray-800 mb-1">4Ps Members</div>
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="flex items-center gap-2">
+            <UserCheck size={20} className="text-green-600" />
+            <span className="text-sm text-gray-600">4Ps:</span>
+            <span className="text-sm font-bold text-gray-900">
               {residents.filter(r => r.is_4ps_member).length}
-            </div>
+            </span>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-md border-2 border-pink-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
-            <div className="flex items-center justify-between mb-3">
-              <Heart className="text-pink-600" size={32} />
-              <div className="bg-pink-100 rounded-full p-2">
-                <div className="w-3 h-3 bg-pink-600 rounded-full animate-pulse"></div>
-              </div>
-            </div>
-            <div className="text-sm font-semibold text-gray-800 mb-1">Pregnant</div>
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="flex items-center gap-2">
+            <Heart size={20} className="text-pink-600" />
+            <span className="text-sm text-gray-600">Pregnant:</span>
+            <span className="text-sm font-bold text-gray-900">
               {residents.filter(r => r.is_pregnant).length}
-            </div>
+            </span>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-md border-2 border-purple-100 p-6 transform transition-all duration-200 hover:shadow-xl hover:scale-105">
-            <div className="flex items-center justify-between mb-3">
-              <UserCog className="text-purple-600" size={32} />
-              <div className="bg-purple-100 rounded-full p-2">
-                <div className="w-3 h-3 bg-purple-600 rounded-full animate-pulse"></div>
-              </div>
-            </div>
-            <div className="text-sm font-semibold text-gray-800 mb-1">Senior Citizens</div>
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="flex items-center gap-2">
+            <UserCog size={20} className="text-purple-600" />
+            <span className="text-sm text-gray-600">Seniors:</span>
+            <span className="text-sm font-bold text-gray-900">
               {residents.filter(r => r.is_senior_citizen).length}
-            </div>
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 mb-8">
-          <div className="flex gap-3 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-800" size={20} />
-              <input
-                type="text"
-                placeholder="Search by name..."
-                value={filters.search}
-                onChange={handleSearch}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500 font-medium transition-all"
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="relative px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
-            >
-              <Filter size={20} />
-              Filters
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
+      {/* Search and Filters Bar */}
+      <div className="bg-white border-b px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search residents..."
+              value={filters.search}
+              onChange={handleSearch}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="pt-6 border-t-2 border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">Barangay</label>
-                  <select
-                    value={filters.barangay}
-                    onChange={(e) => handleFilterChange('barangay', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-base text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  >
-                    {BARANGAYS.map(b => (
-                      <option key={b.value} value={b.value}>{b.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">Age Category</label>
-                  <select
-                    value={filters.age_category}
-                    onChange={(e) => handleFilterChange('age_category', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-base text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  >
-                    {AGE_CATEGORIES.map(c => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-2">Program Status</label>
-                  <div className="space-y-3">
-                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filters.is_4ps_member === 'true'}
-                        onChange={(e) => handleFilterChange('is_4ps_member', e.target.checked ? 'true' : '')}
-                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <span className="group-hover:text-blue-600 transition-colors">4Ps Member</span>
-                    </label>
-                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filters.is_pregnant === 'true'}
-                        onChange={(e) => handleFilterChange('is_pregnant', e.target.checked ? 'true' : '')}
-                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-pink-600 focus:ring-2 focus:ring-pink-500 cursor-pointer"
-                      />
-                      <span className="group-hover:text-pink-600 transition-colors">Pregnant</span>
-                    </label>
-                    <label className="flex items-center text-base text-gray-900 font-medium cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filters.is_senior_citizen === 'true'}
-                        onChange={(e) => handleFilterChange('is_senior_citizen', e.target.checked ? 'true' : '')}
-                        className="w-5 h-5 mr-3 rounded border-2 border-gray-300 text-purple-600 focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                      />
-                      <span className="group-hover:text-purple-600 transition-colors">Senior Citizen</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  onClick={clearFilters}
-                  className="inline-flex items-center gap-2 text-base text-blue-600 hover:text-blue-800 font-bold transition-colors"
-                >
-                  <X size={18} />
-                  Clear all filters
-                </button>
-              </div>
-            </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`relative flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+              showFilters 
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Filter size={18} />
+            Filters
+            {activeFiltersCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              <X size={16} />
+              Clear
+            </button>
           )}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-8">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-red-500 text-white rounded-full p-2">
-                <X size={24} />
-              </div>
-              <p className="text-xl text-red-900 font-bold">Error Loading Residents</p>
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Barangay</label>
+              <select
+                value={filters.barangay}
+                onChange={(e) => handleFilterChange('barangay', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {BARANGAYS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
             </div>
-            <p className="text-red-800 font-semibold mb-3">{error}</p>
-            {error.includes('authentication') || error.includes('401') || error.includes('Unauthorized') ? (
-              <div className="space-y-2">
-                <p className="text-sm text-red-700">
-                  Your session may have expired or you're not logged in.
-                </p>
-                <button
-                  onClick={() => window.location.href = '/login'}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
-                >
-                  Go to Login
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={loadResidents}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Age Category</label>
+              <select
+                value={filters.age_category}
+                onChange={(e) => handleFilterChange('age_category', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                Try Again
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Resident Cards */}
-        {loading ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-16 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600"></div>
-            <p className="mt-6 text-lg text-gray-900 font-semibold">Loading residents...</p>
-          </div>
-        ) : residents.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-16 text-center">
-            <Users className="mx-auto h-20 w-20 text-gray-400 mb-4" />
-            <p className="text-xl text-gray-900 font-semibold">No residents found</p>
-            <p className="text-base text-gray-700 mt-2">Try adjusting your filters or search criteria</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {residents.map((res) => (
-              <div
-                key={res.resident_id}
-                className="bg-white rounded-2xl shadow-md border-2 border-gray-200 hover:shadow-2xl hover:border-blue-300 transition-all duration-300 transform hover:scale-105 overflow-hidden"
-              >
-                {/* Card Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 border-b-2 border-gray-200">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-lg leading-tight">
-                        {res.full_name}
-                      </h3>
-                      <p className="text-sm text-gray-700 mt-1 font-medium">
-                        ID: #{res.resident_id}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ml-2 ${
-                        res.gender === 'MALE'
-                          ? "bg-blue-200 text-blue-900"
-                          : "bg-pink-200 text-pink-900"
-                      }`}
-                    >
-                      {res.gender}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-5 space-y-4">
-                  {/* Age */}
-                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <span className="text-sm font-semibold text-gray-800">Age:</span>
-                    <span className="text-base font-bold text-gray-900">
-                      {res.age} years
-                    </span>
-                  </div>
-
-                  {/* Barangay */}
-                  {res.barangay && (
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
-                      <MapPin size={16} className="text-gray-800 flex-shrink-0" />
-                      <span className="text-sm text-gray-900 font-semibold truncate">
-                        {getBarangayLabel(res.barangay)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Phone */}
-                  {res.phone && (
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
-                      <Phone size={16} className="text-gray-800 flex-shrink-0" />
-                      <span className="text-sm text-gray-900 font-semibold">
-                        {res.phone}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Status Badges */}
-                  {(res.is_4ps_member || res.is_pregnant || res.is_senior_citizen || res.is_birth_registered) && (
-                    <div className="pt-3 border-t-2 border-gray-200">
-                      <div className="flex flex-wrap gap-2">
-                        {res.is_4ps_member && (
-                          <span className="px-3 py-1 bg-green-200 text-green-900 text-xs rounded-full font-bold">
-                            4Ps
-                          </span>
-                        )}
-                        {res.is_pregnant && (
-                          <span className="px-3 py-1 bg-pink-200 text-pink-900 text-xs rounded-full font-bold">
-                            Pregnant
-                          </span>
-                        )}
-                        {res.is_senior_citizen && (
-                          <span className="px-3 py-1 bg-purple-200 text-purple-900 text-xs rounded-full font-bold">
-                            Senior
-                          </span>
-                        )}
-                        {res.is_birth_registered && (
-                          <span className="px-3 py-1 bg-orange-200 text-orange-900 text-xs rounded-full font-bold">
-                            Birth Reg.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Medical Conditions */}
-                  {res.medical_conditions && (
-                    <div className="pt-3 border-t-2 border-gray-200">
-                      <span className="text-xs text-gray-800 font-bold block mb-2">Medical:</span>
-                      <p className="text-sm text-gray-900 line-clamp-2 font-medium">
-                        {res.medical_conditions}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Actions */}
-                <div className="p-5 pt-0 flex gap-2">
-                  <button
-                    onClick={() => handleViewClick(res.resident_id)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105"
-                    title="View Details"
-                  >
-                    <Eye size={16} />
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleEditClick(res.resident_id)}
-                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105"
-                    title="Edit"
-                  >
-                    <Edit2 size={16} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(res.resident_id)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-105"
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                {AGE_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-2">Program Status</label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_4ps_member === 'true'}
+                    onChange={(e) => handleFilterChange('is_4ps_member', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  4Ps Member
+                </label>
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_pregnant === 'true'}
+                    onChange={(e) => handleFilterChange('is_pregnant', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                  />
+                  Pregnant
+                </label>
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_senior_citizen === 'true'}
+                    onChange={(e) => handleFilterChange('is_senior_citizen', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  Senior Citizen
+                </label>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-between bg-white rounded-2xl shadow-md border border-gray-200 px-6 py-4">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="flex items-center gap-2 px-6 py-3 text-base font-bold text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-            >
-              <ChevronLeft size={20} />
-              Previous
-            </button>
-            <span className="text-base text-gray-900 font-bold">
-              Page <span className="text-blue-600 text-xl">{page}</span> of{" "}
-              <span className="text-blue-600 text-xl">{totalPages}</span>
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="flex items-center gap-2 px-6 py-3 text-base font-bold text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-            >
-              Next
-              <ChevronRight size={20} />
-            </button>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Main Content */}
+      <div className="p-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <X className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-900">Error Loading Residents</p>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+                {error.includes('authentication') || error.includes('401') || error.includes('Unauthorized') ? (
+                  <button
+                    onClick={() => window.location.href = '/login'}
+                    className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md"
+                  >
+                    Go to Login
+                  </button>
+                ) : (
+                  <button 
+                    onClick={loadResidents}
+                    className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="p-16 text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-blue-600"></div>
+              <p className="mt-4 text-sm text-gray-600">Loading residents...</p>
+            </div>
+          ) : residents.length === 0 ? (
+            <div className="p-16 text-center">
+              <Users className="mx-auto h-16 w-16 text-gray-300 mb-3" />
+              <p className="text-base text-gray-900 font-semibold">No residents found</p>
+              <p className="text-sm text-gray-600 mt-1">Try adjusting your filters or search criteria</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="w-10 px-4 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.length === residents.length && residents.length > 0}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Gender
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Age
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Barangay
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {residents.map((res) => (
+                      <tr 
+                        key={res.resident_id} 
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.includes(res.resident_id)}
+                            onChange={() => toggleSelectRow(res.resident_id)}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          #{res.resident_id}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleViewClick(res.resident_id)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {res.full_name}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                            res.gender === 'MALE'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-pink-100 text-pink-700'
+                          }`}>
+                            {res.gender}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {res.age}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {res.phone || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {getBarangayLabel(res.barangay)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {res.is_4ps_member && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                4Ps
+                              </span>
+                            )}
+                            {res.is_pregnant && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-700">
+                                Pregnant
+                              </span>
+                            )}
+                            {res.is_senior_citizen && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                Senior
+                              </span>
+                            )}
+                            {res.is_birth_registered && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                Birth Reg.
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleViewClick(res.resident_id)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleEditClick(res.resident_id)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(res.resident_id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Showing page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
       {/* View Modal */}
       {showViewModal && selectedResident && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Resident Details</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-[#2b3e50] px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Resident Details</h2>
               <button
                 onClick={closeModals}
-                className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all"
+                className="text-white hover:bg-[#3d5569] rounded p-1 transition-colors"
               >
-                <X size={28} />
+                <X size={24} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               {/* Personal Information */}
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
                   Personal Information
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Full Name</p>
-                    <p className="text-base font-bold text-gray-900">{selectedResident.full_name}</p>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Full Name</p>
+                    <p className="text-sm text-gray-900">{selectedResident.full_name}</p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Gender</p>
-                    <p className="text-base font-bold text-gray-900">{selectedResident.gender}</p>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Gender</p>
+                    <p className="text-sm text-gray-900">{selectedResident.gender}</p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Date of Birth</p>
-                    <p className="text-base font-bold text-gray-900">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Date of Birth</p>
+                    <p className="text-sm text-gray-900">
                       {selectedResident.date_of_birth 
                         ? new Date(selectedResident.date_of_birth).toLocaleDateString()
                         : 'N/A'}
                     </p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Age</p>
-                    <p className="text-base font-bold text-gray-900">{selectedResident.age} years</p>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Age</p>
+                    <p className="text-sm text-gray-900">{selectedResident.age} years</p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Phone</p>
-                    <p className="text-base font-bold text-gray-900">{selectedResident.phone || 'N/A'}</p>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Phone</p>
+                    <p className="text-sm text-gray-900">{selectedResident.phone || 'N/A'}</p>
                   </div>
                   {selectedResident.barangay && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm text-gray-700 font-semibold mb-1">Barangay</p>
-                      <p className="text-base font-bold text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Barangay</p>
+                      <p className="text-sm text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
                     </div>
                   )}
-                  <div className="col-span-2 bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Address</p>
-                    <p className="text-base font-bold text-gray-900">{selectedResident.address || 'N/A'}</p>
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Address</p>
+                    <p className="text-sm text-gray-900">{selectedResident.address || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -608,33 +720,33 @@ const ResidentList = ({ onEdit, onView }) => {
               {/* Program Status */}
               {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
                     Program Status
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {selectedResident.is_4ps_member && (
-                      <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
-                        <p className="text-base text-green-900 font-bold">4Ps Member</p>
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                        <p className="text-sm text-green-900 font-semibold">4Ps Member</p>
                       </div>
                     )}
                     {selectedResident.is_pregnant && (
-                      <div className="bg-pink-50 border-2 border-pink-200 rounded-xl p-4">
-                        <p className="text-base text-pink-900 font-bold">Pregnant</p>
+                      <div className="bg-pink-50 border border-pink-200 rounded-md p-3">
+                        <p className="text-sm text-pink-900 font-semibold">Pregnant</p>
                         {selectedResident.pregnancy_due_date && (
-                          <p className="text-sm text-pink-800 font-semibold mt-2">
+                          <p className="text-xs text-pink-800 mt-1">
                             Due: {new Date(selectedResident.pregnancy_due_date).toLocaleDateString()}
                           </p>
                         )}
                       </div>
                     )}
                     {selectedResident.is_senior_citizen && (
-                      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
-                        <p className="text-base text-purple-900 font-bold">Senior Citizen</p>
+                      <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
+                        <p className="text-sm text-purple-900 font-semibold">Senior Citizen</p>
                       </div>
                     )}
                     {selectedResident.is_birth_registered && (
-                      <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
-                        <p className="text-base text-orange-900 font-bold">Birth Registered</p>
+                      <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                        <p className="text-sm text-orange-900 font-semibold">Birth Registered</p>
                       </div>
                     )}
                   </div>
@@ -643,19 +755,19 @@ const ResidentList = ({ onEdit, onView }) => {
 
               {/* Emergency Contact */}
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
                   Emergency Contact
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Contact Person</p>
-                    <p className="text-base font-bold text-gray-900">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Contact Person</p>
+                    <p className="text-sm text-gray-900">
                       {selectedResident.emergency_contact || 'N/A'}
                     </p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-1">Emergency Phone</p>
-                    <p className="text-base font-bold text-gray-900">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Emergency Phone</p>
+                    <p className="text-sm text-gray-900">
                       {selectedResident.emergency_phone || 'N/A'}
                     </p>
                   </div>
@@ -664,19 +776,19 @@ const ResidentList = ({ onEdit, onView }) => {
 
               {/* Medical Information */}
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
                   Medical Information
                 </h3>
                 <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-2">Medical Conditions</p>
-                    <p className="text-base font-bold text-gray-900">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Medical Conditions</p>
+                    <p className="text-sm text-gray-900">
                       {selectedResident.medical_conditions || 'None reported'}
                     </p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-700 font-semibold mb-2">Known Allergies</p>
-                    <p className="text-base font-bold text-gray-900">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Known Allergies</p>
+                    <p className="text-sm text-gray-900">
                       {selectedResident.allergies || 'None reported'}
                     </p>
                   </div>
@@ -684,50 +796,22 @@ const ResidentList = ({ onEdit, onView }) => {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200 px-6 py-5 flex justify-end gap-3">
+            <div className="bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => {
                   closeModals();
                   handleEditClick(selectedResident.resident_id);
                 }}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
               >
                 Edit Resident
               </button>
               <button
                 onClick={closeModals}
-                className="px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
               >
                 Close
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {showEditModal && selectedResident && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8">
-            <div className="sticky top-0 bg-gradient-to-r from-yellow-500 to-orange-500 px-6 py-5 flex justify-between items-center rounded-t-2xl">
-              <h2 className="text-2xl font-bold text-white">Edit Resident</h2>
-              <button
-                onClick={closeModals}
-                className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all"
-              >
-                <X size={28} />
-              </button>
-            </div>
-
-            <div className="max-h-[calc(90vh-120px)] overflow-y-auto p-6">
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
-                <p className="text-lg font-bold text-gray-900">
-                  Edit form would be integrated here with AddResidentForm component
-                </p>
-                <p className="text-base text-gray-700 mt-2">
-                  Pass editData prop with resident_id: {selectedResident.resident_id}
-                </p>
-              </div>
             </div>
           </div>
         </div>
