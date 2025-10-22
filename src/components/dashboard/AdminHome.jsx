@@ -15,8 +15,14 @@ import {
   FaBoxes,
   FaUserMd,
   FaShieldAlt,
+  FaHome,
+  FaChartBar,
   FaFileAlt,
+  FaReceipt,
+  FaExchangeAlt,
+  FaHistory
 } from 'react-icons/fa';
+
 import {
   ReceiptsCard,
   TransactionHistoryCard,
@@ -178,7 +184,7 @@ const AdminHome = () => {
                   className="group flex flex-col items-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-yellow-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaClipboardList className="text-xl" />
+                    <FaReceipt className="text-xl" />
                   </div>
                   <span className="text-sm font-semibold text-gray-900">Add Receipt</span>
                 </Link>
@@ -453,7 +459,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaClipboardList className="text-2xl text-blue-600" />
+                    <FaReceipt className="text-2xl text-blue-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Receipts</h3>
                   <p className="text-sm text-gray-600">View all financial receipts</p>
@@ -465,7 +471,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaChartLine className="text-2xl text-green-600" />
+                    <FaExchangeAlt className="text-2xl text-green-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Transactions</h3>
                   <p className="text-sm text-gray-600">Complete transaction history</p>
@@ -488,7 +494,7 @@ const AdminHome = () => {
                   className="group block p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaClipboardList className="text-2xl text-yellow-600" />
+                    <FaHistory className="text-2xl text-yellow-600" />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-1">Audit Logs</h3>
                   <p className="text-sm text-gray-600">System activity logs</p>

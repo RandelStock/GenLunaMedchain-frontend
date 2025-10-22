@@ -29,7 +29,11 @@ const Sidebar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [pinnedTabs, setPinnedTabs] = useState(() => {
     const saved = localStorage.getItem('pinnedTabs');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    // Default: Home is always pinned
+    return [{ path: "/", icon: FaHome, label: "Home" }];
   });
 
   const isWalletConnected = !!address;
