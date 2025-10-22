@@ -217,7 +217,7 @@ const Sidebar = () => {
                   to={path}
                   className="flex-1 flex items-center gap-2 px-3 py-2 text-sm font-medium"
                 >
-                  <Icon className="text-base flex-shrink-0" />
+                  {Icon ? <Icon className="text-base flex-shrink-0" /> : <div className="text-base flex-shrink-0">•</div>}
                   <span className="truncate">{label}</span>
                 </Link>
                 <button
@@ -276,7 +276,7 @@ const Sidebar = () => {
                         className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors group"
                       >
                         <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center group-hover:bg-blue-500 transition-colors">
-                          <Icon className="text-white text-xl" />
+                          {Icon ? <Icon className="text-white text-xl" /> : <div className="text-white text-xl">•</div>}
                         </div>
                         <span className="text-xs text-white text-center font-medium leading-tight">
                           {label}
