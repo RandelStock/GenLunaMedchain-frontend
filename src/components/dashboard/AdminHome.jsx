@@ -39,6 +39,11 @@ const AdminHome = () => {
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
 
+  console.log("DEBUG CHECK >>>");
+  console.log("MedicineList:", MedicineList);
+  console.log("ConsultationNotifications:", ConsultationNotifications);
+  console.log("DashboardCards:", { ReceiptsCard, TransactionHistoryCard, AuditLogsCard, StaffCard });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
       <div className="p-6 max-w-[1600px] mx-auto">
