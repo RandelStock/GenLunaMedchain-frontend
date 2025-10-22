@@ -184,15 +184,7 @@ const AdminHome = () => {
                   <span className="text-sm font-semibold text-gray-900">Add Resident</span>
                 </Link>
 
-                <Link
-                  to="/addReceipts"
-                  className="group flex flex-col items-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
-                >
-                  <div className="bg-yellow-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaReceipt className="text-xl" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">Add Receipt</span>
-                </Link>
+                
               </div>
             </div>
 
@@ -297,12 +289,7 @@ const AdminHome = () => {
                   >
                     📝 Audit Logs
                   </Link>
-                  <Link
-                    to="/receipts"
-                    className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
-                  >
-                    🧾 View Receipts
-                  </Link>
+                  
                 </div>
               </div>
             </div>
@@ -459,20 +446,9 @@ const AdminHome = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <Link
-                  to="/receipts"
-                  className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
-                >
-                  <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaReceipt className="text-2xl text-blue-600" />
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900 mb-1">Receipts</h3>
-                  <p className="text-sm text-gray-600">View all financial receipts</p>
-                  <div className="mt-3 text-2xl font-bold text-blue-600">{receiptCount}</div>
-                </Link>
 
                 <Link
-                  to="/transaction-history"
+                  to="/audit-logs/all"
                   className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
@@ -495,7 +471,7 @@ const AdminHome = () => {
                 </Link>
 
                 <Link
-                  to="/audit-logs"
+                  to="/transaction-history"
                   className="group block p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
