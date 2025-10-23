@@ -6,7 +6,17 @@ import { useConnect, useDisconnect, useAddress, metamaskWallet } from "@thirdweb
 import MedicineList from '../medicine/MedicineList';
 import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
+// Import all images
 import logo from "../../img/logo.png";
+import GSIS from "../../img/GSIS.png";
+import SSS from "../../img/SSS.png";
+import DOLE from "../../img/DOLE.png";
+import PAGIBIG from "../../img/PAGIBIG.png";
+import PHILHEALTH from "../../img/PHIL-HEALTH.png";
+import DILG from "../../img/DILG.png";
+import QUEZON from "../../img/QUEZON-PROVINCE.png";
+import PRESIDENT from "../../img/OFFICE-OF-THE-PRESIDENT.png";
+import GAZETTE from "../../img/GAZETTE.png";
 import {
   FaVideo,
   FaCapsules,
@@ -662,7 +672,7 @@ const PatientHome = () => {
                     <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-orange-200">
                       <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg overflow-hidden min-h-[400px] relative">
                         <img 
-                          src={`/img/${selectedBarangay.image}`} 
+                          src={`${import.meta.env.BASE_URL}src/img/${selectedBarangay.image}`}
                           alt={`${selectedBarangay.name} map`} 
                           className="w-full h-auto object-contain max-h-[60vh]"
                           onError={(e) => {
@@ -801,15 +811,15 @@ const PatientHome = () => {
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 items-center justify-items-center">
             {[
-              { url: 'https://gsis.gov.ph', img: 'GSIS.png', name: 'GSIS' },
-              { url: 'https://sss.gov.ph', img: 'SSS.png', name: 'SSS' },
-              { url: 'https://dole.gov.ph', img: 'DOLE.png', name: 'DOLE' },
-              { url: 'https://pagibigfund.gov.ph', img: 'PAGIBIG.png', name: 'Pag-IBIG' },
-              { url: 'https://philhealth.gov.ph', img: 'PHIL-HEALTH.png', name: 'PhilHealth' },
-              { url: 'https://dilg.gov.ph', img: 'DILG.png', name: 'DILG' },
-              { url: 'https://quezon.gov.ph', img: 'QUEZON-PROVINCE.png', name: 'Quezon Province' },
-              { url: 'https://op-proper.gov.ph', img: 'OFFICE-OF-THE-PRESIDENT.png', name: 'Office of the President' },
-              { url: 'https://gazette.gov.ph', img: 'GAZETTE.png', name: 'Official Gazette' }
+              { url: 'https://gsis.gov.ph', img: GSIS, name: 'GSIS' },
+              { url: 'https://sss.gov.ph', img: SSS, name: 'SSS' },
+              { url: 'https://dole.gov.ph', img: DOLE, name: 'DOLE' },
+              { url: 'https://pagibigfund.gov.ph', img: PAGIBIG, name: 'Pag-IBIG' },
+              { url: 'https://philhealth.gov.ph', img: PHILHEALTH, name: 'PhilHealth' },
+              { url: 'https://dilg.gov.ph', img: DILG, name: 'DILG' },
+              { url: 'https://quezon.gov.ph', img: QUEZON, name: 'Quezon Province' },
+              { url: 'https://op-proper.gov.ph', img: PRESIDENT, name: 'Office of the President' },
+              { url: 'https://gazette.gov.ph', img: GAZETTE, name: 'Official Gazette' }
             ].map((link, index) => (
               <a 
                 key={index}
@@ -820,13 +830,9 @@ const PatientHome = () => {
               >
                 <div className="relative">
                   <img 
-                    src={`/img/${link.img}`} 
+                    src={link.img} 
                     alt={link.name} 
                     className="h-20 w-auto mx-auto object-contain transition-all duration-300 group-hover:scale-110" 
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = logo;
-                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-orange-500 to-transparent opacity-0 group-hover:opacity-10 rounded-lg transition-opacity"></div>
                 </div>
