@@ -284,7 +284,7 @@ const AdminHome = () => {
                     💳 Transaction History
                   </Link>
                   <Link
-                    to="/audit-logs"
+                    to="/audit-logs/all"
                     className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
                   >
                     📝 Audit Logs
