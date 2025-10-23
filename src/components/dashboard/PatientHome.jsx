@@ -662,7 +662,7 @@ const PatientHome = () => {
                     <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-orange-200">
                       <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg overflow-hidden min-h-[400px] relative">
                         <img 
-                          src={`/src/img/${selectedBarangay.image}`} 
+                          src={`/img/${selectedBarangay.image}`} 
                           alt={`${selectedBarangay.name} map`} 
                           className="w-full h-auto object-contain max-h-[60vh]"
                           onError={(e) => {
@@ -801,15 +801,15 @@ const PatientHome = () => {
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 items-center justify-items-center">
             {[
-              { url: 'https://gsis.gov.ph', img: '/src/img/GSIS.png', name: 'GSIS' },
-              { url: 'https://sss.gov.ph', img: '/src/img/SSS.png', name: 'SSS' },
-              { url: 'https://dole.gov.ph', img: '/src/img/DOLE.png', name: 'DOLE' },
-              { url: 'https://pagibigfund.gov.ph', img: '/src/img/PAGIBIG.png', name: 'Pag-IBIG' },
-              { url: 'https://philhealth.gov.ph', img: '/src/img/PHIL-HEALTH.png', name: 'PhilHealth' },
-              { url: 'https://dilg.gov.ph', img: '/src/img/DILG.png', name: 'DILG' },
-              { url: 'https://quezon.gov.ph', img: '/src/img/QUEZON-PROVINCE.png', name: 'Quezon Province' },
-              { url: 'https://op-proper.gov.ph', img: '/src/img/OFFICE-OF-THE-PRESIDENT.png', name: 'Office of the President' },
-              { url: 'https://gazette.gov.ph', img: '/src/img/GAZETTE.png', name: 'Official Gazette' }
+              { url: 'https://gsis.gov.ph', img: 'GSIS.png', name: 'GSIS' },
+              { url: 'https://sss.gov.ph', img: 'SSS.png', name: 'SSS' },
+              { url: 'https://dole.gov.ph', img: 'DOLE.png', name: 'DOLE' },
+              { url: 'https://pagibigfund.gov.ph', img: 'PAGIBIG.png', name: 'Pag-IBIG' },
+              { url: 'https://philhealth.gov.ph', img: 'PHIL-HEALTH.png', name: 'PhilHealth' },
+              { url: 'https://dilg.gov.ph', img: 'DILG.png', name: 'DILG' },
+              { url: 'https://quezon.gov.ph', img: 'QUEZON-PROVINCE.png', name: 'Quezon Province' },
+              { url: 'https://op-proper.gov.ph', img: 'OFFICE-OF-THE-PRESIDENT.png', name: 'Office of the President' },
+              { url: 'https://gazette.gov.ph', img: 'GAZETTE.png', name: 'Official Gazette' }
             ].map((link, index) => (
               <a 
                 key={index}
@@ -820,7 +820,7 @@ const PatientHome = () => {
               >
                 <div className="relative">
                   <img 
-                    src={link.img} 
+                    src={`/img/${link.img}`} 
                     alt={link.name} 
                     className="h-20 w-auto mx-auto object-contain transition-all duration-300 group-hover:scale-110" 
                     onError={(e) => {
