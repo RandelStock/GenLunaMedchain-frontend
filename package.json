@@ -17,11 +17,11 @@
     "jspdf": "^3.0.3",
     "lucide": "^0.511.0",
     "lucide-react": "^0.511.0",
-    "react": "^18.3",
+    "react": "^18.3.1",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "^18.3",
+    "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^7.6.0",
+    "react-router-dom": "^6.26.2",
     "thirdweb": "^5"
   },
   "devDependencies": {
