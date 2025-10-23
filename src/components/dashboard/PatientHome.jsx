@@ -8,6 +8,7 @@ import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
 // Import all images
 import logo from "../../img/logo.png";
+// Government logos
 import GSIS from "../../img/GSIS.png";
 import SSS from "../../img/SSS.png";
 import DOLE from "../../img/DOLE.png";
@@ -17,6 +18,34 @@ import DILG from "../../img/DILG.png";
 import QUEZON from "../../img/QUEZON-PROVINCE.png";
 import PRESIDENT from "../../img/OFFICE-OF-THE-PRESIDENT.png";
 import GAZETTE from "../../img/GAZETTE.png";
+// Barangay images
+import BacongIbaba from "../../img/Bacong-Ibaba.png";
+import BacongIlaya from "../../img/Bacong-Ilaya.png";
+import Barangay1 from "../../img/Barangay-1.png";
+import Barangay7 from "../../img/Barangay-7.png";
+import Brgy2 from "../../img/Brgy-2.png";
+import Brgy3 from "../../img/Brgy-3.png";
+import Brgy4 from "../../img/Brgy-4.png";
+import Brgy5 from "../../img/Brgy-5.png";
+import Brgy6 from "../../img/Brgy-6.png";
+import Brgy8 from "../../img/Brgy-8.png";
+import Brgy9 from "../../img/Brgy-9.png";
+import Lavides from "../../img/Lavides.png";
+import Magsaysay from "../../img/Magsaysay.png";
+import Malaya from "../../img/Malaya.png";
+import Nieva from "../../img/Nieva.png";
+import Recto from "../../img/Recto.png";
+import SanIgnacioIbaba from "../../img/San-Ignacio-Ibaba.png";
+import SanIgnacioIlaya from "../../img/San-Ignacio-Ilaya.png";
+import SanIsidroIbaba from "../../img/San-Isidro-Ibaba.jpg";
+import SanIsidroIlaya from "../../img/San-Isidro-Ilaya.png";
+import SanJose from "../../img/San-Jose.png";
+import SanNicolas from "../../img/San-Nicolas.png";
+import SanVicente from "../../img/San-Vicente.png";
+import SantaMariaIbaba from "../../img/Santa-Maria-Ibaba.jpg";
+import SantaMariaIlaya from "../../img/Santa-Maria-Ilaya.png";
+import Sumilang from "../../img/Sumilang.png";
+import Villarica from "../../img/Villarica.png";
 import {
   FaVideo,
   FaCapsules,
@@ -537,33 +566,33 @@ const PatientHome = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {[
-                { name: 'Bacong Ibaba', area: '650.07 ha', pop: '1,712 (2020)', households: '420 (2020)', image: 'Bacong-Ibaba.png' },
-                { name: 'Bacong Ilaya', area: '851.75 ha', pop: '1,695 (2020)', households: '429 (2020)', image: 'Bacong-Ilaya.png' },
-                { name: 'Poblacion 1', area: '4.42 ha', pop: '517 (2020)', households: '119 (2020)', image: 'Barangay-1.png' },
-                { name: 'Poblacion 2', area: '3.75 ha', pop: '335 (2020)', households: '88 (2020)', image: 'Brgy-2.png' },
-                { name: 'Poblacion 3', area: '3.68 ha', pop: '451 (2020)', households: '107 (2020)', image: 'Brgy-3.png' },
-                { name: 'Poblacion 4', area: '3.61 ha', pop: '129 (2020)', households: '33 (2020)', image: 'Brgy-4.png' },
-                { name: 'Poblacion 5', area: '1.9 ha', pop: '174 (2020)', households: '44 (2020)', image: 'Brgy-5.png' },
-                { name: 'Poblacion 6', area: '1.69 ha', pop: '287 (2020)', households: '70 (2020)', image: 'Brgy-6.png' },
-                { name: 'Poblacion 7', area: '29.17 ha', pop: '846 (2020)', households: '246 (2020)', image: 'Barangay-7.png' },
-                { name: 'Poblacion 8', area: '12.11 ha', pop: '1,301 (2020)', households: '323 (2020)', image: 'Brgy-8.png' },
-                { name: 'Poblacion 9', area: '1.31 ha', pop: '202 (2020)', households: '48 (2020)', image: 'Brgy-9.png' },
-                { name: 'Lavides', area: '1,227.17 ha', pop: '513 (2020)', households: '124 (2020)', image: 'Lavides.png' },
-                { name: 'Magsaysay', area: '337.41 ha', pop: '761 (2020)', households: '188 (2020)', image: 'Magsaysay.png' },
-                { name: 'Malaya', area: '615.20 ha', pop: '1,783 (2020)', households: '400 (2020)', image: 'Malaya.png' },
-                { name: 'Nieva', area: '337.30 ha', pop: '1,330 (2020)', households: '334 (2020)', image: 'Nieva.png' },
-                { name: 'Recto', area: '599.67 ha', pop: '659 (2020)', households: '146 (2020)', image: 'Recto.png' },
-                { name: 'San Ignacio Ibaba', area: '405.79 ha', pop: '924 (2020)', households: '234 (2020)', image: 'San-Ignacio-Ibaba.png' },
-                { name: 'San Ignacio Ilaya', area: '440.74 ha', pop: '571 (2020)', households: '146 (2020)', image: 'San-Ignacio-Ilaya.png' },
-                { name: 'San Isidro Ibaba', area: '338.42 ha', pop: '1,398 (2020)', households: '347 (2020)', image: 'San-Isidro-Ibaba.jpg' },
-                { name: 'San Isidro Ilaya', area: '707.96 ha', pop: '2,835 (2020)', households: '678 (2020)', image: 'San-Isidro-Ilaya.png' },
-                { name: 'San Jose', area: '415.33 ha', pop: '2,326 (2020)', households: '554 (2020)', image: 'San-Jose.png' },
-                { name: 'San Nicolas', area: '278.07 ha', pop: '1,033 (2020)', households: '257 (2020)', image: 'San-Nicolas.png' },
-                { name: 'Sta. Maria Magdalena', area: '540.41 ha', pop: '1,083 (2020)', households: '262 (2020)', image: 'Santa-Maria-Ibaba.jpg' },
-                { name: 'Sta. Maria Ilaya', area: '547.59 ha', pop: '245 (2020)', households: '62 (2020)', image: 'Santa-Maria-Ilaya.png' },
-                { name: 'San Vicente', area: '487.83 ha', pop: '1,010 (2020)', households: '265 (2020)', image: 'San-Vicente.png' },
-                { name: 'Sumilang', area: '529.19 ha', pop: '801 (2020)', households: '183 (2020)', image: 'Sumilang.png' },
-                { name: 'Villarica', area: '287.26 ha', pop: '632 (2020)', households: '160 (2020)', image: 'Villarica.png' }
+                { name: 'Bacong Ibaba', area: '650.07 ha', pop: '1,712 (2020)', households: '420 (2020)', image: BacongIbaba },
+                { name: 'Bacong Ilaya', area: '851.75 ha', pop: '1,695 (2020)', households: '429 (2020)', image: BacongIlaya },
+                { name: 'Poblacion 1', area: '4.42 ha', pop: '517 (2020)', households: '119 (2020)', image: Barangay1 },
+                { name: 'Poblacion 2', area: '3.75 ha', pop: '335 (2020)', households: '88 (2020)', image: Brgy2 },
+                { name: 'Poblacion 3', area: '3.68 ha', pop: '451 (2020)', households: '107 (2020)', image: Brgy3 },
+                { name: 'Poblacion 4', area: '3.61 ha', pop: '129 (2020)', households: '33 (2020)', image: Brgy4 },
+                { name: 'Poblacion 5', area: '1.9 ha', pop: '174 (2020)', households: '44 (2020)', image: Brgy5 },
+                { name: 'Poblacion 6', area: '1.69 ha', pop: '287 (2020)', households: '70 (2020)', image: Brgy6 },
+                { name: 'Poblacion 7', area: '29.17 ha', pop: '846 (2020)', households: '246 (2020)', image: Barangay7 },
+                { name: 'Poblacion 8', area: '12.11 ha', pop: '1,301 (2020)', households: '323 (2020)', image: Brgy8 },
+                { name: 'Poblacion 9', area: '1.31 ha', pop: '202 (2020)', households: '48 (2020)', image: Brgy9 },
+                { name: 'Lavides', area: '1,227.17 ha', pop: '513 (2020)', households: '124 (2020)', image: Lavides },
+                { name: 'Magsaysay', area: '337.41 ha', pop: '761 (2020)', households: '188 (2020)', image: Magsaysay },
+                { name: 'Malaya', area: '615.20 ha', pop: '1,783 (2020)', households: '400 (2020)', image: Malaya },
+                { name: 'Nieva', area: '337.30 ha', pop: '1,330 (2020)', households: '334 (2020)', image: Nieva },
+                { name: 'Recto', area: '599.67 ha', pop: '659 (2020)', households: '146 (2020)', image: Recto },
+                { name: 'San Ignacio Ibaba', area: '405.79 ha', pop: '924 (2020)', households: '234 (2020)', image: SanIgnacioIbaba },
+                { name: 'San Ignacio Ilaya', area: '440.74 ha', pop: '571 (2020)', households: '146 (2020)', image: SanIgnacioIlaya },
+                { name: 'San Isidro Ibaba', area: '338.42 ha', pop: '1,398 (2020)', households: '347 (2020)', image: SanIsidroIbaba },
+                { name: 'San Isidro Ilaya', area: '707.96 ha', pop: '2,835 (2020)', households: '678 (2020)', image: SanIsidroIlaya },
+                { name: 'San Jose', area: '415.33 ha', pop: '2,326 (2020)', households: '554 (2020)', image: SanJose },
+                { name: 'San Nicolas', area: '278.07 ha', pop: '1,033 (2020)', households: '257 (2020)', image: SanNicolas },
+                { name: 'Sta. Maria Magdalena', area: '540.41 ha', pop: '1,083 (2020)', households: '262 (2020)', image: SantaMariaIbaba },
+                { name: 'Sta. Maria Ilaya', area: '547.59 ha', pop: '245 (2020)', households: '62 (2020)', image: SantaMariaIlaya },
+                { name: 'San Vicente', area: '487.83 ha', pop: '1,010 (2020)', households: '265 (2020)', image: SanVicente },
+                { name: 'Sumilang', area: '529.19 ha', pop: '801 (2020)', households: '183 (2020)', image: Sumilang },
+                { name: 'Villarica', area: '287.26 ha', pop: '632 (2020)', households: '160 (2020)', image: Villarica }
               ].map((barangay, index) => (
                 <div 
                   key={index} 
@@ -672,7 +701,7 @@ const PatientHome = () => {
                     <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-orange-200">
                       <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg overflow-hidden min-h-[400px] relative">
                         <img 
-                          src={`${import.meta.env.BASE_URL}src/img/${selectedBarangay.image}`}
+                          src={selectedBarangay.image}
                           alt={`${selectedBarangay.name} map`} 
                           className="w-full h-auto object-contain max-h-[60vh]"
                           onError={(e) => {
