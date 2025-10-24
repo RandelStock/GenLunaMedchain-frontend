@@ -110,12 +110,12 @@ export default function BlockchainHistory() {
 
   const getTypeColor = (type) => {
     const colors = {
-      'medicine': 'bg-blue-100 text-blue-800',
-      'stock': 'bg-purple-100 text-purple-800',
-      'receipt': 'bg-green-100 text-green-800',
-      'removal': 'bg-red-100 text-red-800'
+      'medicine': 'bg-blue-50 text-blue-700 border-blue-200',
+      'stock': 'bg-purple-50 text-purple-700 border-purple-200',
+      'receipt': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'removal': 'bg-red-50 text-red-700 border-red-200'
     };
-    return colors[type] || 'bg-gray-100 text-gray-800';
+    return colors[type] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
   const getTypeIcon = (type) => {
@@ -129,154 +129,150 @@ export default function BlockchainHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <FaLink className="text-indigo-600" />
-                Blockchain History
-              </h1>
-              <p className="text-gray-900 mt-2">
-                All cryptographic hashes stored on the Ethereum blockchain
-              </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                <h1 className="text-xl font-semibold text-gray-900">Blockchain History</h1>
+              </div>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <span className="text-sm text-gray-600">{stats.total} hashes</span>
             </div>
+            
             <button
               onClick={fetchBlockchainData}
               disabled={loading}
-              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400"
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FaSync className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <FaSync className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-              <div className="text-sm text-gray-700">Total Hashes</div>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Total Hashes</div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div className="text-3xl font-bold text-blue-600">{stats.medicines}</div>
-              <div className="text-sm text-gray-700">Medicines</div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-blue-600">{stats.medicines}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Medicines</div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div className="text-3xl font-bold text-purple-600">{stats.stocks}</div>
-              <div className="text-sm text-gray-700">Stocks</div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-purple-600">{stats.stocks}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Stocks</div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div className="text-3xl font-bold text-green-600">{stats.receipts}</div>
-              <div className="text-sm text-gray-700">Receipts</div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-emerald-600">{stats.receipts}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Receipts</div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div className="text-3xl font-bold text-red-600">{stats.removals}</div>
-              <div className="text-sm text-gray-700">Removals</div>
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-red-600">{stats.removals}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Removals</div>
             </div>
           </div>
-        </div>
 
-        {/* Info Box - What are Hashes? */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-2">
-            🔐 What are these hashes?
-          </h3>
-          <p className="text-sm text-blue-900">
-            A <strong>hash</strong> is a unique cryptographic fingerprint of your data. When you create or update 
-            a medicine, stock, receipt, or removal record, the system generates a hash (using SHA-256) of all 
-            the record's data and stores it on the Ethereum blockchain. This makes the data:
-          </p>
-          <ul className="list-disc list-inside text-sm text-blue-900 mt-2 space-y-1">
-            <li><strong>Tamper-proof:</strong> Any change to the original data will produce a different hash</li>
-            <li><strong>Verifiable:</strong> You can verify data integrity by comparing hashes</li>
-            <li><strong>Immutable:</strong> Once on the blockchain, it cannot be altered</li>
-            <li><strong>Transparent:</strong> Anyone can verify the data hasn't been tampered with</li>
-          </ul>
-        </div>
+          {/* Info Box */}
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+              🔐 What are these hashes?
+            </h3>
+            <p className="text-xs text-blue-900 leading-relaxed">
+              A <strong>hash</strong> is a unique cryptographic fingerprint of your data. When you create or update 
+              a medicine, stock, receipt, or removal record, the system generates a hash (using SHA-256) of all 
+              the record's data and stores it on the Ethereum blockchain. This makes the data:
+            </p>
+            <ul className="list-disc list-inside text-xs text-blue-900 mt-2 space-y-1">
+              <li><strong>Tamper-proof:</strong> Any change to the original data will produce a different hash</li>
+              <li><strong>Verifiable:</strong> You can verify data integrity by comparing hashes</li>
+              <li><strong>Immutable:</strong> Once on the blockchain, it cannot be altered</li>
+              <li><strong>Transparent:</strong> Anyone can verify the data hasn't been tampered with</li>
+            </ul>
+          </div>
 
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                <FaSearch className="inline mr-2" />
-                Search
-              </label>
+          {/* Filters */}
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by hash, record ID, or address..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
+                className="w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-500"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Filter by Type</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-900"
-              >
-                <option value="all">All Types</option>
-                <option value="medicine">Medicine</option>
-                <option value="stock">Stock</option>
-                <option value="receipt">Receipt</option>
-                <option value="removal">Removal</option>
-              </select>
-            </div>
+
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">All Types</option>
+              <option value="medicine">Medicine</option>
+              <option value="stock">Stock</option>
+              <option value="receipt">Receipt</option>
+              <option value="removal">Removal</option>
+            </select>
           </div>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="px-6 py-4">
         {/* Error Message */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
             <strong>Error:</strong> {error}
           </div>
         )}
 
         {/* Loading State */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-indigo-600 mb-4"></div>
-            <p className="text-gray-900">Loading blockchain data...</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600 mb-4"></div>
+            <p className="text-sm text-gray-600">Loading blockchain data...</p>
           </div>
         ) : filteredData.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
-            <FaLink className="text-6xl text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Hashes Found</h2>
-            <p className="text-gray-700">
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <FaLink className="text-6xl text-gray-300 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Hashes Found</h2>
+            <p className="text-sm text-gray-600">
               {blockchainData.length === 0 
                 ? "No hashes have been stored on the blockchain yet" 
                 : "No hashes match your search criteria"}
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Type
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Record ID
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Data Hash
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Added By
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Timestamp
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -285,7 +281,7 @@ export default function BlockchainHistory() {
                   {filteredData.map((item, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(item.type)}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border ${getTypeColor(item.type)}`}>
                           {getTypeIcon(item.type)} {item.type}
                         </span>
                       </td>
@@ -314,11 +310,11 @@ export default function BlockchainHistory() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {item.exists ? (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
                             <FaCheckCircle className="mr-1" /> Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                          <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border bg-gray-50 text-gray-700 border-gray-200">
                             <FaTimesCircle className="mr-1" /> Deleted
                           </span>
                         )}

@@ -1,6 +1,5 @@
-// components/AuditLogs.jsx - Database audit trail (separate from blockchain)
 import { useState, useEffect } from 'react';
-import { FaHistory, FaFilter, FaDownload, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaHistory, FaFilter, FaDownload, FaSearch, FaTimes } from 'react-icons/fa';
 import API_BASE_URL from '../config.js';
 
 const API_URL = API_BASE_URL;
@@ -42,7 +41,7 @@ const AuditLogs = () => {
         limit: 50
       }).toString();
 
-      const response = await fetch(`${API_URL}/audit-logs?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/audit-logs?${queryParams}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -62,17 +61,17 @@ const AuditLogs = () => {
     switch (action) {
       case 'CREATE':
       case 'STORE':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'UPDATE':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'DELETE':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-50 text-red-700 border-red-200';
       case 'GRANT_ROLE':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'REVOKE_ROLE':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-50 text-orange-700 border-orange-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
@@ -120,6 +119,16 @@ const AuditLogs = () => {
         log.derivedBarangay || 'RHU'
       ])
     ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleExportPDF = async () => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
@@ -138,58 +147,47 @@ const AuditLogs = () => {
     doc.save(`audit-logs-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-              <FaHistory className="mr-3 text-blue-600" />
-              Database Audit Logs
-            </h1>
-            <p className="text-gray-600 mt-2">Complete audit trail of database operations</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <h1 className="text-xl font-semibold text-gray-900">Audit Logs</h1>
+              </div>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <span className="text-sm text-gray-600">{auditLogs.length} records</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportCSV}
+                disabled={auditLogs.length === 0}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaDownload className="w-3.5 h-3.5" />
+                CSV
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={auditLogs.length === 0}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaDownload className="w-3.5 h-3.5" />
+                PDF
+              </button>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleExportCSV}
-              disabled={auditLogs.length === 0}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-            >
-              <FaDownload className="mr-2" />
-              Export CSV
-            </button>
-            <button
-              onClick={handleExportPDF}
-              disabled={auditLogs.length === 0}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-            >
-              <FaDownload className="mr-2" />
-              Export PDF
-            </button>
-          </div>
-        </div>
 
-        {/* Filters */}
-        <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <FaFilter className="mr-2" />
-            Filter Logs
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          {/* Filters Bar */}
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
             <select
               value={filters.table_name}
               onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Tables</option>
               <option value="medicines">Medicines</option>
@@ -202,7 +200,7 @@ const AuditLogs = () => {
             <select
               value={filters.action}
               onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Actions</option>
               <option value="CREATE">Create</option>
@@ -217,20 +215,20 @@ const AuditLogs = () => {
               type="date"
               value={filters.startDate}
               onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
             <input
               type="date"
               value={filters.endDate}
               onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
             <select
               value={filters.scope}
               onChange={(e) => setFilters(prev => ({ ...prev, scope: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Scope</option>
               <option value="RHU">RHU</option>
@@ -243,7 +241,7 @@ const AuditLogs = () => {
                 placeholder="Enter barangay"
                 value={filters.barangay}
                 onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
               />
             )}
 
@@ -251,171 +249,204 @@ const AuditLogs = () => {
               type="month"
               value={filters.month}
               onChange={(e) => setFilters(prev => ({ ...prev, month: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
+      </div>
 
-        {/* Audit Logs Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      {/* Main Content */}
+      <div className="px-6 py-4">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading audit logs...</p>
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-sm text-gray-600">Loading audit logs...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Table</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Record</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Changed By</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {auditLogs.map((log) => (
-                    <tr key={log.audit_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.changed_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {log.table_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        #{log.record_id || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(log.action)}`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {log.changed_by_user?.full_name || 'System'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 font-mono">
-                        {formatAddress(log.changed_by_wallet)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => handleViewDetails(log)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          View Changes
-                        </button>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Table</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Record</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Changed By</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {auditLogs.map((log) => (
+                      <tr key={log.audit_id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-gray-900">#{log.audit_id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(log.changed_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {log.table_name}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          #{log.record_id || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(log.action)}`}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="flex flex-col">
+                            <span className="text-gray-900">{log.changed_by_user?.full_name || 'System'}</span>
+                            <span className="text-xs text-gray-600 font-mono">{formatAddress(log.changed_by_wallet)}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <span className="px-2 py-1 text-xs font-medium text-gray-900 bg-gray-100 rounded">
+                            {log.derivedBarangay || 'RHU'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                          <button
+                            onClick={() => handleViewDetails(log)}
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          {auditLogs.length === 0 && !loading && (
-            <div className="p-8 text-center text-gray-500">
-              No audit logs found
-            </div>
+              {auditLogs.length === 0 && (
+                <div className="p-12 text-center text-gray-500 text-sm">No audit logs found</div>
+              )}
+            </>
           )}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-6">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2">
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-gray-600">
               Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
-
-        {/* Detailed View Modal */}
-        {showDetails && selectedLog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-semibold text-black">Transaction Details</h3>
-                  <button
-                    onClick={closeDetails}
-                    className="text-gray-500 hover:text-gray-700 text-2xl"
-                  >
-                    ×
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-black mb-2">Basic Information</h4>
-                    <div className="space-y-2 text-sm text-black">
-                      <div><span className="font-medium">Date:</span> {new Date(selectedLog.changed_at).toLocaleString()}</div>
-                      <div><span className="font-medium">Table:</span> {selectedLog.table_name}</div>
-                      <div><span className="font-medium">Record ID:</span> {selectedLog.record_id || 'N/A'}</div>
-                      <div><span className="font-medium">Action:</span> 
-                        <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(selectedLog.action)}`}>
-                          {selectedLog.action}
-                        </span>
-                      </div>
-                      <div><span className="font-medium">Changed By:</span> {selectedLog.changed_by_user?.full_name || 'System'}</div>
-                      <div><span className="font-medium">Role:</span> {selectedLog.changed_by_user?.role || 'N/A'}</div>
-                      <div><span className="font-medium">Barangay:</span> {selectedLog.derivedBarangay || 'RHU'}</div>
-                      <div><span className="font-medium">Wallet:</span> {formatAddress(selectedLog.changed_by_wallet)}</div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold text-black mb-2">Change Details</h4>
-                    <div className="space-y-4">
-                      {selectedLog.old_values && (
-                        <div>
-                          <h5 className="text-sm font-medium text-black mb-1">Previous Values:</h5>
-                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto text-black">
-                            {safeJsonStringify(selectedLog.old_values)}
-                          </pre>
-                        </div>
-                      )}
-                      
-                      {selectedLog.new_values && (
-                        <div>
-                          <h5 className="text-sm font-medium text-black mb-1">New Values:</h5>
-                          <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto text-black">
-                            {safeJsonStringify(selectedLog.new_values)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={closeDetails}
-                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Detailed View Modal */}
+      {showDetails && selectedLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
+              <button
+                onClick={closeDetails}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Basic Information</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="font-medium text-gray-900">{new Date(selectedLog.changed_at).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Table:</span>
+                      <span className="font-medium text-gray-900">{selectedLog.table_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Record ID:</span>
+                      <span className="font-medium text-gray-900">{selectedLog.record_id || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Action:</span>
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(selectedLog.action)}`}>
+                        {selectedLog.action}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Changed By:</span>
+                      <span className="font-medium text-gray-900">{selectedLog.changed_by_user?.full_name || 'System'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Role:</span>
+                      <span className="font-medium text-gray-900">{selectedLog.changed_by_user?.role || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Barangay:</span>
+                      <span className="font-medium text-gray-900">{selectedLog.derivedBarangay || 'RHU'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Wallet:</span>
+                      <span className="font-mono text-xs font-medium text-gray-900">{formatAddress(selectedLog.changed_by_wallet)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Change Details</h4>
+                  <div className="space-y-4">
+                    {selectedLog.old_values && (
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-2">Previous Values:</div>
+                        <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
+                          {safeJsonStringify(selectedLog.old_values)}
+                        </pre>
+                      </div>
+                    )}
+                    
+                    {selectedLog.new_values && (
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-2">New Values:</div>
+                        <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
+                          {safeJsonStringify(selectedLog.new_values)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={closeDetails}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded hover:bg-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
