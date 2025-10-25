@@ -297,57 +297,61 @@ const AllAuditLogs = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 placeholder="Search..."
-                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 text-sm text-gray-900 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <select
               value={filters.barangay}
               onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
-              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="px-3 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              style={{ color: '#111827' }}
             >
-              <option value="all">All Barangays</option>
-              <option value="RHU">RHU</option>
+              <option value="all" style={{ color: '#111827' }}>All Barangays</option>
+              <option value="RHU" style={{ color: '#111827' }}>RHU</option>
               {barangays.map(brgy => (
-                <option key={brgy} value={brgy}>{brgy}</option>
+                <option key={brgy} value={brgy} style={{ color: '#111827' }}>{brgy}</option>
               ))}
             </select>
 
             <select
               value={filters.table}
               onChange={(e) => setFilters(prev => ({ ...prev, table: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              style={{ color: '#111827' }}
             >
-              <option value="all">All Tables</option>
-              <option value="medicines">Medicines</option>
-              <option value="receipts">Receipts</option>
-              <option value="stocks">Stocks</option>
-              <option value="residents">Residents</option>
-              <option value="stock_removals">Stock Removals</option>
-              <option value="consultations">Consultations</option>
+              <option value="all" style={{ color: '#111827' }}>All Tables</option>
+              <option value="medicines" style={{ color: '#111827' }}>Medicines</option>
+              <option value="receipts" style={{ color: '#111827' }}>Receipts</option>
+              <option value="stocks" style={{ color: '#111827' }}>Stocks</option>
+              <option value="residents" style={{ color: '#111827' }}>Residents</option>
+              <option value="stock_removals" style={{ color: '#111827' }}>Stock Removals</option>
+              <option value="consultations" style={{ color: '#111827' }}>Consultations</option>
             </select>
 
             <select
               value={filters.action}
               onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              style={{ color: '#111827' }}
             >
-              <option value="all">All Actions</option>
-              <option value="CREATE">Create</option>
-              <option value="INSERT">Insert</option>
-              <option value="UPDATE">Update</option>
-              <option value="PATCH">Patch</option>
-              <option value="DELETE">Delete</option>
-              <option value="STORE">Store</option>
-              <option value="GRANT_ROLE">Grant Role</option>
-              <option value="REVOKE_ROLE">Revoke Role</option>
+              <option value="all" style={{ color: '#111827' }}>All Actions</option>
+              <option value="CREATE" style={{ color: '#111827' }}>Create</option>
+              <option value="INSERT" style={{ color: '#111827' }}>Insert</option>
+              <option value="UPDATE" style={{ color: '#111827' }}>Update</option>
+              <option value="PATCH" style={{ color: '#111827' }}>Patch</option>
+              <option value="DELETE" style={{ color: '#111827' }}>Delete</option>
+              <option value="STORE" style={{ color: '#111827' }}>Store</option>
+              <option value="GRANT_ROLE" style={{ color: '#111827' }}>Grant Role</option>
+              <option value="REVOKE_ROLE" style={{ color: '#111827' }}>Revoke Role</option>
             </select>
 
             <input
               type="month"
               value={filters.month}
               onChange={(e) => setFilters(prev => ({ ...prev, month: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ colorScheme: 'light', color: '#111827' }}
             />
           </div>
         </div>

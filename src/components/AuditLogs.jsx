@@ -80,11 +80,20 @@ const AuditLogs = () => {
         logs = logs.filter(log => new Date(log.changed_at) <= new Date(endDate + 'T23:59:59'));
       }
       
-      // STRICT BARANGAY ISOLATION - Only show logs from user's barangay
-      if (userBarangay) {
+      // BARANGAY FILTERING LOGIC
+      // - If user has a specific barangay (not RHU/MUNICIPAL), show only their barangay logs
+      // - If user is RHU/MUNICIPAL/ADMIN, show RHU logs (derivedBarangay === 'RHU' or null)
+      if (userBarangay && userBarangay !== 'RHU' && userBarangay !== 'MUNICIPAL') {
+        // Regular barangay user - strict isolation
         logs = logs.filter(log => {
           const logBarangay = log.derivedBarangay || 'RHU';
           return logBarangay === userBarangay;
+        });
+      } else {
+        // RHU/Municipal/Admin user - show RHU logs only
+        logs = logs.filter(log => {
+          const logBarangay = log.derivedBarangay || 'RHU';
+          return logBarangay === 'RHU' || !log.derivedBarangay;
         });
       }
       
