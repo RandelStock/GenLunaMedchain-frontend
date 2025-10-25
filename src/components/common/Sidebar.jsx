@@ -91,7 +91,7 @@ const Sidebar = () => {
         ],
         system: [
           { path: "/blockchain", icon: FaLink, label: "Blockchain" },
-          { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
+          // { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
           { path: "/audit-logs/all", icon: FaHistory, label: "All Audit Logs" },
           { path: "/profile", icon: FaUser, label: "Profile" },
         ],
@@ -121,7 +121,7 @@ const Sidebar = () => {
         system: [
           { path: "/blockchain", icon: FaLink, label: "Blockchain" },
           { path: "/consultation", icon: FaVideo, label: "Consultation" },
-          { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
+          // { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
           { path: "/audit-logs/all", icon: FaHistory, label: "All Audit Logs" },
           { path: "/profile", icon: FaUser, label: "Profile" },
         ],

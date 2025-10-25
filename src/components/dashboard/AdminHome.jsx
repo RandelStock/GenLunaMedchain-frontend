@@ -277,12 +277,12 @@ const AdminHome = () => {
                   >
                     🔗 Blockchain History
                   </Link>
-                  <Link
+                  {/* <Link
                     to="/transaction-history"
                     className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
                   >
                     💳 Transaction History
-                  </Link>
+                  </Link> */}
                   <Link
                     to="/audit-logs/all"
                     className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
@@ -447,7 +447,7 @@ const AdminHome = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
-                <Link
+                {/* <Link
                   to="/audit-logs/all"
                   className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
                 >
@@ -457,7 +457,7 @@ const AdminHome = () => {
                   <h3 className="text-base font-bold text-gray-900 mb-1">Transactions</h3>
                   <p className="text-sm text-gray-600">Complete transaction history</p>
                   <div className="mt-3 text-2xl font-bold text-green-600">{transactionStats.total}</div>
-                </Link>
+                </Link> */}
 
                 <Link
                   to="/blockchain"
@@ -471,7 +471,7 @@ const AdminHome = () => {
                 </Link>
 
                 <Link
-                  to="/transaction-history"
+                  to="/audit-logs/all"
                   className="group block p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl hover:shadow-md transition-all border border-yellow-200"
                 >
                   <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
