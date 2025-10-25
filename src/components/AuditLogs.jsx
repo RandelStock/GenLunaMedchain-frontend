@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaDownload, FaEye, FaTimes, FaChevronLeft, FaChevronRight, FaChartBar, FaSearch } from 'react-icons/fa';
+import { FaDownload, FaTimes, FaChevronLeft, FaChevronRight, FaChartBar, FaSearch } from 'react-icons/fa';
 import API_BASE_URL from '../config.js';
 
 const AuditLogs = () => {
@@ -20,54 +20,84 @@ const AuditLogs = () => {
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [userBarangay, setUserBarangay] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [barangays, setBarangays] = useState([]);
+
+  useEffect(() => {
+    fetchUserInfo();
+  }, []);
 
   useEffect(() => {
     loadAuditLogs();
-  }, [page, filters.table_name, filters.action, filters.startDate, filters.endDate, filters.scope, filters.barangay, filters.month]);
+  }, [page, filters.table_name, filters.action, filters.startDate, filters.endDate, filters.month]);
+
+  const fetchUserInfo = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const role = data?.user?.role;
+        const barangay = data?.user?.barangay;
+        
+        setUserRole(role);
+        setUserBarangay(barangay);
+        
+        // Auto-set barangay filter for non-admin users
+        if (barangay && role !== 'ADMIN' && role !== 'MUNICIPAL_STAFF') {
+          setFilters(prev => ({ ...prev, scope: 'barangay', barangay: barangay }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch user info:', err);
+    }
+  };
 
   const loadAuditLogs = async () => {
     try {
       setLoading(true);
-      const { table_name, action, startDate, endDate, scope, barangay, month } = filters;
+      const { table_name, action, startDate, endDate, month } = filters;
       const queryParams = new URLSearchParams({
         table: table_name || 'all',
         action: action || 'all',
-        dateFrom: startDate || '',
-        dateTo: endDate || '',
-        scope: scope || 'all',
-        barangay: scope === 'barangay' ? (barangay || '') : '',
         month: month || '',
-        page,
-        limit: 50
+        page: String(page),
+        limit: '100'
       }).toString();
 
-      const url = `${API_BASE_URL}/audit-logs?${queryParams}`;
-      console.log('🔍 Fetching audit logs from:', url);
-      console.log('📋 Query params:', { table_name, action, startDate, endDate, scope, barangay, month, page });
-
-      const response = await fetch(url, {
+      const response = await fetch(`${API_BASE_URL}/audit/all?${queryParams}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       
-      console.log('📡 Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Response not OK:', response.status, response.statusText);
-        console.error('❌ Error details:', errorText);
-        throw new Error(`Failed to fetch audit logs: ${response.status} ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error('Failed to fetch audit logs');
       
       const data = await response.json();
-      console.log('✅ Received data:', data);
-      console.log('📊 Number of logs:', (data.logs || data)?.length);
+      let logs = data.logs || [];
       
-      setAuditLogs(data.logs || data);
+      // Extract unique barangays
+      const uniqueBarangays = [...new Set(
+        logs
+          .map(log => log.derivedBarangay)
+          .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU')
+      )].sort();
+      setBarangays(uniqueBarangays);
+      
+      // Apply date filters
+      if (startDate) {
+        logs = logs.filter(log => new Date(log.changed_at) >= new Date(startDate));
+      }
+      if (endDate) {
+        logs = logs.filter(log => new Date(log.changed_at) <= new Date(endDate + 'T23:59:59'));
+      }
+      
+      setAuditLogs(logs);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
-      console.error('❌ Failed to load audit logs:', err);
-      console.error('❌ Full error:', err.message);
-      // Show empty state instead of error
+      console.error('Failed to load audit logs:', err);
       setAuditLogs([]);
       setTotalPages(1);
     } finally {
@@ -79,8 +109,10 @@ const AuditLogs = () => {
     switch (action) {
       case 'CREATE':
       case 'STORE':
+      case 'INSERT':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'UPDATE':
+      case 'PATCH':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'DELETE':
         return 'bg-red-50 text-red-700 border-red-200';
@@ -119,7 +151,6 @@ const AuditLogs = () => {
         return String(value);
       }
     } catch (error) {
-      console.error('Error parsing JSON:', error);
       return String(value);
     }
   };
@@ -127,7 +158,7 @@ const AuditLogs = () => {
   const handleExportCSV = () => {
     const csvContent = [
       ['Date', 'Table', 'Record ID', 'Action', 'Changed By', 'Wallet', 'Scope/Barangay'],
-      ...auditLogs.map(log => [
+      ...filteredLogs.map(log => [
         new Date(log.changed_at).toLocaleString(),
         log.table_name,
         log.record_id || 'N/A',
@@ -154,12 +185,12 @@ const AuditLogs = () => {
     doc.text('Audit Logs Report', 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
-    doc.text(`Total Records: ${auditLogs.length}`, 14, 34);
+    doc.text(`Total Records: ${filteredLogs.length}`, 14, 34);
     
     let y = 45;
     doc.setFontSize(9);
     
-    auditLogs.slice(0, 100).forEach((log) => {
+    filteredLogs.slice(0, 100).forEach((log) => {
       const date = new Date(log.changed_at).toLocaleString('en-US', { 
         month: '2-digit', 
         day: '2-digit', 
@@ -179,30 +210,49 @@ const AuditLogs = () => {
     doc.save(`audit-logs-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  // Filter logs based on scope, barangay, and search
+  const filteredLogs = auditLogs.filter(log => {
+    // Scope/Barangay filter (like MedicineList)
+    const logBarangay = log.derivedBarangay || 'RHU';
+    
+    if (filters.scope === 'RHU') {
+      if (logBarangay !== 'RHU') return false;
+    } else if (filters.scope === 'barangay') {
+      if (filters.barangay) {
+        if (logBarangay !== filters.barangay) return false;
+      } else {
+        // If barangay scope selected but no specific barangay, show all barangays (exclude RHU)
+        if (logBarangay === 'RHU') return false;
+      }
+    }
+    // 'all' scope shows everything
+    
+    // Search filter
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      return (
+        (log.table_name || '').toLowerCase().includes(q) ||
+        (log.action || '').toLowerCase().includes(q) ||
+        (log.changed_by_user?.full_name || '').toLowerCase().includes(q) ||
+        (logBarangay || '').toLowerCase().includes(q)
+      );
+    }
+    
+    return true;
+  });
+
   // Calculate statistics
   const stats = {
-    total: auditLogs.length,
-    byAction: auditLogs.reduce((acc, log) => {
+    total: filteredLogs.length,
+    byAction: filteredLogs.reduce((acc, log) => {
       acc[log.action] = (acc[log.action] || 0) + 1;
       return acc;
     }, {}),
-    byTable: auditLogs.reduce((acc, log) => {
+    byTable: filteredLogs.reduce((acc, log) => {
       acc[log.table_name] = (acc[log.table_name] || 0) + 1;
       return acc;
     }, {})
   };
-
-  // Filter logs by search query
-  const filteredLogs = auditLogs.filter(log => {
-    if (!filters.search) return true;
-    const q = filters.search.toLowerCase();
-    return (
-      (log.table_name || '').toLowerCase().includes(q) ||
-      (log.action || '').toLowerCase().includes(q) ||
-      (log.changed_by_user?.full_name || '').toLowerCase().includes(q) ||
-      (log.derivedBarangay || '').toLowerCase().includes(q)
-    );
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -217,6 +267,14 @@ const AuditLogs = () => {
               </div>
               <div className="h-6 w-px bg-gray-300"></div>
               <span className="text-sm text-gray-600">{filteredLogs.length} records</span>
+              {userBarangay && userRole !== 'ADMIN' && userRole !== 'MUNICIPAL_STAFF' && (
+                <>
+                  <div className="h-6 w-px bg-gray-300"></div>
+                  <span className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-purple-50 text-purple-900 border border-purple-300">
+                    {userBarangay}
+                  </span>
+                </>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
@@ -229,7 +287,7 @@ const AuditLogs = () => {
               </button>
               <button
                 onClick={handleExportCSV}
-                disabled={auditLogs.length === 0}
+                disabled={filteredLogs.length === 0}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaDownload className="w-3.5 h-3.5" />
@@ -237,7 +295,7 @@ const AuditLogs = () => {
               </button>
               <button
                 onClick={handleExportPDF}
-                disabled={auditLogs.length === 0}
+                disabled={filteredLogs.length === 0}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaDownload className="w-3.5 h-3.5" />
@@ -255,7 +313,7 @@ const AuditLogs = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 placeholder="Search..."
-                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
@@ -270,6 +328,7 @@ const AuditLogs = () => {
               <option value="stocks">Stocks</option>
               <option value="residents">Residents</option>
               <option value="stock_removals">Stock Removals</option>
+              <option value="consultations">Consultations</option>
             </select>
 
             <select
@@ -279,31 +338,38 @@ const AuditLogs = () => {
             >
               <option value="">All Actions</option>
               <option value="CREATE">Create</option>
+              <option value="INSERT">Insert</option>
               <option value="UPDATE">Update</option>
+              <option value="PATCH">Patch</option>
               <option value="DELETE">Delete</option>
               <option value="STORE">Store</option>
               <option value="GRANT_ROLE">Grant Role</option>
               <option value="REVOKE_ROLE">Revoke Role</option>
             </select>
 
-            <select
-              value={filters.scope}
-              onChange={(e) => setFilters(prev => ({ ...prev, scope: e.target.value }))}
-              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Scope</option>
-              <option value="RHU">RHU</option>
-              <option value="barangay">Barangay</option>
-            </select>
+            {(userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF') && (
+              <select
+                value={filters.scope}
+                onChange={(e) => setFilters(prev => ({ ...prev, scope: e.target.value }))}
+                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Scope</option>
+                <option value="RHU">RHU</option>
+                <option value="barangay">Barangay</option>
+              </select>
+            )}
 
-            {filters.scope === 'barangay' && (
-              <input
-                type="text"
-                placeholder="Enter barangay"
+            {filters.scope === 'barangay' && (userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF') && (
+              <select
                 value={filters.barangay}
                 onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
-                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
-              />
+                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Barangays</option>
+                {barangays.map((brgy) => (
+                  <option key={brgy} value={brgy}>{brgy}</option>
+                ))}
+              </select>
             )}
 
             <input
@@ -317,7 +383,6 @@ const AuditLogs = () => {
               type="date"
               value={filters.startDate}
               onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-              placeholder="Start Date"
               className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
@@ -325,7 +390,6 @@ const AuditLogs = () => {
               type="date"
               value={filters.endDate}
               onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-              placeholder="End Date"
               className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
