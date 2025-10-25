@@ -19,18 +19,38 @@ const AllAuditLogs = () => {
     search: '',
     barangay: 'all'
   });
-
-  // List of all barangays
-  const barangays = [
-    'BARANGAY 1', 'BARANGAY 2', 'BARANGAY 3', 'BARANGAY 4', 'BARANGAY 5',
-    'BARANGAY 6', 'BARANGAY 7', 'BARANGAY 8', 'BARANGAY 9', 'BARANGAY 10',
-    'COTTA', 'ISABANG', 'MARKET DISTRICT'
-  ];
+  const [barangays, setBarangays] = useState([]);
 
   useEffect(() => {
     loadLogs();
     loadStats();
+    loadBarangays();
   }, [page, filters]);
+
+  const loadBarangays = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/medicines`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const medicinesData = data.data || [];
+        
+        // Extract unique barangays from medicines, excluding RHU
+        const uniqueBarangays = [...new Set(
+          medicinesData
+            .map(med => med.barangay)
+            .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU')
+        )].sort();
+        
+        setBarangays(uniqueBarangays);
+      }
+    } catch (e) {
+      console.error('Failed to load barangays:', e);
+      setBarangays([]);
+    }
+  };
 
   const loadLogs = async () => {
     try {
