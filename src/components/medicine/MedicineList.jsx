@@ -51,7 +51,6 @@ export default function MedicineList() {
       const medicinesData = medRes.data.data || [];
       setMedicines(medicinesData);
       
-      // Extract unique barangays from medicines (excluding RHU)
       const uniqueBarangays = [...new Set(
         medicinesData
           .map(med => med.barangay)
@@ -59,7 +58,6 @@ export default function MedicineList() {
       )].sort();
       setBarangays(uniqueBarangays);
       
-      // Extract all stocks from nested medicine_stocks
       const allStocks = medicinesData.flatMap(med => 
         (med.medicine_stocks || []).map(stock => ({
           ...stock,
@@ -199,10 +197,10 @@ export default function MedicineList() {
     const stocks = selectedMedicine.medicine_stocks || [];
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-          <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Medicine Details</h2>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b border-gray-300 p-6 flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900">Medicine Details</h2>
             <div className="flex items-center gap-2">
               <button 
                 onClick={async () => {
@@ -210,78 +208,76 @@ export default function MedicineList() {
                   const updatedMed = medicines.find(m => m.medicine_id === selectedMedicine.medicine_id);
                   if (updatedMed) setSelectedMedicine(updatedMed);
                 }}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-medium transition-all"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium text-gray-900 transition-colors"
               >
-                🔄 Refresh
+                Refresh
               </button>
-              <button onClick={() => setShowViewModal(false)} className="text-white hover:bg-white/20 rounded-lg w-8 h-8 flex items-center justify-center text-2xl transition-all">×</button>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-500 hover:text-gray-900 text-2xl w-8 h-8 flex items-center justify-center">×</button>
             </div>
           </div>
           
           <div className="p-6 space-y-6">
-            {/* Basic Information */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-4 border-b-2 border-blue-500 pb-2">Basic Information</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-300">Basic Information</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-                  <label className="text-sm font-semibold text-blue-900">Medicine Name</label>
-                  <p className="text-xl font-bold text-gray-900 mt-1">{selectedMedicine.medicine_name}</p>
+                <div className="col-span-2 bg-gray-50 p-4 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Medicine Name</label>
+                  <p className="text-lg font-semibold text-gray-900 mt-1">{selectedMedicine.medicine_name}</p>
                 </div>
                 
                 {selectedMedicine.barangay && (
-                  <div className="col-span-2 bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
-                    <label className="text-sm font-semibold text-purple-900">📍 Location</label>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{selectedMedicine.barangay}</p>
+                  <div className="col-span-2 bg-gray-50 p-4 rounded border border-gray-300">
+                    <label className="text-xs font-semibold text-gray-900">Location</label>
+                    <p className="text-base font-medium text-gray-900 mt-1">{selectedMedicine.barangay}</p>
                   </div>
                 )}
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Generic Name</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.generic_name || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Generic Name</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.generic_name || 'N/A'}</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Medicine Type</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.medicine_type || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Medicine Type</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.medicine_type || 'N/A'}</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Dosage Form</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.dosage_form || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Dosage Form</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.dosage_form || 'N/A'}</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Strength</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.strength || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Strength</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.strength || 'N/A'}</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Category</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.category || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Category</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.category || 'N/A'}</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Manufacturer</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.manufacturer || 'N/A'}</p>
+                <div className="bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Manufacturer</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.manufacturer || 'N/A'}</p>
                 </div>
                 
-                <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Description</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.description || 'N/A'}</p>
+                <div className="col-span-2 bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Description</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.description || 'N/A'}</p>
                 </div>
                 
-                <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="text-sm font-semibold text-gray-900">Storage Requirements</label>
-                  <p className="text-gray-900 mt-1">{selectedMedicine.storage_requirements || 'N/A'}</p>
+                <div className="col-span-2 bg-gray-50 p-3 rounded border border-gray-300">
+                  <label className="text-xs font-semibold text-gray-900">Storage Requirements</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedMedicine.storage_requirements || 'N/A'}</p>
                 </div>
               </div>
             </div>
 
-            {/* Stock Information */}
             <div>
-              <div className="flex items-center justify-between mb-4 border-b-2 border-green-500 pb-2">
-                <h3 className="text-lg font-bold text-gray-900">Stock Information</h3>
-                <div className="text-2xl font-bold text-green-600">{totalStock} units</div>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-300">
+                <h3 className="text-base font-semibold text-gray-900">Stock Information</h3>
+                <div className="text-lg font-semibold text-gray-900">{totalStock} units</div>
               </div>
               
               {stocks.length > 0 ? (
@@ -289,26 +285,26 @@ export default function MedicineList() {
                   {stocks.map((stock, idx) => {
                     const isExpired = new Date(stock.expiry_date) < new Date();
                     return (
-                      <div key={idx} className={`p-4 rounded-lg border-l-4 ${isExpired ? 'bg-red-50 border-red-500' : 'bg-green-50 border-green-500'}`}>
+                      <div key={idx} className={`p-4 rounded border ${isExpired ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <label className="text-xs font-semibold text-gray-900">Batch Number</label>
-                            <p className="text-sm font-bold text-gray-900 mt-1">{stock.batch_number}</p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">{stock.batch_number}</p>
                           </div>
                           <div>
                             <label className="text-xs font-semibold text-gray-900">Quantity</label>
-                            <p className="text-sm font-bold text-gray-900 mt-1">{stock.remaining_quantity} / {stock.quantity}</p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">{stock.remaining_quantity} / {stock.quantity}</p>
                           </div>
                           <div>
                             <label className="text-xs font-semibold text-gray-900">Expiry Date</label>
-                            <p className="text-sm font-bold text-gray-900 mt-1">{new Date(stock.expiry_date).toLocaleDateString()}</p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">{new Date(stock.expiry_date).toLocaleDateString()}</p>
                           </div>
                           <div>
                             <label className="text-xs font-semibold text-gray-900">Status</label>
-                            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold ${
+                            <span className={`inline-block mt-1 px-2 py-1 rounded text-xs font-semibold ${
                               isExpired ? 'bg-red-200 text-red-900' : 'bg-green-200 text-green-900'
                             }`}>
-                              {isExpired ? '❌ Expired' : '✅ Active'}
+                              {isExpired ? 'Expired' : 'Active'}
                             </span>
                           </div>
                           {stock.storage_location && (
@@ -323,15 +319,15 @@ export default function MedicineList() {
                   })}
                 </div>
               ) : (
-                <div className="bg-gray-100 p-8 rounded-lg text-center">
-                  <p className="text-gray-900 font-semibold">No stock batches available</p>
+                <div className="bg-gray-50 p-8 rounded text-center border border-gray-300">
+                  <p className="text-gray-900 font-medium">No stock batches available</p>
                 </div>
               )}
             </div>
           </div>
           
-          <div className="sticky bottom-0 bg-gray-100 border-t border-gray-300 p-4 flex justify-end gap-3">
-            <button onClick={() => setShowViewModal(false)} className="px-6 py-2 bg-gray-300 text-gray-900 font-semibold rounded-lg hover:bg-gray-400 transition-all">
+          <div className="sticky bottom-0 bg-gray-50 border-t border-gray-300 p-4 flex justify-end gap-3">
+            <button onClick={() => setShowViewModal(false)} className="px-4 py-2 bg-white text-gray-900 font-medium rounded border border-gray-300 hover:bg-gray-50 transition-colors">
               Close
             </button>
             {(isAdmin || isStaff) && (
@@ -341,18 +337,18 @@ export default function MedicineList() {
                     setShowViewModal(false);
                     setShowEditModal(true);
                   }}
-                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                  className="px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 transition-colors"
                 >
-                  ✏️ Edit
+                  Edit
                 </button>
                 <button 
                   onClick={() => {
                     setShowViewModal(false);
                     setShowDeleteModal(true);
                   }}
-                  className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-all shadow-md hover:shadow-lg"
+                  className="px-4 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 transition-colors"
                 >
-                  🗑️ Delete
+                  Delete
                 </button>
               </>
             )}
@@ -420,142 +416,142 @@ export default function MedicineList() {
     };
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-          <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold">✏️ Edit Medicine</h2>
-            <button onClick={() => setShowEditModal(false)} className="text-white hover:bg-white/20 rounded-lg w-8 h-8 flex items-center justify-center text-2xl transition-all">×</button>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b border-gray-300 p-6 flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-900">Edit Medicine</h2>
+            <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-900 text-2xl w-8 h-8 flex items-center justify-center">×</button>
           </div>
 
           <form onSubmit={handleEditSubmit} className="p-6">
             {editError && (
-              <div className="mb-4 bg-red-100 border-l-4 border-red-600 text-red-900 p-4 rounded-lg font-semibold">
-                ❌ {editError}
+              <div className="mb-4 bg-red-50 border border-red-300 text-red-900 p-4 rounded font-medium">
+                {editError}
               </div>
             )}
             
             {editSuccess && (
-              <div className="mb-4 bg-green-100 border-l-4 border-green-600 text-green-900 p-4 rounded-lg font-semibold">
-                ✅ {editSuccess}
+              <div className="mb-4 bg-green-50 border border-green-300 text-green-900 p-4 rounded font-medium">
+                {editSuccess}
               </div>
             )}
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 border-b-2 border-blue-500 pb-2">Basic Information</h3>
+                <h3 className="text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-300">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Medicine Name *</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Medicine Name *</label>
                     <input
                       type="text"
                       name="medicine_name"
                       defaultValue={selectedMedicine.medicine_name}
                       required
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Generic Name</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Generic Name</label>
                     <input
                       type="text"
                       name="generic_name"
                       defaultValue={selectedMedicine.generic_name}
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Medicine Type</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Medicine Type</label>
                     <input
                       type="text"
                       name="medicine_type"
                       defaultValue={selectedMedicine.medicine_type}
                       placeholder="e.g., Tablet, Capsule, Syrup"
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Dosage Form</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Dosage Form</label>
                     <input
                       type="text"
                       name="dosage_form"
                       defaultValue={selectedMedicine.dosage_form}
                       placeholder="e.g., 500mg, 10ml"
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Strength</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Strength</label>
                     <input
                       type="text"
                       name="strength"
                       defaultValue={selectedMedicine.strength}
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Category</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Category</label>
                     <input
                       type="text"
                       name="category"
                       defaultValue={selectedMedicine.category}
                       placeholder="e.g., Analgesic, Antibiotic"
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Manufacturer</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Manufacturer</label>
                     <input
                       type="text"
                       name="manufacturer"
                       defaultValue={selectedMedicine.manufacturer}
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Description</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Description</label>
                     <textarea
                       name="description"
                       defaultValue={selectedMedicine.description}
                       rows="3"
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-bold text-gray-900 mb-2">Storage Requirements</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Storage Requirements</label>
                     <textarea
                       name="storage_requirements"
                       defaultValue={selectedMedicine.storage_requirements}
                       rows="2"
                       placeholder="e.g., Store in cool, dry place"
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t-2 border-gray-300 flex justify-end gap-3">
+            <div className="mt-6 pt-4 border-t border-gray-300 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="px-6 py-3 bg-gray-300 text-gray-900 font-bold rounded-lg hover:bg-gray-400 transition-all"
+                className="px-4 py-2 bg-white text-gray-900 font-medium rounded border border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={editLoading || !isAdmin}
-                className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                className="px-6 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                {editLoading ? "Saving..." : "💾 Save Changes"}
+                {editLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </form>
@@ -595,34 +591,34 @@ export default function MedicineList() {
     };
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">🗑️ Confirm Deletion</h2>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
           
           {deleteError && (
-            <div className="mb-4 bg-red-100 border-l-4 border-red-600 text-red-900 p-4 rounded-lg font-semibold">
-              ❌ {deleteError}
+            <div className="mb-4 bg-red-50 border border-red-300 text-red-900 p-4 rounded font-medium">
+              {deleteError}
             </div>
           )}
 
-          <p className="text-gray-900 mb-6 font-medium">
-            Are you sure you want to delete <strong className="text-red-600">{selectedMedicine.medicine_name}</strong>? This action cannot be undone.
+          <p className="text-gray-900 mb-6">
+            Are you sure you want to delete <strong>{selectedMedicine.medicine_name}</strong>? This action cannot be undone.
           </p>
 
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setShowDeleteModal(false)}
               disabled={deleteLoading}
-              className="px-6 py-3 bg-gray-300 text-gray-900 font-bold rounded-lg hover:bg-gray-400 disabled:opacity-50 transition-all"
+              className="px-4 py-2 bg-white text-gray-900 font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleDelete}
               disabled={deleteLoading || !isAdmin}
-              className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              className="px-4 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              {deleteLoading ? "Deleting..." : "🗑️ Delete"}
+              {deleteLoading ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
@@ -631,40 +627,40 @@ export default function MedicineList() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">💊 Medicine Inventory</h1>
-          <p className="text-lg text-gray-900">Manage and track your medicine stock</p>
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Medicine Inventory</h1>
+          <p className="text-sm text-gray-600">Manage and track your medicine stock</p>
         </div>
 
-        {/* Wallet Info Card */}
+        {/* Wallet Info */}
         {address && (
-          <div className="bg-white rounded-xl shadow-lg border-2 border-blue-200 p-5 mb-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center space-x-4 flex-wrap gap-3">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-bold text-gray-900">🔗 Wallet:</span>
-                  <span className="text-sm font-mono bg-blue-100 px-4 py-2 rounded-lg text-gray-900 font-semibold border border-blue-300">
+          <div className="bg-white rounded-lg border border-gray-300 p-4 mb-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-900">Wallet:</span>
+                  <span className="text-xs font-mono bg-gray-100 px-3 py-1.5 rounded text-gray-900 border border-gray-300">
                     {address.slice(0, 6)}...{address.slice(-4)}
                   </span>
                 </div>
-                <div className="h-6 w-px bg-gray-400"></div>
-                <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold border-2 ${
+                <div className="h-5 w-px bg-gray-300"></div>
+                <span className={`inline-flex items-center px-3 py-1.5 rounded text-xs font-semibold border ${
                   checkingAdmin
-                    ? "bg-yellow-100 text-yellow-900 border-yellow-400"
+                    ? "bg-yellow-50 text-yellow-900 border-yellow-300"
                     : isAdmin || isStaff
-                      ? "bg-green-100 text-green-900 border-green-400"
-                      : "bg-gray-100 text-gray-900 border-gray-400"
+                      ? "bg-green-50 text-green-900 border-green-300"
+                      : "bg-gray-50 text-gray-900 border-gray-300"
                 }`}>
-                  {checkingAdmin ? "⏳ Checking Role..." : isAdmin ? "👑 Admin Access" : isStaff ? "👤 Staff Access" : "👁️ View Only"}
+                  {checkingAdmin ? "Checking Role..." : isAdmin ? "Admin Access" : isStaff ? "Staff Access" : "View Only"}
                 </span>
                 {userBarangay && !dbAdmin && (
                   <>
-                    <div className="h-6 w-px bg-gray-400"></div>
-                    <span className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold bg-purple-100 text-purple-900 border-2 border-purple-400">
-                      📍 {userBarangay}
+                    <div className="h-5 w-px bg-gray-300"></div>
+                    <span className="inline-flex items-center px-3 py-1.5 rounded text-xs font-semibold bg-purple-50 text-purple-900 border border-purple-300">
+                      {userBarangay}
                     </span>
                   </>
                 )}
@@ -673,26 +669,26 @@ export default function MedicineList() {
           </div>
         )}
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-5 mb-6">
+        {/* Filters */}
+        <div className="bg-white rounded-lg border border-gray-300 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <label className="block text-sm font-bold text-gray-900 mb-2">🔍 Search Medicine</label>
+            <div>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Search Medicine</label>
               <input
                 type="text"
                 placeholder="Search by name or batch..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">📍 Filter by Location</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Filter by Location</label>
               <select
                 value={barangayFilter}
                 onChange={(e) => { setBarangayFilter(e.target.value); setCurrentPage(1); }}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Locations</option>
                 <option value="MUNICIPAL">Municipal</option>
@@ -703,11 +699,11 @@ export default function MedicineList() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">📊 Filter by Status</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Filter by Status</label>
               <select
                 value={filter}
                 onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Medicines</option>
                 <option value="active">Active Only</option>
@@ -716,11 +712,11 @@ export default function MedicineList() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2">📅 Sort by Expiry</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Sort by Expiry</label>
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="asc">Oldest First</option>
                 <option value="desc">Newest First</option>
@@ -729,30 +725,30 @@ export default function MedicineList() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="text-sm font-bold mb-2 opacity-90">
-              📦 Total Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg border border-gray-300 p-4">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              Total Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
-            <div className="text-4xl font-bold">{filteredAndSortedMedicines.length}</div>
+            <div className="text-2xl font-semibold text-gray-900">{filteredAndSortedMedicines.length}</div>
           </div>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="text-sm font-bold mb-2 opacity-90">
-              ✅ Active Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
+          <div className="bg-white rounded-lg border border-gray-300 p-4">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              Active Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
-            <div className="text-4xl font-bold">
+            <div className="text-2xl font-semibold text-green-600">
               {filteredAndSortedMedicines.filter(m => {
                 const hasExpiredStock = m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date());
                 return !hasExpiredStock;
               }).length}
             </div>
           </div>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="text-sm font-bold mb-2 opacity-90">
-              ⚠️ With Expired Batches {barangayFilter !== "all" && `(${barangayFilter})`}
+          <div className="bg-white rounded-lg border border-gray-300 p-4">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              With Expired Batches {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
-            <div className="text-4xl font-bold">
+            <div className="text-2xl font-semibold text-red-600">
               {filteredAndSortedMedicines.filter(m => {
                 const hasExpiredStock = m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date());
                 return hasExpiredStock;
@@ -761,134 +757,143 @@ export default function MedicineList() {
           </div>
         </div>
 
-        {/* Medicine List */}
+        {/* Medicine Table */}
         {loading ? (
-          <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-16 text-center">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-300 border-t-blue-600"></div>
-            <p className="mt-6 text-xl text-gray-900 font-semibold">Loading medicines...</p>
+          <div className="bg-white rounded-lg border border-gray-300 p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-blue-600"></div>
+            <p className="mt-4 text-sm text-gray-900">Loading medicines...</p>
           </div>
-                    
         ) : error ? (
-          <div className="bg-white rounded-xl shadow-lg border-2 border-red-300 p-16 text-center">
-            <p className="text-xl text-red-600 font-bold">❌ {error}</p>
+          <div className="bg-white rounded-lg border border-red-300 p-12 text-center">
+            <p className="text-sm text-red-600 font-medium">{error}</p>
           </div>
         ) : filteredAndSortedMedicines.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-16 text-center">
-            <p className="text-xl text-gray-900 font-semibold">No medicines found</p>
+          <div className="bg-white rounded-lg border border-gray-300 p-12 text-center">
+            <p className="text-sm text-gray-900">No medicines found</p>
           </div>
         ) : (
           <>
-            {/* Medicine Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedMedicines.map((med) => {
-                const totalStock = getTotalStock(med.medicine_id);
-                const hasExpiredStock = med.medicine_stocks?.some(
-                  (s) => new Date(s.expiry_date) < new Date()
-                );
-                return (
-                  <div
-                    key={med.medicine_id}
-                    className="bg-white border-2 border-gray-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-5 flex flex-col justify-between"
-                  >
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {med.medicine_name}
-                      </h3>
-                      <p className="text-sm text-gray-900 font-medium mb-3">
-                        {med.generic_name || "No generic name"}
-                      </p>
-
-                      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                              hasExpiredStock
-                                ? "bg-red-200 text-red-900 border-2 border-red-400"
-                                : "bg-green-200 text-green-900 border-2 border-green-400"
-                            }`}
-                          >
-                            {hasExpiredStock ? "❌ Expired" : "✅ Active"}
-                          </span>
+            <div className="bg-white rounded-lg border border-gray-300 overflow-hidden">
+              <table className="min-w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Medicine</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Generic Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Location</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedMedicines.map((med) => {
+                    const totalStock = getTotalStock(med.medicine_id);
+                    const hasExpiredStock = med.medicine_stocks?.some(
+                      (s) => new Date(s.expiry_date) < new Date()
+                    );
+                    return (
+                      <tr key={med.medicine_id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {med.medicine_name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {med.generic_name || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {med.category || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {med.medicine_type || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
                           {med.barangay && (
-                            <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-purple-200 text-purple-900 border-2 border-purple-400">
-                              📍 {med.barangay}
+                            <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-900">
+                              {med.barangay}
                             </span>
                           )}
-                        </div>
-                        <span className="text-sm text-gray-900 font-bold bg-blue-100 px-3 py-1 rounded-full border-2 border-blue-300">
-                          {totalStock} units
-                        </span>
-                      </div>
-
-                      <div className="text-sm text-gray-900 space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <p className="font-semibold"><span className="text-blue-600">Category:</span> {med.category || "N/A"}</p>
-                        <p className="font-semibold"><span className="text-blue-600">Manufacturer:</span> {med.manufacturer || "N/A"}</p>
-                        <p className="font-semibold"><span className="text-blue-600">Type:</span> {med.medicine_type || "N/A"}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedMedicine(med);
-                          setShowViewModal(true);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
-                      >
-                        👁️ View
-                      </button>
-                      {(isAdmin || isStaff) && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setSelectedMedicine(med);
-                              setShowEditModal(true);
-                            }}
-                            className="px-4 py-2 bg-yellow-500 text-white font-bold rounded-lg text-sm hover:bg-yellow-600 transition-all shadow-md hover:shadow-lg"
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-900">
+                            {totalStock} units
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span
+                            className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                              hasExpiredStock
+                                ? "bg-red-100 text-red-900"
+                                : "bg-green-100 text-green-900"
+                            }`}
                           >
-                            ✏️ Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedMedicine(med);
-                              setShowDeleteModal(true);
-                            }}
-                            className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg text-sm hover:bg-red-700 transition-all shadow-md hover:shadow-lg"
-                          >
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                            {hasExpiredStock ? "Expired" : "Active"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedMedicine(med);
+                                setShowViewModal(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              View
+                            </button>
+                            {(isAdmin || isStaff) && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedMedicine(med);
+                                    setShowEditModal(true);
+                                  }}
+                                  className="text-yellow-600 hover:text-yellow-800 font-medium"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedMedicine(med);
+                                    setShowDeleteModal(true);
+                                  }}
+                                  className="text-red-600 hover:text-red-800 font-medium"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-4 mt-8">
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.max(p - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                  className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md"
-                >
-                  ← Previous
-                </button>
-                <span className="text-base text-gray-900 font-bold bg-white px-6 py-3 rounded-lg border-2 border-gray-300 shadow-md">
+              <div className="flex items-center justify-between mt-4 bg-white rounded-lg border border-gray-300 px-4 py-3">
+                <div className="text-sm text-gray-900">
                   Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                  className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md"
-                >
-                  Next →
-                </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </>
