@@ -41,17 +41,35 @@ const AuditLogs = () => {
         limit: 50
       }).toString();
 
-      const response = await fetch(`${API_BASE_URL}/audit-logs?${queryParams}`, {
+      const url = `${API_BASE_URL}/audit-logs?${queryParams}`;
+      console.log('🔍 Fetching audit logs from:', url);
+      console.log('📋 Query params:', { table_name, action, startDate, endDate, scope, barangay, month, page });
+
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch audit logs');
+      console.log('📡 Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Response not OK:', response.status, response.statusText);
+        console.error('❌ Error details:', errorText);
+        throw new Error(`Failed to fetch audit logs: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('✅ Received data:', data);
+      console.log('📊 Number of logs:', (data.logs || data)?.length);
       
       setAuditLogs(data.logs || data);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
-      console.error('Failed to load audit logs:', err);
+      console.error('❌ Failed to load audit logs:', err);
+      console.error('❌ Full error:', err.message);
+      // Show empty state instead of error
+      setAuditLogs([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -244,7 +262,7 @@ const AuditLogs = () => {
             <select
               value={filters.table_name}
               onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Tables</option>
               <option value="medicines">Medicines</option>
@@ -257,7 +275,7 @@ const AuditLogs = () => {
             <select
               value={filters.action}
               onChange={(e) => setFilters(prev => ({ ...prev, action: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Actions</option>
               <option value="CREATE">Create</option>
@@ -271,7 +289,7 @@ const AuditLogs = () => {
             <select
               value={filters.scope}
               onChange={(e) => setFilters(prev => ({ ...prev, scope: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Scope</option>
               <option value="RHU">RHU</option>
@@ -284,7 +302,7 @@ const AuditLogs = () => {
                 placeholder="Enter barangay"
                 value={filters.barangay}
                 onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
-                className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
               />
             )}
 
@@ -292,7 +310,7 @@ const AuditLogs = () => {
               type="month"
               value={filters.month}
               onChange={(e) => setFilters(prev => ({ ...prev, month: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
             <input
@@ -300,7 +318,7 @@ const AuditLogs = () => {
               value={filters.startDate}
               onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
               placeholder="Start Date"
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
             <input
@@ -308,7 +326,7 @@ const AuditLogs = () => {
               value={filters.endDate}
               onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
               placeholder="End Date"
-              className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
