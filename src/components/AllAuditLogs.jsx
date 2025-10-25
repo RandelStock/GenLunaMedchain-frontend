@@ -16,8 +16,16 @@ const AllAuditLogs = () => {
     table: 'all',
     action: 'all',
     month: '',
-    search: ''
+    search: '',
+    barangay: 'all'
   });
+
+  // List of all barangays
+  const barangays = [
+    'BARANGAY 1', 'BARANGAY 2', 'BARANGAY 3', 'BARANGAY 4', 'BARANGAY 5',
+    'BARANGAY 6', 'BARANGAY 7', 'BARANGAY 8', 'BARANGAY 9', 'BARANGAY 10',
+    'COTTA', 'ISABANG', 'MARKET DISTRICT'
+  ];
 
   useEffect(() => {
     loadLogs();
@@ -78,8 +86,10 @@ const AllAuditLogs = () => {
     switch (action) {
       case 'CREATE':
       case 'STORE':
+      case 'INSERT':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'UPDATE':
+      case 'PATCH':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'DELETE':
         return 'bg-red-50 text-red-700 border-red-200';
@@ -123,10 +133,36 @@ const AllAuditLogs = () => {
     setShowDetails(false);
   };
 
+  // Filter logs by search and barangay
+  const filteredLogs = logs.filter(log => {
+    // Search filter
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      const matchesSearch = (
+        (log.table_name || '').toLowerCase().includes(q) ||
+        (log.action || '').toLowerCase().includes(q) ||
+        (log.changed_by_user?.full_name || '').toLowerCase().includes(q)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // Barangay filter
+    if (filters.barangay !== 'all') {
+      const logBarangay = log.derivedBarangay || 'RHU';
+      if (filters.barangay === 'RHU') {
+        return logBarangay === 'RHU';
+      } else {
+        return logBarangay === filters.barangay;
+      }
+    }
+
+    return true;
+  });
+
   const handleExportCSV = () => {
     const csvContent = [
-      ['Date', 'Table', 'Record ID', 'Action', 'Changed By', 'Wallet', 'ScopeBarangay'],
-      ...logs.map(log => [
+      ['Date', 'Table', 'Record ID', 'Action', 'Changed By', 'Wallet', 'Scope/Barangay'],
+      ...filteredLogs.map(log => [
         new Date(log.changed_at).toLocaleString(),
         log.table_name,
         log.record_id || 'N/A',
@@ -141,7 +177,8 @@ const AllAuditLogs = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `all-audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    const barangayLabel = filters.barangay === 'all' ? 'all' : filters.barangay.toLowerCase().replace(/\s+/g, '-');
+    a.download = `audit-logs-${barangayLabel}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -149,27 +186,37 @@ const AllAuditLogs = () => {
   const handleExportPDF = async () => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
-    doc.setFontSize(12);
-    doc.text('All Audit Logs (RHU + All Barangays)', 14, 16);
-    let y = 24;
-    logs.slice(0, 200).forEach((log) => {
-      const line = `${new Date(log.changed_at).toLocaleString()} | ${log.table_name}#${log.record_id || 'N/A'} | ${log.action} | ${log.changed_by_user?.full_name || 'System'} | ${log.derivedBarangay || 'RHU'}`;
+    doc.setFontSize(16);
+    doc.text('All Audit Logs Report', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    if (filters.barangay !== 'all') {
+      doc.text(`Barangay: ${filters.barangay}`, 14, 34);
+      doc.text(`Total Records: ${filteredLogs.length}`, 14, 40);
+    } else {
+      doc.text(`Total Records: ${filteredLogs.length}`, 14, 34);
+    }
+    
+    let y = filters.barangay !== 'all' ? 50 : 44;
+    doc.setFontSize(9);
+    
+    filteredLogs.slice(0, 200).forEach((log) => {
+      const date = new Date(log.changed_at).toLocaleString('en-US', { 
+        month: '2-digit', 
+        day: '2-digit', 
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const line = `${date} | ${log.table_name}#${log.record_id || 'N/A'} | ${log.action} | ${log.changed_by_user?.full_name || 'System'} | ${log.derivedBarangay || 'RHU'}`;
       doc.text(line.substring(0, 110), 14, y);
       y += 6;
       if (y > 280) { doc.addPage(); y = 20; }
     });
-    doc.save(`all-audit-logs-${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    const barangayLabel = filters.barangay === 'all' ? 'all' : filters.barangay.toLowerCase().replace(/\s+/g, '-');
+    doc.save(`audit-logs-${barangayLabel}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-
-  const filteredLogs = logs.filter(log => {
-    if (!filters.search) return true;
-    const q = filters.search.toLowerCase();
-    return (
-      (log.table_name || '').toLowerCase().includes(q) ||
-      (log.action || '').toLowerCase().includes(q) ||
-      (log.changed_by_user?.full_name || '').toLowerCase().includes(q)
-    );
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -179,11 +226,19 @@ const AllAuditLogs = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                <h1 className="text-xl font-semibold text-gray-900">Audit Logs</h1>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <h1 className="text-xl font-semibold text-gray-900">All Audit Logs</h1>
               </div>
               <div className="h-6 w-px bg-gray-300"></div>
-              <span className="text-sm text-gray-600">{totalLogs.toLocaleString()} records</span>
+              <span className="text-sm text-gray-600">{filteredLogs.length} / {totalLogs.toLocaleString()} records</span>
+              {filters.barangay !== 'all' && (
+                <>
+                  <div className="h-6 w-px bg-gray-300"></div>
+                  <span className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-900 border border-blue-300">
+                    {filters.barangay}
+                  </span>
+                </>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
@@ -196,7 +251,7 @@ const AllAuditLogs = () => {
               </button>
               <button
                 onClick={handleExportCSV}
-                disabled={logs.length === 0}
+                disabled={filteredLogs.length === 0}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaDownload className="w-3.5 h-3.5" />
@@ -204,7 +259,7 @@ const AllAuditLogs = () => {
               </button>
               <button
                 onClick={handleExportPDF}
-                disabled={logs.length === 0}
+                disabled={filteredLogs.length === 0}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaDownload className="w-3.5 h-3.5" />
@@ -227,6 +282,18 @@ const AllAuditLogs = () => {
             </div>
 
             <select
+              value={filters.barangay}
+              onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
+              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="all">All Barangays</option>
+              <option value="RHU">RHU</option>
+              {barangays.map(brgy => (
+                <option key={brgy} value={brgy}>{brgy}</option>
+              ))}
+            </select>
+
+            <select
               value={filters.table}
               onChange={(e) => setFilters(prev => ({ ...prev, table: e.target.value }))}
               className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -237,6 +304,7 @@ const AllAuditLogs = () => {
               <option value="stocks">Stocks</option>
               <option value="residents">Residents</option>
               <option value="stock_removals">Stock Removals</option>
+              <option value="consultations">Consultations</option>
             </select>
 
             <select
@@ -246,7 +314,9 @@ const AllAuditLogs = () => {
             >
               <option value="all">All Actions</option>
               <option value="CREATE">Create</option>
+              <option value="INSERT">Insert</option>
               <option value="UPDATE">Update</option>
+              <option value="PATCH">Patch</option>
               <option value="DELETE">Delete</option>
               <option value="STORE">Store</option>
               <option value="GRANT_ROLE">Grant Role</option>
@@ -270,6 +340,7 @@ const AllAuditLogs = () => {
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Transactions</div>
               <div className="text-2xl font-bold text-gray-900">{stats.total?.toLocaleString() || 0}</div>
+              <div className="text-xs text-gray-500 mt-1">Filtered: {filteredLogs.length.toLocaleString()}</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Actions</div>

@@ -13,8 +13,6 @@ const AuditLogs = () => {
     action: '',
     startDate: '',
     endDate: '',
-    scope: 'all',
-    barangay: '',
     month: '',
     search: ''
   });
@@ -22,15 +20,16 @@ const AuditLogs = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [userBarangay, setUserBarangay] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  const [barangays, setBarangays] = useState([]);
 
   useEffect(() => {
     fetchUserInfo();
   }, []);
 
   useEffect(() => {
-    loadAuditLogs();
-  }, [page, filters.table_name, filters.action, filters.startDate, filters.endDate, filters.month]);
+    if (userBarangay !== null) {
+      loadAuditLogs();
+    }
+  }, [page, filters.table_name, filters.action, filters.startDate, filters.endDate, filters.month, userBarangay]);
 
   const fetchUserInfo = async () => {
     try {
@@ -46,11 +45,6 @@ const AuditLogs = () => {
         
         setUserRole(role);
         setUserBarangay(barangay);
-        
-        // Auto-set barangay filter for non-admin users
-        if (barangay && role !== 'ADMIN' && role !== 'MUNICIPAL_STAFF') {
-          setFilters(prev => ({ ...prev, scope: 'barangay', barangay: barangay }));
-        }
       }
     } catch (err) {
       console.error('Failed to fetch user info:', err);
@@ -78,20 +72,20 @@ const AuditLogs = () => {
       const data = await response.json();
       let logs = data.logs || [];
       
-      // Extract unique barangays
-      const uniqueBarangays = [...new Set(
-        logs
-          .map(log => log.derivedBarangay)
-          .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU')
-      )].sort();
-      setBarangays(uniqueBarangays);
-      
       // Apply date filters
       if (startDate) {
         logs = logs.filter(log => new Date(log.changed_at) >= new Date(startDate));
       }
       if (endDate) {
         logs = logs.filter(log => new Date(log.changed_at) <= new Date(endDate + 'T23:59:59'));
+      }
+      
+      // STRICT BARANGAY ISOLATION - Only show logs from user's barangay
+      if (userBarangay) {
+        logs = logs.filter(log => {
+          const logBarangay = log.derivedBarangay || 'RHU';
+          return logBarangay === userBarangay;
+        });
       }
       
       setAuditLogs(logs);
@@ -173,7 +167,7 @@ const AuditLogs = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `audit-logs-${userBarangay}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -185,9 +179,10 @@ const AuditLogs = () => {
     doc.text('Audit Logs Report', 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
-    doc.text(`Total Records: ${filteredLogs.length}`, 14, 34);
+    doc.text(`Barangay: ${userBarangay}`, 14, 34);
+    doc.text(`Total Records: ${filteredLogs.length}`, 14, 40);
     
-    let y = 45;
+    let y = 50;
     doc.setFontSize(9);
     
     filteredLogs.slice(0, 100).forEach((log) => {
@@ -198,7 +193,7 @@ const AuditLogs = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-      const line = `${date} | ${log.table_name} #${log.record_id || 'N/A'} | ${log.action} | ${log.changed_by_user?.full_name || 'System'} | ${log.derivedBarangay || 'RHU'}`;
+      const line = `${date} | ${log.table_name} #${log.record_id || 'N/A'} | ${log.action} | ${log.changed_by_user?.full_name || 'System'}`;
       doc.text(line.substring(0, 115), 14, y);
       y += 6;
       if (y > 280) {
@@ -207,38 +202,18 @@ const AuditLogs = () => {
       }
     });
     
-    doc.save(`audit-logs-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`audit-logs-${userBarangay}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  // Filter logs based on scope, barangay, and search
+  // Filter logs by search
   const filteredLogs = auditLogs.filter(log => {
-    // Scope/Barangay filter (like MedicineList)
-    const logBarangay = log.derivedBarangay || 'RHU';
-    
-    if (filters.scope === 'RHU') {
-      if (logBarangay !== 'RHU') return false;
-    } else if (filters.scope === 'barangay') {
-      if (filters.barangay) {
-        if (logBarangay !== filters.barangay) return false;
-      } else {
-        // If barangay scope selected but no specific barangay, show all barangays (exclude RHU)
-        if (logBarangay === 'RHU') return false;
-      }
-    }
-    // 'all' scope shows everything
-    
-    // Search filter
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      return (
-        (log.table_name || '').toLowerCase().includes(q) ||
-        (log.action || '').toLowerCase().includes(q) ||
-        (log.changed_by_user?.full_name || '').toLowerCase().includes(q) ||
-        (logBarangay || '').toLowerCase().includes(q)
-      );
-    }
-    
-    return true;
+    if (!filters.search) return true;
+    const q = filters.search.toLowerCase();
+    return (
+      (log.table_name || '').toLowerCase().includes(q) ||
+      (log.action || '').toLowerCase().includes(q) ||
+      (log.changed_by_user?.full_name || '').toLowerCase().includes(q)
+    );
   });
 
   // Calculate statistics
@@ -267,7 +242,7 @@ const AuditLogs = () => {
               </div>
               <div className="h-6 w-px bg-gray-300"></div>
               <span className="text-sm text-gray-600">{filteredLogs.length} records</span>
-              {userBarangay && userRole !== 'ADMIN' && userRole !== 'MUNICIPAL_STAFF' && (
+              {userBarangay && (
                 <>
                   <div className="h-6 w-px bg-gray-300"></div>
                   <span className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-purple-50 text-purple-900 border border-purple-300">
@@ -346,31 +321,6 @@ const AuditLogs = () => {
               <option value="GRANT_ROLE">Grant Role</option>
               <option value="REVOKE_ROLE">Revoke Role</option>
             </select>
-
-            {(userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF') && (
-              <select
-                value={filters.scope}
-                onChange={(e) => setFilters(prev => ({ ...prev, scope: e.target.value }))}
-                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Scope</option>
-                <option value="RHU">RHU</option>
-                <option value="barangay">Barangay</option>
-              </select>
-            )}
-
-            {filters.scope === 'barangay' && (userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF') && (
-              <select
-                value={filters.barangay}
-                onChange={(e) => setFilters(prev => ({ ...prev, barangay: e.target.value }))}
-                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Barangays</option>
-                {barangays.map((brgy) => (
-                  <option key={brgy} value={brgy}>{brgy}</option>
-                ))}
-              </select>
-            )}
 
             <input
               type="month"
