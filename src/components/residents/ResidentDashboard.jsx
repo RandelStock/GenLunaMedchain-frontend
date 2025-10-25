@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Users, Heart, Baby, Gift, UserCheck, MapPin, Search, ChevronRight, X } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import API_BASE_URL from '../../config.js';
 
 const API_URL = API_BASE_URL;
@@ -37,6 +36,61 @@ const BARANGAYS = [
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
+// Simple Bar Chart Component
+const SimpleBarChart = ({ data }) => {
+  const maxValue = Math.max(...data.map(d => d.value), 1);
+  
+  return (
+    <div className="space-y-3">
+      {data.map((item, index) => (
+        <div key={index} className="space-y-1">
+          <div className="flex justify-between items-center text-sm">
+            <span className="font-medium text-black">{item.name}</span>
+            <span className="font-bold text-black">{item.value}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${(item.value / maxValue) * 100}%`,
+                backgroundColor: COLORS[index % COLORS.length]
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Simple Pie Chart Component
+const SimplePieChart = ({ data }) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  
+  return (
+    <div className="space-y-2">
+      {data.map((item, index) => {
+        const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+        return (
+          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-4 h-4 rounded"
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              />
+              <span className="text-sm font-medium text-black">{item.name}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">{percentage}%</span>
+              <span className="font-bold text-black">{item.value}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const BarangayRow = ({ barangay, stats, onViewDetails }) => {
   return (
     <tr className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
@@ -54,7 +108,7 @@ const BarangayRow = ({ barangay, stats, onViewDetails }) => {
       <td className="px-6 py-4 text-center">
         <button 
           onClick={() => onViewDetails(barangay, stats)}
-          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mx-auto"
+          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mx-auto transition-colors"
         >
           View Details <ChevronRight className="w-4 h-4" />
         </button>
@@ -146,39 +200,13 @@ const BarangayDetailPanel = ({ barangay, stats, onClose }) => {
             {/* Age Distribution Bar Chart */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <h3 className="font-bold text-lg mb-4 text-black">Age Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={ageData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fill: '#000' }} />
-                  <YAxis tick={{ fill: '#000' }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }} />
-                  <Bar dataKey="value" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
+              <SimpleBarChart data={ageData} />
             </div>
 
-            {/* Demographics Pie Chart */}
+            {/* Demographics Breakdown */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <h3 className="font-bold text-lg mb-4 text-black">Demographics Breakdown</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={demographicData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {demographicData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <SimplePieChart data={demographicData} />
             </div>
           </div>
 
@@ -223,23 +251,6 @@ const ResidentDashboard = () => {
 
   useEffect(() => {
     fetchAllBarangayData();
-    
-    const refreshInterval = setInterval(() => {
-      fetchAllBarangayData(true);
-    }, 30000);
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchAllBarangayData(true);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      clearInterval(refreshInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
   }, []);
 
   const fetchAllBarangayData = async (silent = false) => {
