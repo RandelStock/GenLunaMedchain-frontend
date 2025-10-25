@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, Heart, Baby, Gift, UserCheck, MapPin } from 'lucide-react';
+import { Users, Heart, Baby, Gift, UserCheck, MapPin, Search, ChevronRight, X } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import API_BASE_URL from '../../config.js';
 
 const API_URL = API_BASE_URL;
@@ -34,154 +35,173 @@ const BARANGAYS = [
   { value: 'VILLARICA', label: 'Villarica' }
 ];
 
-const BarangayCard = ({ barangay, stats, onClick }) => {
-  // Generate a unique gradient for each barangay
-  const gradients = [
-    'from-blue-400 to-blue-600',
-    'from-green-400 to-green-600',
-    'from-purple-400 to-purple-600',
-    'from-pink-400 to-pink-600',
-    'from-indigo-400 to-indigo-600',
-    'from-red-400 to-red-600',
-    'from-yellow-400 to-yellow-600',
-    'from-teal-400 to-teal-600',
-    'from-orange-400 to-orange-600',
-  ];
-  
-  const gradientIndex = barangay.value.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % gradients.length;
-  const gradient = gradients[gradientIndex];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
+const BarangayRow = ({ barangay, stats, onViewDetails }) => {
   return (
-    <div 
-      onClick={onClick}
-      className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
-    >
-      {/* Image Header with Gradient Overlay */}
-      <div className={`relative h-40 bg-gradient-to-br ${gradient}`}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <MapPin className="w-16 h-16 text-white opacity-30" />
+    <tr className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-gray-600" />
+          <span className="font-medium text-black">{barangay.label}</span>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-          <h3 className="text-white font-bold text-lg">{barangay.label}</h3>
-        </div>
-      </div>
-
-      {/* Stats Content */}
-      <div className="p-4">
-        <div className="grid grid-cols-2 gap-3">
-          {/* Total Residents */}
-          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span className="text-xs text-blue-700 font-medium">Residents</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-900">{stats?.totalResidents || 0}</p>
-          </div>
-
-          {/* 4Ps Members */}
-          <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Gift className="w-4 h-4 text-green-600" />
-              <span className="text-xs text-green-700 font-medium">4Ps</span>
-            </div>
-            <p className="text-2xl font-bold text-green-900">{stats?.fourPsMembers || 0}</p>
-          </div>
-
-          {/* Pregnant */}
-          <div className="bg-pink-50 rounded-lg p-3 border border-pink-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Heart className="w-4 h-4 text-pink-600" />
-              <span className="text-xs text-pink-700 font-medium">Pregnant</span>
-            </div>
-            <p className="text-2xl font-bold text-pink-900">{stats?.pregnantResidents || 0}</p>
-          </div>
-
-          {/* Senior Citizens */}
-          <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
-            <div className="flex items-center gap-2 mb-1">
-              <UserCheck className="w-4 h-4 text-purple-600" />
-              <span className="text-xs text-purple-700 font-medium">Seniors</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-900">{stats?.seniorCitizens || 0}</p>
-          </div>
-
-          {/* Birth Registered */}
-          <div className="bg-orange-50 rounded-lg p-3 border border-orange-100 col-span-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Baby className="w-4 h-4 text-orange-600" />
-              <span className="text-xs text-orange-700 font-medium">Birth Registered</span>
-            </div>
-            <p className="text-2xl font-bold text-orange-900">{stats?.birthRegistered || 0}</p>
-          </div>
-        </div>
-      </div>
-    </div>
+      </td>
+      <td className="px-6 py-4 text-center text-black font-medium">{stats?.totalResidents || 0}</td>
+      <td className="px-6 py-4 text-center text-black">{stats?.fourPsMembers || 0}</td>
+      <td className="px-6 py-4 text-center text-black">{stats?.pregnantResidents || 0}</td>
+      <td className="px-6 py-4 text-center text-black">{stats?.seniorCitizens || 0}</td>
+      <td className="px-6 py-4 text-center text-black">{stats?.birthRegistered || 0}</td>
+      <td className="px-6 py-4 text-center">
+        <button 
+          onClick={() => onViewDetails(barangay, stats)}
+          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mx-auto"
+        >
+          View Details <ChevronRight className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
   );
 };
 
-const BarangayDetailModal = ({ barangay, stats, onClose }) => {
+const BarangayDetailPanel = ({ barangay, stats, onClose }) => {
+  // Prepare age distribution data for chart
+  const ageData = [
+    { name: '0-23 Months', value: stats?.ageCategories?.ZERO_TO_23_MONTHS || 0 },
+    { name: '24-59 Months', value: stats?.ageCategories?.TWENTY_FOUR_TO_59_MONTHS || 0 },
+    { name: '60-71 Months', value: stats?.ageCategories?.SIXTY_TO_71_MONTHS || 0 },
+    { name: 'Above 71 Months', value: stats?.ageCategories?.ABOVE_71_MONTHS || 0 }
+  ];
+
+  // Prepare demographic data for pie chart
+  const demographicData = [
+    { name: '4Ps Members', value: stats?.fourPsMembers || 0 },
+    { name: 'Pregnant', value: stats?.pregnantResidents || 0 },
+    { name: 'Senior Citizens', value: stats?.seniorCitizens || 0 },
+    { name: 'Birth Registered', value: stats?.birthRegistered || 0 }
+  ];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">{barangay.label}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-            >
-              ×
-            </button>
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <MapPin className="w-6 h-6 text-white" />
+            <h2 className="text-2xl font-bold text-white">{barangay.label}</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-blue-800 rounded-full p-1 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
         
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-6 overflow-y-auto flex-1">
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-5 gap-4 mb-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-700 mb-1">Total Residents</p>
-              <p className="text-3xl font-bold text-blue-900">{stats?.totalResidents || 0}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <p className="text-sm font-medium text-black">Total Residents</p>
+              </div>
+              <p className="text-3xl font-bold text-black">{stats?.totalResidents || 0}</p>
             </div>
             
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-700 mb-1">4Ps Members</p>
-              <p className="text-3xl font-bold text-green-900">{stats?.fourPsMembers || 0}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Gift className="w-5 h-5 text-green-600" />
+                <p className="text-sm font-medium text-black">4Ps Members</p>
+              </div>
+              <p className="text-3xl font-bold text-black">{stats?.fourPsMembers || 0}</p>
             </div>
             
             <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
-              <p className="text-sm text-pink-700 mb-1">Pregnant</p>
-              <p className="text-3xl font-bold text-pink-900">{stats?.pregnantResidents || 0}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="w-5 h-5 text-pink-600" />
+                <p className="text-sm font-medium text-black">Pregnant</p>
+              </div>
+              <p className="text-3xl font-bold text-black">{stats?.pregnantResidents || 0}</p>
             </div>
             
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <p className="text-sm text-purple-700 mb-1">Senior Citizens</p>
-              <p className="text-3xl font-bold text-purple-900">{stats?.seniorCitizens || 0}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <UserCheck className="w-5 h-5 text-purple-600" />
+                <p className="text-sm font-medium text-black">Senior Citizens</p>
+              </div>
+              <p className="text-3xl font-bold text-black">{stats?.seniorCitizens || 0}</p>
             </div>
             
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <p className="text-sm text-orange-700 mb-1">Birth Registered</p>
-              <p className="text-3xl font-bold text-orange-900">{stats?.birthRegistered || 0}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Baby className="w-5 h-5 text-orange-600" />
+                <p className="text-sm font-medium text-black">Birth Registered</p>
+              </div>
+              <p className="text-3xl font-bold text-black">{stats?.birthRegistered || 0}</p>
             </div>
           </div>
 
+          {/* Charts Section */}
+          <div className="grid grid-cols-2 gap-6">
+            {/* Age Distribution Bar Chart */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="font-bold text-lg mb-4 text-black">Age Distribution</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={ageData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fill: '#000' }} />
+                  <YAxis tick={{ fill: '#000' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }} />
+                  <Bar dataKey="value" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Demographics Pie Chart */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="font-bold text-lg mb-4 text-black">Demographics Breakdown</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={demographicData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {demographicData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Detailed Age Categories */}
           {stats?.ageCategories && (
-            <div className="mt-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Age Distribution</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm text-gray-700">0-23 Months</span>
-                  <span className="font-semibold text-gray-900">{stats.ageCategories.ZERO_TO_23_MONTHS || 0}</span>
+            <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="font-bold text-lg mb-3 text-black">Detailed Age Categories</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm font-medium text-black">0-23 Months</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.ZERO_TO_23_MONTHS || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm text-gray-700">24-59 Months</span>
-                  <span className="font-semibold text-gray-900">{stats.ageCategories.TWENTY_FOUR_TO_59_MONTHS || 0}</span>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm font-medium text-black">24-59 Months</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.TWENTY_FOUR_TO_59_MONTHS || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm text-gray-700">60-71 Months</span>
-                  <span className="font-semibold text-gray-900">{stats.ageCategories.SIXTY_TO_71_MONTHS || 0}</span>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm font-medium text-black">60-71 Months</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.SIXTY_TO_71_MONTHS || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm text-gray-700">Above 71 Months</span>
-                  <span className="font-semibold text-gray-900">{stats.ageCategories.ABOVE_71_MONTHS || 0}</span>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm font-medium text-black">Above 71 Months</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.ABOVE_71_MONTHS || 0}</span>
                 </div>
               </div>
             </div>
@@ -197,18 +217,17 @@ const ResidentDashboard = () => {
   const [selectedBarangay, setSelectedBarangay] = useState(null);
   const [selectedStats, setSelectedStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchAllBarangayData();
     
-    // Set up periodic refresh every 30 seconds
     const refreshInterval = setInterval(() => {
-      fetchAllBarangayData(true); // Silent refresh
+      fetchAllBarangayData(true);
     }, 30000);
 
-    // Refresh when page becomes visible again (user switches back to tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         fetchAllBarangayData(true);
@@ -232,8 +251,6 @@ const ResidentDashboard = () => {
       }
       const token = localStorage.getItem('token');
       
-      // Use the compare/barangays endpoint which is designed for admin/municipal staff
-      // to see all barangays without barangay restrictions
       try {
         const response = await fetch(`${API_URL}/residents/compare/barangays`, {
           headers: {
@@ -244,7 +261,6 @@ const ResidentDashboard = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
-            // Convert the compare data format to our expected format
             const dataMap = {};
             data.data.forEach(item => {
               dataMap[item.barangay] = {
@@ -256,8 +272,8 @@ const ResidentDashboard = () => {
                   pregnantResidents: item.pregnant,
                   seniorCitizens: item.seniorCitizens,
                   birthRegistered: item.birthRegistered,
-                  ageCategories: {}, // This endpoint doesn't provide age categories
-                  genderBreakdown: {} // This endpoint doesn't provide gender breakdown
+                  ageCategories: {},
+                  genderBreakdown: {}
                 }
               };
             });
@@ -270,7 +286,6 @@ const ResidentDashboard = () => {
         console.error('Error fetching compare data:', error);
       }
       
-      // Fallback to individual barangay requests if compare endpoint fails
       const promises = BARANGAYS.map(async (barangay) => {
         try {
           const response = await fetch(`${API_URL}/residents/statistics/barangay/${barangay.value}`, {
@@ -313,34 +328,41 @@ const ResidentDashboard = () => {
     fetchAllBarangayData();
   };
 
-  const handleBarangayClick = (barangay) => {
+  const handleViewDetails = (barangay, stats) => {
     setSelectedBarangay(barangay);
-    setSelectedStats(barangayData[barangay.value]?.stats);
-    setShowDetailModal(true);
+    setSelectedStats(stats);
+    setShowDetailPanel(true);
   };
+
+  const filteredBarangays = BARANGAYS.filter(barangay =>
+    barangay.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-gray-600 text-lg">Loading barangay data...</div>
+          <div className="text-gray-900 text-lg font-medium">Loading barangay data...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <h1 className="text-4xl font-bold text-gray-900">Barangay Statistics Dashboard</h1>
+        <div className="bg-white border-b border-gray-200 rounded-t-lg px-6 py-4 mb-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-black">Barangay Statistics Dashboard</h1>
+              <p className="text-gray-600 mt-1">General Luna, Quezon Province • All 27 Barangays</p>
+            </div>
             <button
               onClick={handleManualRefresh}
               disabled={loading || refreshing}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors font-medium"
             >
               <svg 
                 className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} 
@@ -353,34 +375,72 @@ const ResidentDashboard = () => {
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
-          <p className="text-gray-600 text-lg">General Luna, Quezon Province</p>
-          <p className="text-sm text-gray-500 mt-2">All 27 Barangays</p>
-          {refreshing && (
-            <p className="text-sm text-blue-600 mt-2 animate-pulse">Updating data...</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search barangay..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-b-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-black uppercase tracking-wider">Barangay</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">Total Residents</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">4Ps Members</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">Pregnant</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">Senior Citizens</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">Birth Registered</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-black uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBarangays.map((barangay) => (
+                  <BarangayRow
+                    key={barangay.value}
+                    barangay={barangay}
+                    stats={barangayData[barangay.value]?.stats}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredBarangays.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No barangays found matching your search.</p>
+            </div>
           )}
         </div>
 
-        {/* Barangay Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {BARANGAYS.map((barangay) => (
-            <BarangayCard
-              key={barangay.value}
-              barangay={barangay}
-              stats={barangayData[barangay.value]?.stats}
-              onClick={() => handleBarangayClick(barangay)}
-            />
-          ))}
-        </div>
-
-        {/* Detail Modal */}
-        {showDetailModal && selectedBarangay && selectedStats && (
-          <BarangayDetailModal
-            barangay={selectedBarangay}
-            stats={selectedStats}
-            onClose={() => setShowDetailModal(false)}
-          />
+        {refreshing && (
+          <div className="mt-4 text-center">
+            <p className="text-sm text-blue-600 animate-pulse font-medium">Updating data...</p>
+          </div>
         )}
       </div>
+
+      {/* Detail Panel */}
+      {showDetailPanel && selectedBarangay && selectedStats && (
+        <BarangayDetailPanel
+          barangay={selectedBarangay}
+          stats={selectedStats}
+          onClose={() => setShowDetailPanel(false)}
+        />
+      )}
     </div>
   );
 };
