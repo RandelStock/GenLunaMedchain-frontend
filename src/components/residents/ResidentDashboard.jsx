@@ -5,33 +5,33 @@ import API_BASE_URL from '../../config.js';
 const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
-  { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
-  { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
-  { value: 'BARANGAY_1_POBLACION', label: 'Barangay 1 (Poblacion)' },
-  { value: 'BARANGAY_2_POBLACION', label: 'Barangay 2 (Poblacion)' },
-  { value: 'BARANGAY_3_POBLACION', label: 'Barangay 3 (Poblacion)' },
-  { value: 'BARANGAY_4_POBLACION', label: 'Barangay 4 (Poblacion)' },
-  { value: 'BARANGAY_5_POBLACION', label: 'Barangay 5 (Poblacion)' },
-  { value: 'BARANGAY_6_POBLACION', label: 'Barangay 6 (Poblacion)' },
-  { value: 'BARANGAY_7_POBLACION', label: 'Barangay 7 (Poblacion)' },
-  { value: 'BARANGAY_8_POBLACION', label: 'Barangay 8 (Poblacion)' },
-  { value: 'BARANGAY_9_POBLACION', label: 'Barangay 9 (Poblacion)' },
-  { value: 'LAVIDES', label: 'Lavides' },
-  { value: 'MAGSAYSAY', label: 'Magsaysay' },
-  { value: 'MALAYA', label: 'Malaya' },
-  { value: 'NIEVA', label: 'Nieva' },
-  { value: 'RECTO', label: 'Recto' },
-  { value: 'SAN_IGNACIO_IBABA', label: 'San Ignacio Ibaba' },
-  { value: 'SAN_IGNACIO_ILAYA', label: 'San Ignacio Ilaya' },
-  { value: 'SAN_ISIDRO_IBABA', label: 'San Isidro Ibaba' },
-  { value: 'SAN_ISIDRO_ILAYA', label: 'San Isidro Ilaya' },
-  { value: 'SAN_JOSE', label: 'San Jose' },
-  { value: 'SAN_NICOLAS', label: 'San Nicolas' },
-  { value: 'SAN_VICENTE', label: 'San Vicente' },
-  { value: 'SANTA_MARIA_IBABA', label: 'Santa Maria Ibaba' },
-  { value: 'SANTA_MARIA_ILAYA', label: 'Santa Maria Ilaya' },
-  { value: 'SUMILANG', label: 'Sumilang' },
-  { value: 'VILLARICA', label: 'Villarica' }
+  { value: 'Bacong Ibaba', label: 'Bacong Ibaba' },
+  { value: 'Bacong Ilaya', label: 'Bacong Ilaya' },
+  { value: 'Barangay 1 (Poblacion)', label: 'Barangay 1 (Poblacion)' },
+  { value: 'Barangay 2 (Poblacion)', label: 'Barangay 2 (Poblacion)' },
+  { value: 'Barangay 3 (Poblacion)', label: 'Barangay 3 (Poblacion)' },
+  { value: 'Barangay 4 (Poblacion)', label: 'Barangay 4 (Poblacion)' },
+  { value: 'Barangay 5 (Poblacion)', label: 'Barangay 5 (Poblacion)' },
+  { value: 'Barangay 6 (Poblacion)', label: 'Barangay 6 (Poblacion)' },
+  { value: 'Barangay 7 (Poblacion)', label: 'Barangay 7 (Poblacion)' },
+  { value: 'Barangay 8 (Poblacion)', label: 'Barangay 8 (Poblacion)' },
+  { value: 'Barangay 9 (Poblacion)', label: 'Barangay 9 (Poblacion)' },
+  { value: 'Lavides', label: 'Lavides' },
+  { value: 'Magsaysay', label: 'Magsaysay' },
+  { value: 'Malaya', label: 'Malaya' },
+  { value: 'Nieva', label: 'Nieva' },
+  { value: 'Recto', label: 'Recto' },
+  { value: 'San Ignacio Ibaba', label: 'San Ignacio Ibaba' },
+  { value: 'San Ignacio Ilaya', label: 'San Ignacio Ilaya' },
+  { value: 'San Isidro Ibaba', label: 'San Isidro Ibaba' },
+  { value: 'San Isidro Ilaya', label: 'San Isidro Ilaya' },
+  { value: 'San Jose', label: 'San Jose' },
+  { value: 'San Nicolas', label: 'San Nicolas' },
+  { value: 'San Vicente', label: 'San Vicente' },
+  { value: 'Santa Maria Ibaba', label: 'Santa Maria Ibaba' },
+  { value: 'Santa Maria Ilaya', label: 'Santa Maria Ilaya' },
+  { value: 'Sumilang', label: 'Sumilang' },
+  { value: 'Villarica', label: 'Villarica' }
 ];
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -118,13 +118,19 @@ const BarangayRow = ({ barangay, stats, onViewDetails }) => {
 };
 
 const BarangayDetailPanel = ({ barangay, stats, onClose }) => {
-  // Prepare age distribution data for chart
+  console.log('Detail Panel - Barangay:', barangay.label);
+  console.log('Detail Panel - Stats:', stats);
+  
+  // Prepare age distribution data for chart (using realistic age ranges)
   const ageData = [
-    { name: '0-23 Months', value: stats?.ageCategories?.ZERO_TO_23_MONTHS || 0 },
-    { name: '24-59 Months', value: stats?.ageCategories?.TWENTY_FOUR_TO_59_MONTHS || 0 },
-    { name: '60-71 Months', value: stats?.ageCategories?.SIXTY_TO_71_MONTHS || 0 },
-    { name: 'Above 71 Months', value: stats?.ageCategories?.ABOVE_71_MONTHS || 0 }
+    { name: '0-5 Years', value: stats?.ageCategories?.ZERO_TO_5_YEARS || 0 },
+    { name: '6-12 Years', value: stats?.ageCategories?.SIX_TO_12_YEARS || 0 },
+    { name: '13-17 Years', value: stats?.ageCategories?.THIRTEEN_TO_17_YEARS || 0 },
+    { name: '18-59 Years', value: stats?.ageCategories?.EIGHTEEN_TO_59_YEARS || 0 },
+    { name: '60+ Years', value: stats?.ageCategories?.SIXTY_PLUS_YEARS || 0 }
   ];
+  
+  console.log('Age Data for chart:', ageData);
 
   // Prepare demographic data for pie chart
   const demographicData = [
@@ -216,20 +222,24 @@ const BarangayDetailPanel = ({ barangay, stats, onClose }) => {
               <h3 className="font-bold text-lg mb-3 text-black">Detailed Age Categories</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                  <span className="text-sm font-medium text-black">0-23 Months</span>
-                  <span className="font-bold text-lg text-black">{stats.ageCategories.ZERO_TO_23_MONTHS || 0}</span>
+                  <span className="text-sm font-medium text-black">0-5 Years</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.ZERO_TO_5_YEARS || 0}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                  <span className="text-sm font-medium text-black">24-59 Months</span>
-                  <span className="font-bold text-lg text-black">{stats.ageCategories.TWENTY_FOUR_TO_59_MONTHS || 0}</span>
+                  <span className="text-sm font-medium text-black">6-12 Years</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.SIX_TO_12_YEARS || 0}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                  <span className="text-sm font-medium text-black">60-71 Months</span>
-                  <span className="font-bold text-lg text-black">{stats.ageCategories.SIXTY_TO_71_MONTHS || 0}</span>
+                  <span className="text-sm font-medium text-black">13-17 Years</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.THIRTEEN_TO_17_YEARS || 0}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                  <span className="text-sm font-medium text-black">Above 71 Months</span>
-                  <span className="font-bold text-lg text-black">{stats.ageCategories.ABOVE_71_MONTHS || 0}</span>
+                  <span className="text-sm font-medium text-black">18-59 Years</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.EIGHTEEN_TO_59_YEARS || 0}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200 col-span-2">
+                  <span className="text-sm font-medium text-black">60+ Years (Seniors)</span>
+                  <span className="font-bold text-lg text-black">{stats.ageCategories.SIXTY_PLUS_YEARS || 0}</span>
                 </div>
               </div>
             </div>
@@ -262,6 +272,8 @@ const ResidentDashboard = () => {
       }
       const token = localStorage.getItem('token');
       
+      // First, try to get basic stats from compare endpoint
+      let compareData = null;
       try {
         const response = await fetch(`${API_URL}/residents/compare/barangays`, {
           headers: {
@@ -272,46 +284,86 @@ const ResidentDashboard = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
-            const dataMap = {};
-            data.data.forEach(item => {
-              dataMap[item.barangay] = {
-                success: true,
-                barangay: item.barangay,
-                stats: {
-                  totalResidents: item.total,
-                  fourPsMembers: item.fourPsMembers,
-                  pregnantResidents: item.pregnant,
-                  seniorCitizens: item.seniorCitizens,
-                  birthRegistered: item.birthRegistered,
-                  ageCategories: {},
-                  genderBreakdown: {}
-                }
-              };
-            });
-            console.log('Barangay data received:', dataMap);
-            setBarangayData(dataMap);
-            return;
+            compareData = data.data;
+            console.log('Compare data received:', compareData);
           }
         }
       } catch (error) {
         console.error('Error fetching compare data:', error);
       }
       
+      // Then fetch detailed stats for each barangay
       const promises = BARANGAYS.map(async (barangay) => {
         try {
-          const response = await fetch(`${API_URL}/residents/statistics/barangay/${barangay.value}`, {
+          // Try to get residents list to calculate age categories manually
+          const residentsResponse = await fetch(`${API_URL}/residents?barangay=${barangay.value}&limit=1000`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
           
-          if (!response.ok) {
-            console.warn(`Failed to fetch ${barangay.label}:`, response.status);
-            return { barangay: barangay.value, data: null };
+          let ageCategories = {
+            ZERO_TO_5_YEARS: 0,
+            SIX_TO_12_YEARS: 0,
+            THIRTEEN_TO_17_YEARS: 0,
+            EIGHTEEN_TO_59_YEARS: 0,
+            SIXTY_PLUS_YEARS: 0
+          };
+          
+          let genderBreakdown = {
+            MALE: 0,
+            FEMALE: 0
+          };
+          
+          if (residentsResponse.ok) {
+            const residentsData = await residentsResponse.json();
+            const residents = residentsData.data || residentsData.residents || residentsData || [];
+            
+            // Calculate age categories from actual residents
+            residents.forEach(resident => {
+              const age = resident.age;
+              
+              // Age categories
+              if (age >= 0 && age <= 5) {
+                ageCategories.ZERO_TO_5_YEARS++;
+              } else if (age >= 6 && age <= 12) {
+                ageCategories.SIX_TO_12_YEARS++;
+              } else if (age >= 13 && age <= 17) {
+                ageCategories.THIRTEEN_TO_17_YEARS++;
+              } else if (age >= 18 && age <= 59) {
+                ageCategories.EIGHTEEN_TO_59_YEARS++;
+              } else if (age >= 60) {
+                ageCategories.SIXTY_PLUS_YEARS++;
+              }
+              
+              // Gender breakdown
+              if (resident.gender === 'MALE') {
+                genderBreakdown.MALE++;
+              } else if (resident.gender === 'FEMALE') {
+                genderBreakdown.FEMALE++;
+              }
+            });
           }
           
-          const data = await response.json();
-          return { barangay: barangay.value, data };
+          // Get basic stats from compare data or calculate from residents
+          const compareItem = compareData?.find(item => item.barangay === barangay.value);
+          
+          return {
+            barangay: barangay.value,
+            data: {
+              success: true,
+              barangay: barangay.value,
+              stats: {
+                totalResidents: compareItem?.total || 0,
+                fourPsMembers: compareItem?.fourPsMembers || 0,
+                pregnantResidents: compareItem?.pregnant || 0,
+                seniorCitizens: compareItem?.seniorCitizens || 0,
+                birthRegistered: compareItem?.birthRegistered || 0,
+                ageCategories: ageCategories,
+                genderBreakdown: genderBreakdown
+              }
+            }
+          };
         } catch (error) {
           console.error(`Error fetching ${barangay.label}:`, error);
           return { barangay: barangay.value, data: null };
@@ -326,6 +378,7 @@ const ResidentDashboard = () => {
         }
       });
       
+      console.log('Complete barangay data map:', dataMap);
       setBarangayData(dataMap);
     } catch (error) {
       console.error('Error fetching barangay data:', error);
