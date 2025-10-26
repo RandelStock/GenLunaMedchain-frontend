@@ -296,7 +296,7 @@ const ResidentDashboard = () => {
       const promises = BARANGAYS.map(async (barangay) => {
         try {
           // Try to get residents list to calculate age categories manually
-          const residentsResponse = await fetch(`${API_URL}/residents?barangay=${barangay.value}&limit=1000`, {
+          const residentsResponse = await fetch(`${API_URL}/residents?barangay=${encodeURIComponent(barangay.value)}&limit=1000`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -312,7 +312,8 @@ const ResidentDashboard = () => {
           
           let genderBreakdown = {
             MALE: 0,
-            FEMALE: 0
+            FEMALE: 0,
+            OTHER: 0
           };
           
           let residents = [];
@@ -320,6 +321,8 @@ const ResidentDashboard = () => {
           if (residentsResponse.ok) {
             const residentsData = await residentsResponse.json();
             residents = residentsData.data || residentsData.residents || residentsData || [];
+            // Only include residents that belong to the current barangay
+            residents = residents.filter(resident => resident.barangay === barangay.value);
             
             // Calculate age categories from actual residents
             if (Array.isArray(residents)) {
