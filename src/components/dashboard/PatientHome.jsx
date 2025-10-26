@@ -20,6 +20,9 @@ import QUEZON from "../../img/QUEZON-PROVINCE.png";
 import PRESIDENT from "../../img/OFFICE-OF-THE-PRESIDENT.png";
 import GAZETTE from "../../img/GAZETTE.png";
 
+// Hero landing image
+import landingPage from "../../img/landingpage.png";
+
 // Barangay images
 import BacongIbaba from "../../img/Bacong-Ibaba.png";
 import BacongIlaya from "../../img/Bacong-Ilaya.png";
@@ -234,20 +237,33 @@ const PatientHome = () => {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 py-6">
-          <div className="text-center mb-4">
-            <div className="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-2">
-              OFFICIAL GOVERNMENT SERVICE
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* Text Content */}
+            <div className="text-center md:text-left mb-4 md:mb-0">
+              <div className="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-2">
+                OFFICIAL GOVERNMENT SERVICE
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                Welcome to General Luna RHU
+              </h1>
+              <p className="text-sm text-orange-100 hidden md:block">
+                "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
+              </p>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
-              Welcome to General Luna RHU
-            </h1>
-            <p className="text-sm text-orange-100 hidden md:block">
-              "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
-            </p>
+
+            {/* Hero Image */}
+            <div className="flex justify-center md:justify-end">
+              <img 
+                src={landingPage} 
+                alt="General Luna Hero" 
+                className="w-full max-w-md h-auto object-contain drop-shadow-2xl"
+                style={{ filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}
+              />
+            </div>
           </div>
 
           {/* COMPACT Info Cards - Horizontal on mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mt-6">
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 flex items-center gap-2">
               <FaMapMarkerAlt className="text-xl flex-shrink-0" />
               <div>
@@ -485,8 +501,8 @@ const PatientHome = () => {
                         </div>
                         <div className="space-y-1 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Pop:</span>
-                            <span className="font-semibold">{barangay.pop.split(' ')[0]}</span>
+                            <span className="text-gray-900 font-medium">Pop:</span>
+                            <span className="font-semibold text-gray-900">{barangay.pop.split(' ')[0]}</span>
                           </div>
                           <div className="text-center text-blue-700 font-semibold text-xs flex items-center justify-center gap-1 mt-2">
                             <FaImage />
@@ -628,34 +644,34 @@ const PatientHome = () => {
               </h3>
               <button 
                 onClick={() => setShowEmergency(false)} 
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-700 hover:text-gray-900"
               >
                 <FaTimes />
               </button>
             </div>
             <div className="space-y-2 text-sm">
               <a href="tel:09122711874" className="flex justify-between hover:bg-red-50 p-2 rounded transition-colors">
-                <span className="font-medium">MDRRMO</span>
+                <span className="font-medium text-gray-900">MDRRMO</span>
                 <span className="text-red-600 font-semibold">0912-271-1874</span>
               </a>
               <a href="tel:09303270985" className="flex justify-between hover:bg-red-50 p-2 rounded transition-colors">
-                <span className="font-medium">Ambulance</span>
+                <span className="font-medium text-gray-900">Ambulance</span>
                 <span className="text-red-600 font-semibold">0930-327-0985</span>
               </a>
               <a href="tel:09389432902" className="flex justify-between hover:bg-blue-50 p-2 rounded transition-colors">
-                <span className="font-medium">BFP</span>
+                <span className="font-medium text-gray-900">BFP</span>
                 <span className="text-blue-600 font-semibold">0938-943-2902</span>
               </a>
               <a href="tel:09085985750" className="flex justify-between hover:bg-blue-50 p-2 rounded transition-colors">
-                <span className="font-medium">PNP</span>
+                <span className="font-medium text-gray-900">PNP</span>
                 <span className="text-blue-600 font-semibold">0908-598-5750</span>
               </a>
               <a href="tel:09958972263" className="flex justify-between hover:bg-orange-50 p-2 rounded transition-colors">
-                <span className="font-medium">RHU</span>
+                <span className="font-medium text-gray-900">RHU</span>
                 <span className="text-orange-600 font-semibold">0995-897-2263</span>
               </a>
               <a href="tel:09099316797" className="flex justify-between hover:bg-green-50 p-2 rounded transition-colors">
-                <span className="font-medium">MSWDO</span>
+                <span className="font-medium text-gray-900">MSWDO</span>
                 <span className="text-green-600 font-semibold">0909-931-6797</span>
               </a>
             </div>
