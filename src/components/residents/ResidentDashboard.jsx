@@ -354,11 +354,11 @@ const ResidentDashboard = () => {
               success: true,
               barangay: barangay.value,
               stats: {
-                totalResidents: compareItem?.total || 0,
-                fourPsMembers: compareItem?.fourPsMembers || 0,
-                pregnantResidents: compareItem?.pregnant || 0,
-                seniorCitizens: compareItem?.seniorCitizens || 0,
-                birthRegistered: compareItem?.birthRegistered || 0,
+                totalResidents: residents.length, // Use actual count from residents array
+                fourPsMembers: residents.filter(r => r.is_4ps_member).length,
+                pregnantResidents: residents.filter(r => r.is_pregnant).length,
+                seniorCitizens: residents.filter(r => r.is_senior_citizen).length,
+                birthRegistered: residents.filter(r => r.is_birth_registered).length,
                 ageCategories: ageCategories,
                 genderBreakdown: genderBreakdown
               }
