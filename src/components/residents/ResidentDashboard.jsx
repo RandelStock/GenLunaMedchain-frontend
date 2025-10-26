@@ -315,38 +315,39 @@ const ResidentDashboard = () => {
             FEMALE: 0
           };
           
+          let residents = [];
+          
           if (residentsResponse.ok) {
             const residentsData = await residentsResponse.json();
-            const residents = residentsData.data || residentsData.residents || residentsData || [];
+            residents = residentsData.data || residentsData.residents || residentsData || [];
             
             // Calculate age categories from actual residents
-            residents.forEach(resident => {
-              const age = resident.age;
-              
-              // Age categories
-              if (age >= 0 && age <= 5) {
-                ageCategories.ZERO_TO_5_YEARS++;
-              } else if (age >= 6 && age <= 12) {
-                ageCategories.SIX_TO_12_YEARS++;
-              } else if (age >= 13 && age <= 17) {
-                ageCategories.THIRTEEN_TO_17_YEARS++;
-              } else if (age >= 18 && age <= 59) {
-                ageCategories.EIGHTEEN_TO_59_YEARS++;
-              } else if (age >= 60) {
-                ageCategories.SIXTY_PLUS_YEARS++;
-              }
-              
-              // Gender breakdown
-              if (resident.gender === 'MALE') {
-                genderBreakdown.MALE++;
-              } else if (resident.gender === 'FEMALE') {
-                genderBreakdown.FEMALE++;
-              }
-            });
+            if (Array.isArray(residents)) {
+              residents.forEach(resident => {
+                const age = resident.age;
+                
+                // Age categories
+                if (age >= 0 && age <= 5) {
+                  ageCategories.ZERO_TO_5_YEARS++;
+                } else if (age >= 6 && age <= 12) {
+                  ageCategories.SIX_TO_12_YEARS++;
+                } else if (age >= 13 && age <= 17) {
+                  ageCategories.THIRTEEN_TO_17_YEARS++;
+                } else if (age >= 18 && age <= 59) {
+                  ageCategories.EIGHTEEN_TO_59_YEARS++;
+                } else if (age >= 60) {
+                  ageCategories.SIXTY_PLUS_YEARS++;
+                }
+                
+                // Gender breakdown
+                if (resident.gender === 'MALE') {
+                  genderBreakdown.MALE++;
+                } else if (resident.gender === 'FEMALE') {
+                  genderBreakdown.FEMALE++;
+                }
+              });
+            }
           }
-          
-          // Get basic stats from compare data or calculate from residents
-          const compareItem = compareData?.find(item => item.barangay === barangay.value);
           
           return {
             barangay: barangay.value,
@@ -354,7 +355,7 @@ const ResidentDashboard = () => {
               success: true,
               barangay: barangay.value,
               stats: {
-                totalResidents: residents.length, // Use actual count from residents array
+                totalResidents: residents.length,
                 fourPsMembers: residents.filter(r => r.is_4ps_member).length,
                 pregnantResidents: residents.filter(r => r.is_pregnant).length,
                 seniorCitizens: residents.filter(r => r.is_senior_citizen).length,
