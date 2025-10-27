@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
-import API_BASE_URL, { CONTRACT_ADDRESS } from '../config';
+import { CONTRACT_ADDRESS } from '../config';
+import api from '../../api';
 
-// Use the centralized API base from src/config.js to avoid env mismatches
-const API_URL = API_BASE_URL;
+const API_URL = api.defaults.baseURL;
 const CONTRACT_ABI = [
   "function storeReceiptHash(uint256 _receiptId, bytes32 _dataHash) public",
   "function updateReceiptHash(uint256 _receiptId, bytes32 _newDataHash) public",
@@ -190,98 +190,51 @@ export const useMedicineRelease = () => {
       setLoading(true);
       setError(null);
 
-      // Get wallet address
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
+      // Get wallet address through MetaMask confirmation
+      const walletAddress = await confirmWithMetaMask();
 
-      // Step 1: Create release in database
-      const response = await fetch(`${API_URL}/releases`, {
-        method: 'POST',
+      // Create release in database using the shared API client
+      const response = await api.post('/releases', releaseData, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'x-wallet-address': walletAddress
-        },
-        body: JSON.stringify(releaseData)
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create release');
-      }
-
-      const json = await response.json();
-      const release = json?.data || json;
+      const release = response.data?.data || response.data;
       console.log('Release created:', release);
+      
       if (!release || release.release_id === undefined || release.release_id === null) {
         throw new Error('Invalid create release response: missing release_id');
       }
-
-      // Step 2: Store on blockchain if related stock has cost
-      try {
-        let shouldWriteToChain = false;
-        try {
-          const stockResp = await fetch(`${API_URL}/stocks/${release.stock_id}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          const stockJson = await stockResp.json();
-          const stock = stockJson.data || stockJson.stock || stockJson;
-          const unitCost = parseFloat(stock?.unit_cost || 0);
-          shouldWriteToChain = unitCost > 0;
-        } catch (_) {
-          shouldWriteToChain = false;
-        }
-
-        let blockchainResult = null;
-        if (shouldWriteToChain) {
-          blockchainResult = await storeReleaseOnBlockchain(release.release_id, {
-            medicine_id: release.medicine_id,
-            stock_id: release.stock_id,
-            resident_name: release.resident_name,
-            quantity_released: release.quantity_released,
-            date_released: release.date_released,
-            concern: release.concern
-          });
-        }
-
-        console.log('Blockchain result:', blockchainResult);
-
-        // Step 3: Update release with blockchain info
-        await fetch(`${API_URL}/releases/${release.release_id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'x-wallet-address': walletAddress
-          },
-          body: JSON.stringify({
-            blockchain_hash: blockchainResult?.dataHash || null,
-            blockchain_tx_hash: blockchainResult?.transactionHash || null
-          })
-        });
-
-        return {
-          success: true,
-          release,
-          blockchain: blockchainResult
-        };
-      } catch (blockchainError) {
-        console.error('Blockchain sync failed:', blockchainError);
-        return {
-          success: true,
-          release,
-          blockchainError: blockchainError.message,
-          warning: 'Release created but blockchain sync failed'
-        };
-      }
+      
+      return {
+        success: true,
+        release,
+        message: 'Release created successfully'
+      };
     } catch (err) {
-      setError(err.message);
+      console.error('Create release error:', err);
+      setError(err.message || 'Failed to create release');
       throw err;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to confirm with MetaMask
+  const confirmWithMetaMask = async () => {
+    if (!window.ethereum) {
+      throw new Error('MetaMask not installed');
+    }
+    
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
+      return await signer.getAddress();
+    } catch (error) {
+      console.error("MetaMask confirmation failed:", error);
+      throw new Error('MetaMask confirmation failed. Please try again.');
     }
   };
 
@@ -291,30 +244,20 @@ export const useMedicineRelease = () => {
       setLoading(true);
       setError(null);
 
-      // Get wallet address
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
-
-      const response = await fetch(`${API_URL}/releases/${releaseId}`, {
-        method: 'PUT',
+      // Get wallet address through MetaMask confirmation
+      const walletAddress = await confirmWithMetaMask();
+      
+      // Use the shared API client
+      const response = await api.put(`/releases/${releaseId}`, updateData, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'x-wallet-address': walletAddress
-        },
-        body: JSON.stringify(updateData)
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update release');
-      }
-
-      const data = await response.json();
-      return data;
+      return response.data;
     } catch (err) {
-      setError(err.message);
+      console.error("Update release error:", err);
+      setError(err.message || 'Failed to update release');
       throw err;
     } finally {
       setLoading(false);
@@ -353,35 +296,24 @@ export const useMedicineRelease = () => {
       setLoading(true);
       setError(null);
 
-      // Get wallet address
-      if (!window.ethereum) {
-        throw new Error('MetaMask not installed');
-      }
+      // Get wallet address through MetaMask confirmation
+      const walletAddress = await confirmWithMetaMask();
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
-
-      // Delete the record (audit log will capture existing blockchain info)
-      const response = await fetch(`${API_URL}/releases/${releaseId}`, {
-        method: 'DELETE',
+      // Delete the record using the shared API client
+      const response = await api.delete(`/releases/${releaseId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'x-wallet-address': walletAddress
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete release');
-      }
-
       return {
         success: true,
-        message: 'Release deleted. Original blockchain record remains immutable.'
+        message: 'Release deleted. Original blockchain record remains immutable.',
+        data: response.data
       };
     } catch (err) {
-      setError(err.message);
+      console.error("Delete release error:", err);
+      setError(err.message || 'Failed to delete release');
       throw err;
     } finally {
       setLoading(false);
