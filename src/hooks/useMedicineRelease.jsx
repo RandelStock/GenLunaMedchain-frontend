@@ -83,11 +83,24 @@ export const useMedicineRelease = () => {
     });
 
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
-    const tx = await contract.updateReceiptHash(releaseId, dataHash);
+    // Check if receipt exists; if not, store instead of update
+    let exists = false;
+    try {
+      const [, , , _exists] = await contract.getReceiptHash(releaseId);
+      exists = _exists;
+    } catch (_) {
+      exists = false;
+    }
+
+    const tx = exists
+      ? await contract.updateReceiptHash(releaseId, dataHash)
+      : await contract.storeReceiptHash(releaseId, dataHash);
+
     const receipt = await tx.wait();
     return {
       transactionHash: receipt.transactionHash,
-      dataHash
+      dataHash,
+      operation: exists ? 'updated' : 'stored'
     };
   };
 
@@ -103,9 +116,22 @@ export const useMedicineRelease = () => {
     await provider.send("eth_requestAccounts", []);
     const signer = provider.getSigner();
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    // Check existence to avoid revert
+    let exists = false;
+    try {
+      const [, , , _exists] = await contract.getReceiptHash(releaseId);
+      exists = _exists;
+    } catch (_) {
+      exists = false;
+    }
+
+    if (!exists) {
+      return { skipped: true, reason: 'receipt_not_found' };
+    }
+
     const tx = await contract.deleteReceiptHash(releaseId);
     const receipt = await tx.wait();
-    return { transactionHash: receipt.transactionHash };
+    return { transactionHash: receipt.transactionHash, deleted: true };
   };
 
   const verifyReleaseOnBlockchain = async (releaseId, releaseData) => {
@@ -207,10 +233,40 @@ export const useMedicineRelease = () => {
         throw new Error('Invalid create release response: missing release_id');
       }
       
+      // Optional chain sync: only for stock with cost > 0
+      let blockchainResult = null;
+      try {
+        const stockResp = await api.get(`/stocks/${release.stock_id}`);
+        const stock = stockResp.data?.data || stockResp.data?.stock || stockResp.data;
+        const unitCost = parseFloat(stock?.unit_cost || 0);
+        if (unitCost > 0) {
+          // Store on-chain to create a receipt record
+          blockchainResult = await storeReleaseOnBlockchain(release.release_id, {
+            medicine_id: release.medicine_id,
+            stock_id: release.stock_id,
+            resident_name: release.resident_name,
+            quantity_released: release.quantity_released,
+            date_released: release.date_released,
+            concern: release.concern
+          });
+
+          // Patch backend with blockchain info
+          await api.patch(`/releases/${release.release_id}`, {
+            blockchain_hash: blockchainResult?.dataHash || null,
+            blockchain_tx_hash: blockchainResult?.transactionHash || null
+          }, {
+            headers: { 'x-wallet-address': walletAddress }
+          });
+        }
+      } catch (chainErr) {
+        console.warn('Blockchain sync failed on create:', chainErr);
+      }
+
       return {
         success: true,
         release,
-        message: 'Release created successfully'
+        blockchain: blockchainResult,
+        message: blockchainResult ? 'Release created and synced on-chain' : 'Release created (no blockchain sync required)'
       };
     } catch (err) {
       console.error('Create release error:', err);
@@ -246,15 +302,37 @@ export const useMedicineRelease = () => {
 
       // Get wallet address through MetaMask confirmation
       const walletAddress = await confirmWithMetaMask();
-      
-      // Use the shared API client
+       
+      // Update in the backend first
       const response = await api.put(`/releases/${releaseId}`, updateData, {
         headers: {
           'x-wallet-address': walletAddress
         }
       });
 
-      return response.data;
+      const updated = response.data?.data || response.data;
+
+      // Try sync on-chain with existence check (update or store)
+      let blockchainResult = null;
+      try {
+        blockchainResult = await updateReleaseOnBlockchain(releaseId, updateData);
+        // Patch blockchain info back to backend
+        await api.patch(`/releases/${releaseId}`, {
+          blockchain_hash: blockchainResult?.dataHash || null,
+          blockchain_tx_hash: blockchainResult?.transactionHash || null
+        }, {
+          headers: { 'x-wallet-address': walletAddress }
+        });
+      } catch (chainErr) {
+        console.warn('Blockchain sync failed on update:', chainErr);
+      }
+
+      return {
+        success: true,
+        release: updated,
+        blockchain: blockchainResult,
+        message: blockchainResult ? 'Updated and synced on-chain' : 'Updated in database; blockchain sync skipped or failed'
+      };
     } catch (err) {
       console.error("Update release error:", err);
       setError(err.message || 'Failed to update release');
@@ -299,7 +377,16 @@ export const useMedicineRelease = () => {
       // Get wallet address through MetaMask confirmation
       const walletAddress = await confirmWithMetaMask();
 
-      // Delete the record using the shared API client
+      // First attempt on-chain delete (gracefully skip if not found)
+      let blockchain = null;
+      try {
+        blockchain = await deleteReleaseOnBlockchain(releaseId);
+      } catch (chainErr) {
+        console.warn('Blockchain delete failed:', chainErr);
+        blockchain = { error: chainErr?.message || 'chain_delete_failed' };
+      }
+
+      // Then delete the record in backend
       const response = await api.delete(`/releases/${releaseId}`, {
         headers: {
           'x-wallet-address': walletAddress
@@ -308,8 +395,9 @@ export const useMedicineRelease = () => {
 
       return {
         success: true,
-        message: 'Release deleted. Original blockchain record remains immutable.',
-        data: response.data
+        message: 'Release deleted successfully.',
+        data: response.data,
+        blockchain
       };
     } catch (err) {
       console.error("Delete release error:", err);
