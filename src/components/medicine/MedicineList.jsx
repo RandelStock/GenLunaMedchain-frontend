@@ -43,6 +43,7 @@ export default function MedicineList() {
   const [editSuccess, setEditSuccess] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [deleteStatus, setDeleteStatus] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -562,51 +563,40 @@ export default function MedicineList() {
     if (!showDeleteModal || !selectedMedicine) return null;
 
     const handleDelete = async () => {
-      if (!(contractAdmin || contractStaff)) {
-        setDeleteError("Your wallet must have on-chain Admin or Staff role to delete.");
-        return;
-      }
-
       setDeleteLoading(true);
       setDeleteError("");
+      setDeleteStatus(null);
 
       try {
-        // Check if a blockchain hash exists for this medicine
-        let exists = false;
-        try {
-          const res = await contract.call("getMedicineHash", [selectedMedicine.medicine_id]);
-          // thirdweb may return array or object; support both
-          if (Array.isArray(res)) {
-            exists = Boolean(res[3]);
-          } else if (res && typeof res === "object") {
-            exists = Boolean(res.exists ?? res[3]);
-          }
-        } catch (_) {
-          // If read fails, assume no hash to avoid sending a reverting tx
-          exists = false;
-        }
+        const res = await api.delete(`/medicines/${selectedMedicine.medicine_id}`);
+        const txHash = res?.data?.blockchain_tx_hash || null;
 
-        if (exists) {
-          await contract.call("deleteMedicineHash", [selectedMedicine.medicine_id]);
-        } else {
-          console.warn("No blockchain hash found for this medicine; skipping on-chain delete.");
-        }
-
-        await api.delete(`/medicines/${selectedMedicine.medicine_id}`);
-
-        setShowDeleteModal(false);
+        // Refresh underlying list immediately; keep modal open to show status
         fetchData();
+
+        if (txHash) {
+          setDeleteStatus({
+            type: 'success',
+            title: 'Blockchain delete confirmed',
+            description: 'Server recorded the transaction. Database delete completed.',
+            txHash
+          });
+        } else {
+          setDeleteStatus({
+            type: 'warning',
+            title: 'Blockchain delete not confirmed',
+            description: 'Server attempted blockchain delete but could not confirm. Database delete completed.',
+            txHash: null
+          });
+        }
       } catch (err) {
         const msg = err?.message || "";
         console.error("Delete failed:", err);
-        // Friendlier messages for common RPC failures
-        if (msg.includes("AccessControl")) {
-          setDeleteError("Access denied on-chain. Request Admin/Staff role for your wallet.");
-        } else if (msg.includes("insufficient funds")) {
-          setDeleteError("Insufficient test MATIC on Polygon Amoy. Fund wallet then retry.");
-        } else {
-          setDeleteError("Blockchain delete failed. The DB delete may still succeed. Details: " + msg);
-        }
+        setDeleteStatus({
+          type: 'error',
+          title: 'Delete failed',
+          description: msg || 'Unexpected error while deleting.'
+        });
       } finally {
         setDeleteLoading(false);
       }
@@ -617,6 +607,28 @@ export default function MedicineList() {
         <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
           
+          {deleteStatus && (
+            <div
+              className={`mb-4 p-4 rounded border font-medium ${
+                deleteStatus.type === 'success' ? 'bg-green-50 border-green-300 text-green-900' :
+                deleteStatus.type === 'warning' ? 'bg-yellow-50 border-yellow-300 text-yellow-900' :
+                'bg-red-50 border-red-300 text-red-900'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold">{deleteStatus.title}</div>
+                  <div className="text-sm mt-1">{deleteStatus.description}</div>
+                  {deleteStatus.txHash && (
+                    <div className="text-xs mt-2">
+                      Tx: <span className="font-mono bg-white/50 px-2 py-0.5 rounded border border-current">{deleteStatus.txHash.slice(0, 10)}…{deleteStatus.txHash.slice(-8)}</span>
+                      <a href="/blockchain" className="ml-2 underline">View</a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {deleteError && (
             <div className="mb-4 bg-red-50 border border-red-300 text-red-900 p-4 rounded font-medium">
               {deleteError}
@@ -633,11 +645,11 @@ export default function MedicineList() {
               disabled={deleteLoading}
               className="px-4 py-2 bg-white text-gray-900 font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              Cancel
+              {deleteStatus ? 'Close' : 'Cancel'}
             </button>
             <button
               onClick={handleDelete}
-              disabled={deleteLoading || !(contractAdmin || contractStaff)}
+              disabled={deleteLoading || !(isAdmin || isStaff) || !!deleteStatus}
               className="px-4 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               {deleteLoading ? "Deleting..." : "Delete"}
