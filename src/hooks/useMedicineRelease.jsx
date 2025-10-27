@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
-import { CONTRACT_ADDRESS } from '../config';
+import API_BASE_URL, { CONTRACT_ADDRESS } from '../config';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Use the centralized API base from src/config.js to avoid env mismatches
+const API_URL = API_BASE_URL;
 const CONTRACT_ABI = [
   "function storeReceiptHash(uint256 _receiptId, bytes32 _dataHash) public",
   "function updateReceiptHash(uint256 _receiptId, bytes32 _newDataHash) public",
