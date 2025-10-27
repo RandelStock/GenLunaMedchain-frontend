@@ -227,39 +227,40 @@ const PatientHome = () => {
         </div>
       </nav>
 
-      {/* COMPACT Hero Banner - REDUCED from py-12 to py-6 */}
-      <div className="relative bg-gradient-to-r from-orange-500 via-orange-600 to-blue-800 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-            backgroundSize: '40px 40px'
-          }}></div>
+      {/* COMPACT Hero Banner with Background Image */}
+      <div className="relative text-white overflow-hidden min-h-[400px] md:min-h-[500px]">
+        {/* Background Image with Gradient Overlay */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${landingPage})`,
+            backgroundPosition: 'center center',
+          }}
+        >
+          {/* Gradient Overlay - Orange to Blue */}
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/90 via-orange-600/85 to-blue-800/90"></div>
+          
+          {/* Decorative Pattern Overlay */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0" style={{
+              backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+              backgroundSize: '40px 40px'
+            }}></div>
+          </div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            {/* Text Content */}
-            <div className="text-center md:text-left mb-4 md:mb-0">
-              <div className="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-2">
-                OFFICIAL GOVERNMENT SERVICE
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                Welcome to General Luna RHU
-              </h1>
-              <p className="text-sm text-orange-100 hidden md:block">
-                "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
-              </p>
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-12">
+          <div className="text-center md:text-left mb-6">
+            <div className="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-3">
+              OFFICIAL GOVERNMENT SERVICE
             </div>
-
-            {/* Hero Image */}
-            <div className="flex justify-center md:justify-end">
-              <img 
-                src={landingPage} 
-                alt="General Luna Hero" 
-                className="w-full max-w-md h-auto object-contain drop-shadow-2xl"
-                style={{ filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}
-              />
-            </div>
+            <h1 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-lg">
+              Welcome to General Luna RHU
+            </h1>
+            <p className="text-base md:text-lg text-white drop-shadow-md">
+              "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
+            </p>
           </div>
 
           {/* COMPACT Info Cards - Horizontal on mobile */}
