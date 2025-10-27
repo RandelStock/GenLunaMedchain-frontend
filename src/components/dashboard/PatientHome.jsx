@@ -21,7 +21,7 @@ import PRESIDENT from "../../img/OFFICE-OF-THE-PRESIDENT.png";
 import GAZETTE from "../../img/GAZETTE.png";
 
 // Hero landing image
-import landingPage from "../../img/Landingpages.png";
+import landingPage from "../../img/LandingPages.png";
 
 // Barangay images
 import BacongIbaba from "../../img/Bacong-Ibaba.png";
