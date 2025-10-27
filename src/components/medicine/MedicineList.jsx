@@ -45,6 +45,27 @@ export default function MedicineList() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteStatus, setDeleteStatus] = useState(null);
 
+  // MetaMask confirmation helper
+  const confirmWithMetaMask = async (action, details) => {
+    if (!window.ethereum) {
+      throw new Error("MetaMask not installed");
+    }
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = await provider.getSigner();
+    const walletAddress = await signer.getAddress();
+    const timestamp = new Date().toISOString();
+    const message = `GenLunaMedChain\nAction: ${action}\nUser: ${walletAddress}\nWhen: ${timestamp}\nDetails: ${details}`;
+    try {
+      await signer.signMessage(message);
+      return walletAddress;
+    } catch (err) {
+      if (String(err?.message || "").toLowerCase().includes("user rejected")) {
+        throw new Error("User rejected MetaMask confirmation");
+      }
+      throw err;
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -374,6 +395,10 @@ export default function MedicineList() {
       const formData = new FormData(e.target);
       
       try {
+        // MetaMask confirmation before backend update
+        const confirmDetails = `Edit medicine ${selectedMedicine.medicine_id} - ${selectedMedicine.medicine_name}`;
+        const walletAddress = await confirmWithMetaMask("EDIT_MEDICINE", confirmDetails);
+
         const medicineData = {
           medicine_name: formData.get("medicine_name"),
           medicine_type: formData.get("medicine_type"),
@@ -383,22 +408,11 @@ export default function MedicineList() {
           strength: formData.get("strength"),
           manufacturer: formData.get("manufacturer"),
           category: formData.get("category"),
-          storage_requirements: formData.get("storage_requirements")
+          storage_requirements: formData.get("storage_requirements"),
+          wallet_address: walletAddress
         };
 
         await api.put(`/medicines/${selectedMedicine.medicine_id}`, medicineData);
-
-        const dataString = JSON.stringify(medicineData);
-        const encoder = new TextEncoder();
-        const data = encoder.encode(dataString);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-        const tx = await contract.call("updateMedicineHash", [
-          selectedMedicine.medicine_id,
-          hashHex
-        ]);
 
         setEditSuccess("Medicine updated successfully!");
         setTimeout(() => {
@@ -568,7 +582,13 @@ export default function MedicineList() {
       setDeleteStatus(null);
 
       try {
-        const res = await api.delete(`/medicines/${selectedMedicine.medicine_id}`);
+        // MetaMask confirmation before backend delete
+        const confirmDetails = `Delete medicine ${selectedMedicine.medicine_id} - ${selectedMedicine.medicine_name}`;
+        const walletAddress = await confirmWithMetaMask("DELETE_MEDICINE", confirmDetails);
+
+        const res = await api.delete(`/medicines/${selectedMedicine.medicine_id}`, {
+          headers: { 'x-wallet-address': walletAddress }
+        });
         const txHash = res?.data?.blockchain_tx_hash || null;
 
         // Refresh underlying list immediately; keep modal open to show status
