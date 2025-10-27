@@ -21,7 +21,7 @@ import PRESIDENT from "../../img/OFFICE-OF-THE-PRESIDENT.png";
 import GAZETTE from "../../img/GAZETTE.png";
 
 // Hero landing image
-import landingPage from "../../img/LandingPages.png";
+import landingPage from "../../img/Landingpages.png";
 
 // Barangay images
 import BacongIbaba from "../../img/Bacong-Ibaba.png";
@@ -228,7 +228,7 @@ const PatientHome = () => {
       </nav>
 
       {/* COMPACT Hero Banner with Background Image */}
-      <div className="relative text-white overflow-hidden min-h-[400px] md:min-h-[500px]">
+      <div className="relative text-white overflow-hidden min-h-[500px] md:min-h-[600px]">
         {/* Background Image with Gradient Overlay */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -237,11 +237,11 @@ const PatientHome = () => {
             backgroundPosition: 'center center',
           }}
         >
-          {/* Gradient Overlay - Orange to Blue */}
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/90 via-orange-600/85 to-blue-800/90"></div>
+          {/* Gradient Overlay - Orange to Blue with LESS opacity for more visible image */}
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/70 via-orange-600/60 to-blue-800/70"></div>
           
-          {/* Decorative Pattern Overlay */}
-          <div className="absolute inset-0 opacity-10">
+          {/* Decorative Pattern Overlay - Reduced opacity */}
+          <div className="absolute inset-0 opacity-5">
             <div className="absolute inset-0" style={{
               backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
               backgroundSize: '40px 40px'
@@ -250,39 +250,39 @@ const PatientHome = () => {
         </div>
 
         {/* Content */}
-        <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-12">
-          <div className="text-center md:text-left mb-6">
-            <div className="inline-block bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-3">
+        <div className="relative max-w-7xl mx-auto px-4 py-12 md:py-16">
+          <div className="text-center md:text-left mb-8">
+            <div className="inline-block bg-white text-orange-600 px-4 py-2 rounded-full text-xs font-bold mb-4 shadow-lg">
               OFFICIAL GOVERNMENT SERVICE
             </div>
-            <h1 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-lg">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-2xl">
               Welcome to General Luna RHU
             </h1>
-            <p className="text-base md:text-lg text-white drop-shadow-md">
+            <p className="text-lg md:text-xl text-white drop-shadow-xl font-medium">
               "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
             </p>
           </div>
 
           {/* COMPACT Info Cards - Horizontal on mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mt-6">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 flex items-center gap-2">
-              <FaMapMarkerAlt className="text-xl flex-shrink-0" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-8">
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
+              <FaMapMarkerAlt className="text-2xl flex-shrink-0" />
               <div>
-                <p className="text-xs font-semibold">Brgy. Poblacion, General Luna</p>
+                <p className="text-sm font-semibold">Brgy. Poblacion, General Luna</p>
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 flex items-center gap-2">
-              <FaPhone className="text-xl flex-shrink-0" />
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
+              <FaPhone className="text-2xl flex-shrink-0" />
               <div>
-                <p className="text-xs font-semibold">0995-897-2263</p>
+                <p className="text-sm font-semibold">0995-897-2263</p>
               </div>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 flex items-center gap-2">
-              <FaClock className="text-xl flex-shrink-0" />
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
+              <FaClock className="text-2xl flex-shrink-0" />
               <div>
-                <p className="text-xs font-semibold">Mon-Sun: 6AM - 5PM</p>
+                <p className="text-sm font-semibold">Mon-Sun: 6AM - 5PM</p>
               </div>
             </div>
           </div>
