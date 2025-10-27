@@ -562,8 +562,8 @@ export default function MedicineList() {
     if (!showDeleteModal || !selectedMedicine) return null;
 
     const handleDelete = async () => {
-      if (!isAdmin) {
-        setDeleteError("Only administrators can delete medicines");
+      if (!(contractAdmin || contractStaff)) {
+        setDeleteError("Your wallet must have on-chain Admin or Staff role to delete.");
         return;
       }
 
@@ -571,19 +571,43 @@ export default function MedicineList() {
       setDeleteError("");
 
       try {
-        const tx = await contract.call("deleteMedicineHash", [
-          selectedMedicine.medicine_id
-        ]);
-        
+        // Check if a blockchain hash exists for this medicine
+        let exists = false;
+        try {
+          const res = await contract.call("getMedicineHash", [selectedMedicine.medicine_id]);
+          // thirdweb may return array or object; support both
+          if (Array.isArray(res)) {
+            exists = Boolean(res[3]);
+          } else if (res && typeof res === "object") {
+            exists = Boolean(res.exists ?? res[3]);
+          }
+        } catch (_) {
+          // If read fails, assume no hash to avoid sending a reverting tx
+          exists = false;
+        }
+
+        if (exists) {
+          await contract.call("deleteMedicineHash", [selectedMedicine.medicine_id]);
+        } else {
+          console.warn("No blockchain hash found for this medicine; skipping on-chain delete.");
+        }
+
         await api.delete(`/medicines/${selectedMedicine.medicine_id}`);
-        
-        setTimeout(() => {
-          setShowDeleteModal(false);
-          fetchData();
-        }, 1500);
+
+        setShowDeleteModal(false);
+        fetchData();
       } catch (err) {
+        const msg = err?.message || "";
         console.error("Delete failed:", err);
-        setDeleteError(err.message || "Failed to delete medicine");
+        // Friendlier messages for common RPC failures
+        if (msg.includes("AccessControl")) {
+          setDeleteError("Access denied on-chain. Request Admin/Staff role for your wallet.");
+        } else if (msg.includes("insufficient funds")) {
+          setDeleteError("Insufficient test MATIC on Polygon Amoy. Fund wallet then retry.");
+        } else {
+          setDeleteError("Blockchain delete failed. The DB delete may still succeed. Details: " + msg);
+        }
+      } finally {
         setDeleteLoading(false);
       }
     };
@@ -613,7 +637,7 @@ export default function MedicineList() {
             </button>
             <button
               onClick={handleDelete}
-              disabled={deleteLoading || !isAdmin}
+              disabled={deleteLoading || !(contractAdmin || contractStaff)}
               className="px-4 py-2 bg-red-600 text-white font-medium rounded hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               {deleteLoading ? "Deleting..." : "Delete"}
