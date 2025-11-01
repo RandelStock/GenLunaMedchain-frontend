@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload } from 'react-icons/fa';
 import api from '../../api.js';
 
 export default function BlockchainHistory() {
@@ -25,8 +25,8 @@ export default function BlockchainHistory() {
     setError(null);
     try {
       // Use configured API client to avoid fetching the app HTML (which causes JSON parse errors)
-      const { data } = await api.get('/blockchain/hashes');
-      const hashes = data?.hashes || [];
+      const response = await api.get('/blockchain/hashes', { timeout: 30000 });
+      const hashes = response?.data?.data || [];
       
       setBlockchainData(hashes);
       setFilteredData(hashes);
@@ -34,8 +34,13 @@ export default function BlockchainHistory() {
     } catch (err) {
       console.error('Error fetching blockchain data:', err);
       // Provide clearer error when frontend served HTML instead of JSON
-      const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data';
+      const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data from database';
       setError(message);
+      
+      // Show more detailed error information
+      if (err.response) {
+        console.error('Error response:', err.response.data);
+      }
     } finally {
       setLoading(false);
     }
@@ -128,6 +133,53 @@ export default function BlockchainHistory() {
     return icons[type] || '📄';
   };
 
+  const handleExportCSV = () => {
+    const csvContent = [
+      ['Type', 'Record ID', 'Data Hash', 'Added By', 'Timestamp', 'Status', 'TX Hash'],
+      ...filteredData.map(item => [
+        item.type,
+        item.recordId || 'N/A',
+        item.hash || '',
+        formatAddress(item.addedBy),
+        formatTimestamp(item.timestamp),
+        item.exists ? 'Active' : 'Deleted',
+        item.txHash || 'N/A'
+      ])
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blockchain-hashes-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Blockchain History Report', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.text(`Total Hashes: ${filteredData.length}`, 14, 34);
+    
+    let y = 44;
+    doc.setFontSize(9);
+    
+    filteredData.slice(0, 200).forEach((item) => {
+      const date = formatTimestamp(item.timestamp);
+      const status = item.exists ? 'Active' : 'Deleted';
+      const line = `${item.type.toUpperCase()} | #${item.recordId} | ${item.hash?.slice(0, 16)}... | ${formatAddress(item.addedBy)} | ${status}`;
+      doc.text(line.substring(0, 110), 14, y);
+      y += 6;
+      if (y > 280) { doc.addPage(); y = 20; }
+    });
+    
+    doc.save(`blockchain-hashes-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Bar */}
@@ -143,14 +195,32 @@ export default function BlockchainHistory() {
               <span className="text-sm text-gray-600">{stats.total} hashes</span>
             </div>
             
-            <button
-              onClick={fetchBlockchainData}
-              disabled={loading}
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FaSync className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchBlockchainData}
+                disabled={loading}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaSync className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                onClick={handleExportCSV}
+                disabled={filteredData.length === 0}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaDownload className="w-3.5 h-3.5" />
+                CSV
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={filteredData.length === 0}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaDownload className="w-3.5 h-3.5" />
+                PDF
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
