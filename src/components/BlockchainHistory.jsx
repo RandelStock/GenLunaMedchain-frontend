@@ -24,16 +24,25 @@ export default function BlockchainHistory() {
     setLoading(true);
     setError(null);
     try {
-      // Use configured API client to avoid fetching the app HTML (which causes JSON parse errors)
       const { data } = await api.get('/blockchain/hashes');
+      
+      // Handle new response structure
       const hashes = data?.hashes || [];
+      const counts = data?.counts || {};
       
       setBlockchainData(hashes);
       setFilteredData(hashes);
-      calculateStats(hashes);
+      setStats({
+        total: counts.total || 0,
+        medicines: counts.medicines || 0,
+        stocks: counts.stocks || 0,
+        receipts: counts.receipts || 0,
+        removals: counts.removals || 0
+      });
+      
+      console.log(`✅ Loaded ${hashes.length} blockchain records from database`);
     } catch (err) {
       console.error('Error fetching blockchain data:', err);
-      // Provide clearer error when frontend served HTML instead of JSON
       const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data';
       setError(message);
     } finally {
@@ -59,7 +68,8 @@ export default function BlockchainHistory() {
         item.hash?.toLowerCase().includes(searchLower) ||
         item.recordId?.toString().includes(searchLower) ||
         item.type?.toLowerCase().includes(searchLower) ||
-        item.addedBy?.toLowerCase().includes(searchLower)
+        item.addedBy?.toLowerCase().includes(searchLower) ||
+        item.addedByName?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -104,7 +114,8 @@ export default function BlockchainHistory() {
   };
 
   const formatAddress = (address) => {
-    if (!address) return 'N/A';
+    if (!address || address === 'Unknown') return 'N/A';
+    if (address.length < 10) return address;
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -130,12 +141,13 @@ export default function BlockchainHistory() {
 
   const handleExportCSV = () => {
     const csvContent = [
-      ['Type', 'Record ID', 'Data Hash', 'Added By', 'Timestamp', 'Status', 'TX Hash'],
+      ['Type', 'Record ID', 'Data Hash', 'Added By', 'Added By Name', 'Timestamp', 'Status', 'TX Hash'],
       ...filteredData.map(item => [
         item.type,
         item.recordId || 'N/A',
         item.hash || '',
         formatAddress(item.addedBy),
+        item.addedByName || 'Unknown',
         formatTimestamp(item.timestamp),
         item.exists ? 'Active' : 'Deleted',
         item.txHash || 'N/A'
@@ -250,7 +262,7 @@ export default function BlockchainHistory() {
             <p className="text-xs text-blue-900 leading-relaxed">
               A <strong>hash</strong> is a unique cryptographic fingerprint of your data. When you create or update 
               a medicine, stock, receipt, or removal record, the system generates a hash (using SHA-256) of all 
-              the record's data and stores it on the Ethereum blockchain. This makes the data:
+              the record's data and stores it on the Polygon Amoy blockchain. This makes the data:
             </p>
             <ul className="list-disc list-inside text-xs text-blue-900 mt-2 space-y-1">
               <li><strong>Tamper-proof:</strong> Any change to the original data will produce a different hash</li>
@@ -301,7 +313,7 @@ export default function BlockchainHistory() {
         {loading ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600 mb-4"></div>
-            <p className="text-sm text-gray-600">Loading blockchain data...</p>
+            <p className="text-sm text-gray-600">Loading blockchain data from database...</p>
           </div>
         ) : filteredData.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -309,7 +321,7 @@ export default function BlockchainHistory() {
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Hashes Found</h2>
             <p className="text-sm text-gray-600">
               {blockchainData.length === 0 
-                ? "No hashes have been stored on the blockchain yet" 
+                ? "No hashes have been stored yet" 
                 : "No hashes match your search criteria"}
             </p>
           </div>
@@ -366,9 +378,16 @@ export default function BlockchainHistory() {
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <span className="font-mono text-gray-900">
-                          {formatAddress(item.addedBy)}
-                        </span>
+                        <div>
+                          <span className="font-mono text-gray-900 block">
+                            {formatAddress(item.addedBy)}
+                          </span>
+                          {item.addedByName && item.addedByName !== 'Unknown' && (
+                            <span className="text-xs text-gray-500">
+                              {item.addedByName}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {formatTimestamp(item.timestamp)}
@@ -403,7 +422,7 @@ export default function BlockchainHistory() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800"
-                              title="View on Etherscan"
+                              title="View on PolygonScan"
                             >
                               <FaExternalLinkAlt />
                             </a>
