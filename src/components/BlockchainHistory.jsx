@@ -25,8 +25,8 @@ export default function BlockchainHistory() {
     setError(null);
     try {
       // Use configured API client to avoid fetching the app HTML (which causes JSON parse errors)
-      const response = await api.get('/blockchain/hashes', { timeout: 30000 });
-      const hashes = response?.data?.data || [];
+      const { data } = await api.get('/blockchain/hashes');
+      const hashes = data?.hashes || [];
       
       setBlockchainData(hashes);
       setFilteredData(hashes);
@@ -34,13 +34,8 @@ export default function BlockchainHistory() {
     } catch (err) {
       console.error('Error fetching blockchain data:', err);
       // Provide clearer error when frontend served HTML instead of JSON
-      const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data from database';
+      const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data';
       setError(message);
-      
-      // Show more detailed error information
-      if (err.response) {
-        console.error('Error response:', err.response.data);
-      }
     } finally {
       setLoading(false);
     }
