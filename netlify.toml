@@ -2,8 +2,8 @@
 # This file configures automatic deployment to Netlify
 
 [build]
-  # Build command - using yarn consistently
-  command = "yarn install && yarn build"
+  # Build command - using npm
+  command = "npm ci && npm run build"
   
   # Directory to publish
   publish = "dist"
@@ -15,8 +15,8 @@
   # Node.js version - required by @walletconnect/core, react-router-dom, and @solana/kit
   NODE_VERSION = "20.18.0"
   
-  # Use yarn
-  NETLIFY_USE_YARN = "true"
+  # Use npm instead of yarn
+  NETLIFY_USE_YARN = "false"
   
   # Skip preflight checks
   SKIP_PREFLIGHT_CHECK = "true"
