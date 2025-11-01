@@ -62,7 +62,7 @@ export const AuditLogsCard = () => (
     <div className="text-xs text-gray-600 mb-2">
       Database operation audit logs
     </div>
-    <Link to="/audit-logs" className="text-sm text-blue-600 hover:text-blue-800">
+    <Link to="/audit-logs/all" className="text-sm text-blue-600 hover:text-blue-800">
       View Audit Logs
     </Link>
   </div>
@@ -147,7 +147,7 @@ export const StaffCard = ({ staffCount, loading = false }) => (
     <div className="text-xs text-gray-600 mb-2">
       Active staff members with blockchain access
     </div>
-    <Link to="/admin" className="text-sm text-blue-600 hover:text-blue-800">
+    <Link to="/dashboard" className="text-sm text-blue-600 hover:text-blue-800">
       Manage Staff
     </Link>
   </div>

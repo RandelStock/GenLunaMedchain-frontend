@@ -1,6 +1,7 @@
 // src/api.js
 import axios from "axios";
-import API_BASE_URL from "./src/config.js"; // ← relative import (from src)
+// Direct hardcoded URL to fix connection issues
+const API_BASE_URL = "https://genlunamedchain-backend.onrender.com";
 
 // Create axios instance with sensible defaults
 const api = axios.create({
