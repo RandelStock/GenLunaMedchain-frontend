@@ -7,6 +7,132 @@ import { useRole } from "../auth/RoleProvider";
 // Enable blockchain for medicine additions
 const ENABLE_BLOCKCHAIN_FOR_MEDICINE = true;
 
+// Dropdown options
+const MEDICINE_TYPES = [
+  'Tablet',
+  'Capsule',
+  'Syrup',
+  'Injection',
+  'Suspension',
+  'Ointment',
+  'Cream',
+  'Drops',
+  'Powder',
+  'Solution'
+];
+
+const DOSAGE_FORMS = [
+  '500mg',
+  '250mg',
+  '100mg',
+  '50mg',
+  '10ml',
+  '5ml',
+  '1mg',
+  '2mg',
+  '5mg',
+  '10mg',
+  '20mg',
+  '100ml',
+  '200ml'
+];
+
+const STRENGTHS = [
+  'Low',
+  'Medium',
+  'High',
+  '100mg',
+  '200mg',
+  '250mg',
+  '500mg',
+  '1g',
+  '2g'
+];
+
+const MANUFACTURERS = [
+  'Unilab',
+  'Biogesic',
+  'Pfizer',
+  'GSK (GlaxoSmithKline)',
+  'Novartis',
+  'Astra Zeneca',
+  'Johnson & Johnson',
+  'Merck',
+  'Sanofi',
+  'Abbott',
+  'Roche',
+  'Bayer',
+  'Generic Pharma'
+];
+
+const CATEGORIES = [
+  'Antibiotic',
+  'Analgesic',
+  'Antipyretic',
+  'Anti-inflammatory',
+  'Antihypertensive',
+  'Antidiabetic',
+  'Antihistamine',
+  'Antacid',
+  'Vitamin',
+  'Supplement',
+  'Antiseptic',
+  'Antiparasitic'
+];
+
+const STORAGE_REQUIREMENTS = [
+  'Store in cool, dry place',
+  'Refrigerate (2-8°C)',
+  'Room temperature (15-30°C)',
+  'Protect from light',
+  'Keep away from moisture',
+  'Store below 25°C',
+  'Do not freeze'
+];
+
+const SUPPLIERS = [
+  'Good Shepherd Pharmacy',
+  'B.R. Galang Drugstore',
+  'Sam\'s Pharmacy & Grocery',
+  'Peninsula Pharmacy (branch)',
+  'Valuemed Generics',
+  'Medicament Pharma and Medical Supplies Distribution',
+  'Carlos Superdrug',
+  'South Star Drug',
+  'Mercury Drug'
+];
+
+const STORAGE_LOCATIONS = [
+  { value: 'MUNICIPAL', label: 'Municipal/RHU' },
+  { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
+  { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
+  { value: 'BARANGAY_1_POBLACION', label: 'Barangay 1 (Poblacion)' },
+  { value: 'BARANGAY_2_POBLACION', label: 'Barangay 2 (Poblacion)' },
+  { value: 'BARANGAY_3_POBLACION', label: 'Barangay 3 (Poblacion)' },
+  { value: 'BARANGAY_4_POBLACION', label: 'Barangay 4 (Poblacion)' },
+  { value: 'BARANGAY_5_POBLACION', label: 'Barangay 5 (Poblacion)' },
+  { value: 'BARANGAY_6_POBLACION', label: 'Barangay 6 (Poblacion)' },
+  { value: 'BARANGAY_7_POBLACION', label: 'Barangay 7 (Poblacion)' },
+  { value: 'BARANGAY_8_POBLACION', label: 'Barangay 8 (Poblacion)' },
+  { value: 'BARANGAY_9_POBLACION', label: 'Barangay 9 (Poblacion)' },
+  { value: 'LAVIDES', label: 'Lavides' },
+  { value: 'MAGSAYSAY', label: 'Magsaysay' },
+  { value: 'MALAYA', label: 'Malaya' },
+  { value: 'NIEVA', label: 'Nieva' },
+  { value: 'RECTO', label: 'Recto' },
+  { value: 'SAN_IGNACIO_IBABA', label: 'San Ignacio Ibaba' },
+  { value: 'SAN_IGNACIO_ILAYA', label: 'San Ignacio Ilaya' },
+  { value: 'SAN_ISIDRO_IBABA', label: 'San Isidro Ibaba' },
+  { value: 'SAN_ISIDRO_ILAYA', label: 'San Isidro Ilaya' },
+  { value: 'SAN_JOSE', label: 'San Jose' },
+  { value: 'SAN_NICOLAS', label: 'San Nicolas' },
+  { value: 'SAN_VICENTE', label: 'San Vicente' },
+  { value: 'SANTA_MARIA_IBABA', label: 'Santa Maria Ibaba' },
+  { value: 'SANTA_MARIA_ILAYA', label: 'Santa Maria Ilaya' },
+  { value: 'SUMILANG', label: 'Sumilang' },
+  { value: 'VILLARICA', label: 'Villarica' }
+];
+
 export default function AddMedicineForm() {
   const { userRole, userProfile } = useRole?.() || {};
   const [medicines, setMedicines] = useState([]);
@@ -25,7 +151,6 @@ export default function AddMedicineForm() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Debug logging
   useEffect(() => {
     console.log("AddMedicineForm State:", {
       address,
@@ -42,8 +167,8 @@ export default function AddMedicineForm() {
           api.get("/medicines"),
           api.get("/stocks")
         ]);
-        setMedicines(medRes.data.data || []); // Extract nested data
-        setStocks(stockRes.data.data || []); // Extract nested data
+        setMedicines(medRes.data.data || []);
+        setStocks(stockRes.data.data || []);
       } catch (err) {
         console.error("Failed to fetch data:", err);
       } finally {
@@ -61,8 +186,8 @@ export default function AddMedicineForm() {
             api.get("/medicines"),
             api.get("/stocks")
           ]);
-          setMedicines(medRes.data.data || []); // Extract nested data
-          setStocks(stockRes.data.data || []); // Extract nested data
+          setMedicines(medRes.data.data || []);
+          setStocks(stockRes.data.data || []);
         } catch (err) {
           console.error("Failed to refresh data:", err);
         }
@@ -175,14 +300,13 @@ export default function AddMedicineForm() {
     }
   };
 
-  // Show loading while checking access OR contract is loading
   if (checkingAccess || !contractLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-black">
               {!contractLoaded ? "Loading contract..." : "Verifying permissions..."}
             </p>
           </div>
@@ -199,9 +323,9 @@ export default function AddMedicineForm() {
             <svg className="h-10 w-10 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <h3 className="ml-3 text-lg font-semibold text-yellow-900">Wallet Required</h3>
+            <h3 className="ml-3 text-lg font-semibold text-black">Wallet Required</h3>
           </div>
-          <p className="text-yellow-800">Please connect your wallet to add medicines to the inventory.</p>
+          <p className="text-black">Please connect your wallet to add medicines to the inventory.</p>
         </div>
       </div>
     );
@@ -216,10 +340,10 @@ export default function AddMedicineForm() {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <div className="ml-3">
-              <h3 className="text-lg font-semibold text-red-900">Access Denied</h3>
-              <p className="text-red-800 mt-2">You don't have permission to add medicines to the inventory.</p>
-              <p className="text-red-700 mt-2 text-sm">Please contact your system administrator to grant you the STAFF role.</p>
-              <p className="text-gray-600 mt-3 text-xs font-mono">Your wallet: {address.slice(0, 10)}...{address.slice(-8)}</p>
+              <h3 className="text-lg font-semibold text-black">Access Denied</h3>
+              <p className="text-black mt-2">You don't have permission to add medicines to the inventory.</p>
+              <p className="text-black mt-2 text-sm">Please contact your system administrator to grant you the STAFF role.</p>
+              <p className="text-black mt-3 text-xs font-mono">Your wallet: {address.slice(0, 10)}...{address.slice(-8)}</p>
             </div>
           </div>
           <button
@@ -234,17 +358,17 @@ export default function AddMedicineForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Medicine</h1>
-          <p className="text-gray-600">Enter complete medicine information and stock details</p>
-          <div className="mt-2 flex items-center space-x-2">
-            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full border border-green-200">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-black mb-2">Add New Medicine</h1>
+          <p className="text-black text-sm">Enter complete medicine information and stock details</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
               Access Granted
             </span>
-            <span className="text-xs text-gray-500">
-              Wallet: {address.slice(0, 6)}...{address.slice(-4)}
+            <span className="text-xs text-black">
+              {address.slice(0, 6)}...{address.slice(-4)}
             </span>
           </div>
         </div>
@@ -252,10 +376,10 @@ export default function AddMedicineForm() {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-start">
-              <svg className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
-              <span className="text-sm text-red-800 whitespace-pre-line">{error}</span>
+              <span className="text-sm text-black whitespace-pre-line">{error}</span>
             </div>
           </div>
         )}
@@ -263,105 +387,145 @@ export default function AddMedicineForm() {
         {success && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
             <div className="flex items-start">
-              <svg className="h-5 w-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="text-sm text-green-800 whitespace-pre-line">{success}</span>
+              <span className="text-sm text-black whitespace-pre-line">{success}</span>
             </div>
           </div>  
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Medicine Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Medicine Name <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="medicine_name" 
-                  required 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
+            <h3 className="text-lg font-semibold text-black mb-6">Medicine Information</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Medicine Name <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="medicine_name" 
+                    required 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    placeholder="Enter medicine name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Medicine Type <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="medicine_type" 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select type</option>
+                    {MEDICINE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">Generic Name</label>
+                  <input 
+                    type="text" 
+                    name="generic_name" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    placeholder="Enter generic name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Dosage Form <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="dosage_form"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select dosage</option>
+                    {DOSAGE_FORMS.map(form => (
+                      <option key={form} value={form}>{form}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Strength <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="strength"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select strength</option>
+                    {STRENGTHS.map(strength => (
+                      <option key={strength} value={strength}>{strength}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Manufacturer <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="manufacturer"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select manufacturer</option>
+                    {MANUFACTURERS.map(manufacturer => (
+                      <option key={manufacturer} value={manufacturer}>{manufacturer}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="category"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select category</option>
+                    {CATEGORIES.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Storage Requirements <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="storage_requirements"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select storage requirement</option>
+                    {STORAGE_REQUIREMENTS.map(req => (
+                      <option key={req} value={req}>{req}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Medicine Type</label>
-                <input 
-                  type="text" 
-                  name="medicine_type" 
-                  placeholder="Tablet, Capsule, Syrup"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Generic Name</label>
-                <input 
-                  type="text" 
-                  name="generic_name" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Dosage Form</label>
-                <input 
-                  type="text" 
-                  name="dosage_form" 
-                  placeholder="500mg, 10ml"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Strength</label>
-                <input 
-                  type="text" 
-                  name="strength" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturer</label>
-                <input 
-                  type="text" 
-                  name="manufacturer" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <input 
-                  type="text" 
-                  name="category" 
-                  placeholder="Antibiotic, Analgesic"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Storage Requirements</label>
-                <input 
-                  type="text" 
-                  name="storage_requirements" 
-                  placeholder="Store in cool, dry place"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-black mb-1.5">Description</label>
                 <textarea 
                   name="description" 
                   rows="3"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter medicine description..."
                 ></textarea>
               </div>
@@ -369,92 +533,107 @@ export default function AddMedicineForm() {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Stock Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Batch Number <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="batch_number" 
-                  required 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
+            <h3 className="text-lg font-semibold text-black mb-6">Stock Information</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Batch Number <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="batch_number" 
+                    required 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    placeholder="Enter batch number"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quantity <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="number" 
-                  name="quantity" 
-                  required 
-                  min="1"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    name="quantity" 
+                    required 
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    placeholder="Enter quantity"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Unit Cost</label>
-                <input 
-                  type="number" 
-                  name="unit_cost" 
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">Unit Cost</label>
+                  <input 
+                    type="number" 
+                    name="unit_cost" 
+                    step="0.01"
+                    min="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    placeholder="0.00"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Name</label>
-                <input 
-                  type="text" 
-                  name="supplier_name" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Supplier Name <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="supplier_name"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select supplier</option>
+                    {SUPPLIERS.map(supplier => (
+                      <option key={supplier} value={supplier}>{supplier}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Expiry Date <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="date" 
-                  name="expiry_date" 
-                  required 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Expiry Date <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    name="expiry_date" 
+                    required 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Storage Location</label>
-                <input 
-                  type="text" 
-                  name="storage_location" 
-                  placeholder="Main Storage"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900" 
-                />
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Storage Location <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="storage_location"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select location</option>
+                    {STORAGE_LOCATIONS.map(location => (
+                      <option key={location.value} value={location.value}>{location.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              className="px-6 py-2.5 border border-gray-300 rounded-md text-black font-medium hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {loading ? (
                 <>
