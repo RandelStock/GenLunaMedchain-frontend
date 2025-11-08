@@ -65,8 +65,12 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     medical_conditions: editData?.medical_conditions || '',
     allergies: editData?.allergies || '',
     is_4ps_member: editData?.is_4ps_member || false,
+    is_philhealth_member: editData?.is_philhealth_member || false,
+    philhealth_number: editData?.philhealth_number || '',
     is_pregnant: editData?.is_pregnant || false,
+    is_senior_citizen: editData?.is_senior_citizen || false,
     is_birth_registered: editData?.is_birth_registered || false,
+    other_program: editData?.other_program || '',
     pregnancy_due_date: editData?.pregnancy_due_date ? new Date(editData.pregnancy_due_date).toISOString().split('T')[0] : '',
     pregnancy_notes: editData?.pregnancy_notes || '',
     birth_registry_date: editData?.birth_registry_date ? new Date(editData.birth_registry_date).toISOString().split('T')[0] : '',
@@ -75,7 +79,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
 
   const [formErrors, setFormErrors] = useState({});
 
-  // Check for duplicates when key fields change
+  // Enhanced duplicate checking - checks on multiple fields
   useEffect(() => {
     if (!isEditMode && formData.first_name && formData.last_name) {
       const timer = setTimeout(() => {
@@ -83,7 +87,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [formData.first_name, formData.last_name, formData.date_of_birth, isEditMode]);
+  }, [formData.first_name, formData.last_name, formData.date_of_birth, formData.phone, isEditMode]);
 
   const checkForDuplicates = async () => {
     if (!formData.first_name.trim() || !formData.last_name.trim()) return;
@@ -100,7 +104,8 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           first_name: formData.first_name,
           last_name: formData.last_name,
           middle_name: formData.middle_name,
-          date_of_birth: formData.date_of_birth
+          date_of_birth: formData.date_of_birth,
+          phone: formData.phone
         })
       });
 
@@ -115,8 +120,47 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
       }
     } catch (err) {
       console.error('Error checking duplicates:', err);
+      // Fallback: check locally in resident list
+      await checkLocalDuplicates();
     } finally {
       setCheckingDuplicate(false);
+    }
+  };
+
+  // Fallback duplicate check by fetching resident list
+  const checkLocalDuplicates = async () => {
+    try {
+      const response = await fetch(`${API_URL}/residents?limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      const residents = data.data || data.residents || [];
+
+      const potentialDuplicates = residents.filter(resident => {
+        const nameMatch = 
+          resident.first_name?.toLowerCase() === formData.first_name.toLowerCase() &&
+          resident.last_name?.toLowerCase() === formData.last_name.toLowerCase();
+        
+        const dobMatch = formData.date_of_birth && 
+          resident.date_of_birth &&
+          new Date(resident.date_of_birth).toISOString().split('T')[0] === formData.date_of_birth;
+        
+        const phoneMatch = formData.phone && 
+          resident.phone &&
+          resident.phone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '');
+
+        return nameMatch || dobMatch || phoneMatch;
+      });
+
+      if (potentialDuplicates.length > 0) {
+        setDuplicates(potentialDuplicates);
+        setShowDuplicateWarning(true);
+      }
+    } catch (err) {
+      console.error('Error checking local duplicates:', err);
     }
   };
 
@@ -165,6 +209,10 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     
     if (formData.is_birth_registered && !formData.birth_registry_date) {
       errors.birth_registry_date = 'Registry date required';
+    }
+
+    if (formData.is_philhealth_member && !formData.philhealth_number.trim()) {
+      errors.philhealth_number = 'PhilHealth number required';
     }
 
     setFormErrors(errors);
@@ -248,6 +296,28 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     return BARANGAYS.find(b => b.value === value)?.label || value;
   };
 
+  const getDuplicateMatchReason = (dup) => {
+    const reasons = [];
+    
+    const nameMatch = 
+      dup.first_name?.toLowerCase() === formData.first_name.toLowerCase() &&
+      dup.last_name?.toLowerCase() === formData.last_name.toLowerCase();
+    
+    if (nameMatch) reasons.push('Same Name');
+    
+    if (formData.date_of_birth && dup.date_of_birth &&
+        new Date(dup.date_of_birth).toISOString().split('T')[0] === formData.date_of_birth) {
+      reasons.push('Same Birth Date');
+    }
+    
+    if (formData.phone && dup.phone &&
+        dup.phone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '')) {
+      reasons.push('Same Phone');
+    }
+
+    return reasons.join(', ') || 'Similar Info';
+  };
+
   const currentAge = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
 
   return (
@@ -262,7 +332,13 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             {isEditMode ? 'Edit Resident' : 'Add Resident'}
           </h1>
           {checkingDuplicate && (
-            <span className="text-xs text-blue-600 animate-pulse">Checking for duplicates...</span>
+            <span className="text-xs text-blue-600 animate-pulse flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Checking for duplicates...
+            </span>
           )}
         </div>
         <button
@@ -275,66 +351,85 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
         </button>
       </div>
 
-      {/* Duplicate Warning */}
+      {/* Enhanced Duplicate Warning */}
       {showDuplicateWarning && duplicates.length > 0 && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 px-6 py-4">
+        <div className="bg-red-50 border-l-4 border-red-500 px-6 py-4">
           <div className="flex items-start">
-            <svg className="w-6 h-6 text-amber-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <svg className="w-6 h-6 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-amber-800 mb-2">
-                Potential Duplicate Resident Found!
+              <h3 className="text-sm font-bold text-red-800 mb-2">
+                ⚠️ Duplicate Resident Detected!
               </h3>
-              <p className="text-xs text-amber-700 mb-3">
-                A resident with similar information already exists in the system. Please verify before continuing.
+              <p className="text-xs text-red-700 mb-3">
+                {duplicates.length} resident{duplicates.length > 1 ? 's' : ''} with matching information already exist{duplicates.length === 1 ? 's' : ''} in the system. Please verify this is not a duplicate entry.
               </p>
               {duplicates.map((dup, idx) => (
-                <div key={idx} className="bg-white rounded border border-amber-200 p-3 mb-2">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                <div key={idx} className="bg-white rounded-lg border-2 border-red-300 p-4 mb-3 shadow-sm">
+                  <div className="flex items-start justify-between mb-2">
                     <div>
-                      <span className="font-semibold text-gray-700">Name:</span>
-                      <span className="ml-1 text-gray-900">{dup.full_name}</span>
+                      <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded">
+                        EXISTING RESIDENT #{dup.resident_id}
+                      </span>
+                      <span className="ml-2 text-xs text-red-600">
+                        Match: {getDuplicateMatchReason(dup)}
+                      </span>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs mt-3">
                     <div>
-                      <span className="font-semibold text-gray-700">Age:</span>
-                      <span className="ml-1 text-gray-900">{dup.age} years</span>
+                      <span className="font-semibold text-gray-700">Full Name:</span>
+                      <span className="ml-1 text-gray-900 font-medium">{dup.full_name}</span>
                     </div>
                     <div>
                       <span className="font-semibold text-gray-700">Gender:</span>
                       <span className="ml-1 text-gray-900">{dup.gender}</span>
                     </div>
                     <div>
+                      <span className="font-semibold text-gray-700">Date of Birth:</span>
+                      <span className="ml-1 text-gray-900">
+                        {dup.date_of_birth ? new Date(dup.date_of_birth).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Age:</span>
+                      <span className="ml-1 text-gray-900">{dup.age} years</span>
+                    </div>
+                    <div>
                       <span className="font-semibold text-gray-700">Barangay:</span>
                       <span className="ml-1 text-gray-900">{getBarangayLabel(dup.barangay)}</span>
                     </div>
+                    {dup.phone && (
+                      <div>
+                        <span className="font-semibold text-gray-700">Phone:</span>
+                        <span className="ml-1 text-gray-900">{dup.phone}</span>
+                      </div>
+                    )}
                     {dup.address && (
                       <div className="col-span-2">
                         <span className="font-semibold text-gray-700">Address:</span>
                         <span className="ml-1 text-gray-900">{dup.address}</span>
                       </div>
                     )}
-                    {dup.phone && (
-                      <div className="col-span-2">
-                        <span className="font-semibold text-gray-700">Phone:</span>
-                        <span className="ml-1 text-gray-900">{dup.phone}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 mt-4">
                 <button
-                  onClick={() => setShowDuplicateWarning(false)}
-                  className="text-xs px-3 py-1.5 bg-white border border-amber-500 text-amber-700 rounded hover:bg-amber-50"
+                  onClick={() => {
+                    setShowDuplicateWarning(false);
+                    setForceSave(false);
+                  }}
+                  className="text-xs px-4 py-2 bg-white border-2 border-red-500 text-red-700 rounded hover:bg-red-50 font-semibold"
                 >
-                  Review Form
+                  ← Review & Edit Form
                 </button>
                 <button
                   onClick={handleForceSave}
-                  className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700"
+                  className="text-xs px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-semibold"
                 >
-                  This is a Different Person - Proceed Anyway
+                  ✓ Confirm - This is a Different Person
                 </button>
               </div>
             </div>
@@ -348,7 +443,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           {/* Personal Information Section */}
           <div className="mb-8">
             <div className="mb-6">
-              <label className="block text-sm text-black mb-1">First Name</label>
+              <label className="block text-sm text-black mb-1">First Name *</label>
               <input
                 type="text"
                 name="first_name"
@@ -363,7 +458,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm text-black mb-1">Last Name</label>
+              <label className="block text-sm text-black mb-1">Last Name *</label>
               <input
                 type="text"
                 name="last_name"
@@ -403,7 +498,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm text-black mb-1">Gender</label>
+              <label className="block text-sm text-black mb-1">Gender *</label>
               <select
                 name="gender"
                 value={formData.gender}
@@ -442,7 +537,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm text-black mb-1">Barangay</label>
+              <label className="block text-sm text-black mb-1">Barangay *</label>
               <select
                 name="barangay"
                 value={formData.barangay}
@@ -480,7 +575,6 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
           </div>
 
-          {/* Rest of the form sections remain the same... */}
           {/* Household Details Section */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
@@ -513,7 +607,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
           </div>
 
-          {/* Program Membership Section */}
+          {/* Program Membership Section - Enhanced with PhilHealth */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
               <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
@@ -523,6 +617,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
               <h3 className="text-base font-normal text-black">Program Membership</h3>
             </div>
 
+            {/* 4Ps Member */}
             <div className="mb-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -532,10 +627,59 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                   onChange={handleChange}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-black">4Ps Member</span>
+                <span className="text-sm text-black font-medium">4Ps Member (Pantawid Pamilyang Pilipino Program)</span>
               </label>
             </div>
 
+            {/* PhilHealth Member */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_philhealth_member"
+                  checked={formData.is_philhealth_member}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <span className="text-sm text-black font-medium">PhilHealth Member</span>
+              </label>
+            </div>
+
+            {formData.is_philhealth_member && (
+              <div className="ml-6 pl-4 border-l-2 border-green-300 mb-4">
+                <div className="mb-4">
+                  <label className="block text-sm text-black mb-1">PhilHealth Number *</label>
+                  <input
+                    type="text"
+                    name="philhealth_number"
+                    value={formData.philhealth_number}
+                    onChange={handleChange}
+                    placeholder="XX-XXXXXXXXX-X"
+                    className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                  {formErrors.philhealth_number && (
+                    <p className="text-red-600 text-xs mt-1">{formErrors.philhealth_number}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Enter the 12-digit PhilHealth ID number</p>
+                </div>
+              </div>
+            )}
+
+            {/* Senior Citizen */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_senior_citizen"
+                  checked={formData.is_senior_citizen}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                />
+                <span className="text-sm text-black font-medium">Senior Citizen (60 years old and above)</span>
+              </label>
+            </div>
+
+            {/* Pregnant */}
             <div className="mb-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -543,16 +687,16 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                   name="is_pregnant"
                   checked={formData.is_pregnant}
                   onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-pink-600 border-gray-300 rounded focus:ring-pink-500"
                 />
-                <span className="text-sm text-black">Pregnant</span>
+                <span className="text-sm text-black font-medium">Pregnant</span>
               </label>
             </div>
 
             {formData.is_pregnant && (
               <div className="ml-6 pl-4 border-l-2 border-pink-300 mb-4">
                 <div className="mb-4">
-                  <label className="block text-sm text-black mb-1">Expected Due Date</label>
+                  <label className="block text-sm text-black mb-1">Expected Due Date *</label>
                   <input
                     type="date"
                     name="pregnancy_due_date"
@@ -572,11 +716,13 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                     onChange={handleChange}
                     className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
                     rows="2"
+                    placeholder="Any special notes about the pregnancy..."
                   />
                 </div>
               </div>
             )}
 
+            {/* Birth Registered */}
             <div className="mb-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -584,16 +730,16 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                   name="is_birth_registered"
                   checked={formData.is_birth_registered}
                   onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                 />
-                <span className="text-sm text-black">Birth Registered</span>
+                <span className="text-sm text-black font-medium">Birth Registered</span>
               </label>
             </div>
 
             {formData.is_birth_registered && (
-              <div className="ml-6 pl-4 border-l-2 border-green-300 mb-4">
+              <div className="ml-6 pl-4 border-l-2 border-orange-300 mb-4">
                 <div className="mb-4">
-                  <label className="block text-sm text-black mb-1">Registry Date</label>
+                  <label className="block text-sm text-black mb-1">Registry Date *</label>
                   <input
                     type="date"
                     name="birth_registry_date"
@@ -613,10 +759,25 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                     value={formData.birth_certificate_no}
                     onChange={handleChange}
                     className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="Enter birth certificate number"
                   />
                 </div>
               </div>
             )}
+
+            {/* Other Program/Membership */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <label className="block text-sm text-black mb-1 font-medium">Other Programs/Memberships</label>
+              <input
+                type="text"
+                name="other_program"
+                value={formData.other_program}
+                onChange={handleChange}
+                placeholder="e.g., PWD ID, Solo Parent, Indigenous People, etc."
+                className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter any other government programs or special categories</p>
+            </div>
           </div>
 
           {/* Emergency Contact Section */}
@@ -635,6 +796,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                 name="emergency_contact"
                 value={formData.emergency_contact}
                 onChange={handleChange}
+                placeholder="Full name of emergency contact"
                 className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -646,6 +808,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                 name="emergency_phone"
                 value={formData.emergency_phone}
                 onChange={handleChange}
+                placeholder="+63 XXX XXX XXXX"
                 className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -668,6 +831,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
                 rows="2"
+                placeholder="List any known medical conditions (e.g., Hypertension, Diabetes, Asthma)"
               />
             </div>
 
@@ -679,12 +843,13 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-white border-b-2 border-gray-300 text-black focus:outline-none focus:border-blue-500 transition-colors resize-none"
                 rows="2"
+                placeholder="List any known allergies (e.g., Penicillin, Shellfish, Peanuts)"
               />
             </div>
           </div>
 
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm">
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded">
               {error}
             </div>
           )}
@@ -704,8 +869,11 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           <button
             type="button"
             onClick={handleForceSave}
-            className="px-6 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 transition-colors flex items-center gap-2"
+            className="px-6 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 transition-colors flex items-center gap-2 font-semibold"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
             SAVE ANYWAY
           </button>
         )}
@@ -715,11 +883,21 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           disabled={loading}
           className="px-6 py-2 bg-blue-600 text-white text-sm hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {loading ? 'SAVING...' : 'SAVE'}
-          {!loading && (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+          {loading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              SAVING...
+            </>
+          ) : (
+            <>
+              SAVE
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </>
           )}
         </button>
       </div>

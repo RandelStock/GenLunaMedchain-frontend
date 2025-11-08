@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, X, Eye, Edit2, Trash2, RefreshCw, FileDown, FileText, ChevronLeft, ChevronRight, ChevronDown, UserCheck, Heart, UserCog, Users } from "lucide-react";
-// IMPORTANT: Import api from your api.js file
-// Adjust the path based on your project structure
+import { Search, Filter, X, Eye, Edit2, Trash2, RefreshCw, FileDown, FileText, ChevronLeft, ChevronRight, UserCheck, Heart, UserCog, Users, Pill, Activity, Calendar } from "lucide-react";
 import api from '../../../api.js';
+import { Link } from 'react-router-dom';
 
 const BARANGAYS = [
   { value: '', label: 'All Barangays' },
@@ -57,8 +56,13 @@ const ResidentList = ({ onEdit, onView }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedResident, setSelectedResident] = useState(null);
+  const [residentDetails, setResidentDetails] = useState(null);
+  const [editFormData, setEditFormData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [selectedRows, setSelectedRows] = useState([]);
 
@@ -91,6 +95,19 @@ const ResidentList = ({ onEdit, onView }) => {
       setError(errorMessage);
       setResidents([]);
       setLoading(false);
+    }
+  };
+
+  const loadResidentDetails = async (residentId) => {
+    setDetailsLoading(true);
+    try {
+      const response = await api.get(`/residents/${residentId}`);
+      setResidentDetails(response.data.data);
+    } catch (err) {
+      console.error('Error loading resident details:', err);
+      alert('Failed to load complete resident details');
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -128,16 +145,73 @@ const ResidentList = ({ onEdit, onView }) => {
     }
   };
 
-  const handleViewClick = (residentId) => {
-    const resident = residents.find(r => r.resident_id === residentId);
+  const handleViewClick = (resident) => {
     setSelectedResident(resident);
     setShowViewModal(true);
+    loadResidentDetails(resident.resident_id);
   };
 
-  const handleEditClick = (residentId) => {
+  const handleEditClick = async (residentId) => {
     const resident = residents.find(r => r.resident_id === residentId);
-    if (onEdit) {
-      onEdit(resident);
+    if (!resident) return;
+    
+    // Load full details for editing
+    try {
+      const response = await api.get(`/residents/${residentId}`);
+      const fullResident = response.data.data;
+      
+      setEditFormData({
+        first_name: fullResident.first_name || '',
+        last_name: fullResident.last_name || '',
+        middle_name: fullResident.middle_name || '',
+        date_of_birth: fullResident.date_of_birth || '',
+        gender: fullResident.gender || 'MALE',
+        phone: fullResident.phone || '',
+        barangay: fullResident.barangay || '',
+        address: fullResident.address || '',
+        is_4ps_member: fullResident.is_4ps_member || false,
+        is_pregnant: fullResident.is_pregnant || false,
+        is_senior_citizen: fullResident.is_senior_citizen || false,
+        is_birth_registered: fullResident.is_birth_registered || false,
+        pregnancy_due_date: fullResident.pregnancy_due_date || '',
+        medical_conditions: fullResident.medical_conditions || '',
+        allergies: fullResident.allergies || '',
+        emergency_contact: fullResident.emergency_contact || '',
+        emergency_phone: fullResident.emergency_phone || ''
+      });
+      
+      setSelectedResident(fullResident);
+      setShowEditModal(true);
+    } catch (err) {
+      console.error('Error loading resident for edit:', err);
+      alert('Failed to load resident details for editing');
+    }
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedResident) return;
+    
+    setSaving(true);
+    try {
+      await api.put(`/residents/${selectedResident.resident_id}`, editFormData);
+      alert('Resident updated successfully!');
+      setShowEditModal(false);
+      setSelectedResident(null);
+      setEditFormData(null);
+      loadResidents(); // Reload the list
+    } catch (err) {
+      console.error('Error updating resident:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to update resident';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -176,7 +250,6 @@ const ResidentList = ({ onEdit, onView }) => {
   };
 
   const exportToPDF = () => {
-    // Simple PDF generation using window.print()
     const printWindow = window.open('', '_blank');
     const tableHTML = `
       <!DOCTYPE html>
@@ -243,7 +316,10 @@ const ResidentList = ({ onEdit, onView }) => {
 
   const closeModals = () => {
     setShowViewModal(false);
+    setShowEditModal(false);
     setSelectedResident(null);
+    setResidentDetails(null);
+    setEditFormData(null);
   };
 
   const getBarangayLabel = (value) => {
@@ -302,12 +378,12 @@ const ResidentList = ({ onEdit, onView }) => {
               <FileDown size={18} />
               <span className="text-sm font-medium">PDF</span>
             </button>
-            <button
-              onClick={() => (window.location.href = "/residents/new")}
+            <Link
+              to="/residents/new"
               className="flex items-center gap-2 px-4 py-2 bg-[#f47920] hover:bg-[#e66d0f] rounded-md transition-colors font-semibold"
             >
               + Add Resident
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -549,7 +625,7 @@ const ResidentList = ({ onEdit, onView }) => {
                         </td>
                         <td className="px-4 py-3">
                           <button
-                            onClick={() => handleViewClick(res.resident_id)}
+                            onClick={() => handleViewClick(res)}
                             className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             {res.full_name}
@@ -600,7 +676,7 @@ const ResidentList = ({ onEdit, onView }) => {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => handleViewClick(res.resident_id)}
+                              onClick={() => handleViewClick(res)}
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               title="View"
                             >
@@ -662,9 +738,9 @@ const ResidentList = ({ onEdit, onView }) => {
       {/* View Modal */}
       {showViewModal && selectedResident && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             <div className="bg-[#2b3e50] px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Resident Details</h2>
+              <h2 className="text-xl font-bold text-white">Resident Profile</h2>
               <button
                 onClick={closeModals}
                 className="text-white hover:bg-[#3d5569] rounded p-1 transition-colors"
@@ -674,126 +750,179 @@ const ResidentList = ({ onEdit, onView }) => {
             </div>
 
             <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-              {/* Personal Information */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
-                  Personal Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Full Name</p>
-                    <p className="text-sm text-gray-900">{selectedResident.full_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Gender</p>
-                    <p className="text-sm text-gray-900">{selectedResident.gender}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Date of Birth</p>
-                    <p className="text-sm text-gray-900">
-                      {selectedResident.date_of_birth 
-                        ? new Date(selectedResident.date_of_birth).toLocaleDateString()
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Age</p>
-                    <p className="text-sm text-gray-900">{selectedResident.age} years</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Phone</p>
-                    <p className="text-sm text-gray-900">{selectedResident.phone || 'N/A'}</p>
-                  </div>
-                  {selectedResident.barangay && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-600 mb-1">Barangay</p>
-                      <p className="text-sm text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Address</p>
-                    <p className="text-sm text-gray-900">{selectedResident.address || 'N/A'}</p>
-                  </div>
+              {detailsLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
+                  <p className="mt-2 text-sm text-gray-600">Loading details...</p>
                 </div>
-              </div>
-
-              {/* Program Status */}
-              {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
-                    Program Status
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedResident.is_4ps_member && (
-                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                        <p className="text-sm text-green-900 font-semibold">4Ps Member</p>
+              ) : (
+                <>
+                  {/* Personal Information */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                      <Users size={20} className="text-blue-600" />
+                      Personal Information
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Full Name</p>
+                        <p className="text-sm text-gray-900">{selectedResident.full_name}</p>
                       </div>
-                    )}
-                    {selectedResident.is_pregnant && (
-                      <div className="bg-pink-50 border border-pink-200 rounded-md p-3">
-                        <p className="text-sm text-pink-900 font-semibold">Pregnant</p>
-                        {selectedResident.pregnancy_due_date && (
-                          <p className="text-xs text-pink-800 mt-1">
-                            Due: {new Date(selectedResident.pregnancy_due_date).toLocaleDateString()}
-                          </p>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Gender</p>
+                        <p className="text-sm text-gray-900">{selectedResident.gender}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Date of Birth</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.date_of_birth 
+                            ? new Date(selectedResident.date_of_birth).toLocaleDateString()
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Age</p>
+                        <p className="text-sm text-gray-900">{selectedResident.age} years</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Phone</p>
+                        <p className="text-sm text-gray-900">{selectedResident.phone || 'N/A'}</p>
+                      </div>
+                      {selectedResident.barangay && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 mb-1">Barangay</p>
+                          <p className="text-sm text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Address</p>
+                        <p className="text-sm text-gray-900">{selectedResident.address || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Program Status */}
+                  {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                        <Activity size={20} className="text-green-600" />
+                        Program Status
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedResident.is_4ps_member && (
+                          <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                            <p className="text-sm text-green-900 font-semibold">4Ps Member</p>
+                          </div>
+                        )}
+                        {selectedResident.is_pregnant && (
+                          <div className="bg-pink-50 border border-pink-200 rounded-md p-3">
+                            <p className="text-sm text-pink-900 font-semibold">Pregnant</p>
+                            {selectedResident.pregnancy_due_date && (
+                              <p className="text-xs text-pink-800 mt-1">
+                                Due: {new Date(selectedResident.pregnancy_due_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {selectedResident.is_senior_citizen && (
+                          <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
+                            <p className="text-sm text-purple-900 font-semibold">Senior Citizen</p>
+                          </div>
+                        )}
+                        {selectedResident.is_birth_registered && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                            <p className="text-sm text-orange-900 font-semibold">Birth Registered</p>
+                          </div>
                         )}
                       </div>
-                    )}
-                    {selectedResident.is_senior_citizen && (
-                      <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
-                        <p className="text-sm text-purple-900 font-semibold">Senior Citizen</p>
+                    </div>
+                  )}
+
+                  {/* Medicine Release History */}
+                  {residentDetails?.medicine_releases && residentDetails.medicine_releases.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                        <Pill size={20} className="text-purple-600" />
+                        Recent Medicine Releases
+                      </h3>
+                      <div className="space-y-3">
+                        {residentDetails.medicine_releases.map((release) => (
+                          <div key={release.release_id} className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {release.medicine?.medicine_name || 'Unknown Medicine'}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {release.medicine?.dosage_form} {release.medicine?.strength}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                  <div>
+                                    <span className="font-medium text-gray-600">Date:</span>
+                                    <span className="ml-1 text-gray-900">
+                                      {new Date(release.date_released).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Quantity:</span>
+                                    <span className="ml-1 text-gray-900">{release.quantity_released}</span>
+                                  </div>
+                                  {release.concern && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Concern:</span>
+                                      <span className="ml-1 text-gray-900">{release.concern}</span>
+                                    </div>
+                                  )}
+                                  {release.prescribing_doctor && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Doctor:</span>
+                                      <span className="ml-1 text-gray-900">{release.prescribing_doctor}</span>
+                                    </div>
+                                  )}
+                                  {release.dosage_instructions && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Instructions:</span>
+                                      <span className="ml-1 text-gray-900">{release.dosage_instructions}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {release.blockchain_tx_hash && (
+                                <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full flex-shrink-0">
+                                  Verified
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {selectedResident.is_birth_registered && (
-                      <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
-                        <p className="text-sm text-orange-900 font-semibold">Birth Registered</p>
+                    </div>
+                  )}
+
+                  {/* Emergency Contact */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
+                      Emergency Contact
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Contact Person</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.emergency_contact || 'N/A'}
+                        </p>
                       </div>
-                    )}
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Emergency Phone</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.emergency_phone || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Emergency Contact */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
-                  Emergency Contact
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Contact Person</p>
-                    <p className="text-sm text-gray-900">
-                      {selectedResident.emergency_contact || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Emergency Phone</p>
-                    <p className="text-sm text-gray-900">
-                      {selectedResident.emergency_phone || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Medical Information */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
-                  Medical Information
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Medical Conditions</p>
-                    <p className="text-sm text-gray-900">
-                      {selectedResident.medical_conditions || 'None reported'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Known Allergies</p>
-                    <p className="text-sm text-gray-900">
-                      {selectedResident.allergies || 'None reported'}
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
@@ -811,6 +940,244 @@ const ResidentList = ({ onEdit, onView }) => {
                 className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editFormData && selectedResident && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-[#2b3e50] px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Edit Resident</h2>
+              <button
+                onClick={closeModals}
+                className="text-white hover:bg-[#3d5569] rounded p-1 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              {/* Personal Information */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Personal Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">First Name *</label>
+                    <input
+                      type="text"
+                      value={editFormData.first_name}
+                      onChange={(e) => handleEditFormChange('first_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name *</label>
+                    <input
+                      type="text"
+                      value={editFormData.last_name}
+                      onChange={(e) => handleEditFormChange('last_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Middle Name</label>
+                    <input
+                      type="text"
+                      value={editFormData.middle_name}
+                      onChange={(e) => handleEditFormChange('middle_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth *</label>
+                    <input
+                      type="date"
+                      value={editFormData.date_of_birth}
+                      onChange={(e) => handleEditFormChange('date_of_birth', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Gender *</label>
+                    <select
+                      value={editFormData.gender}
+                      onChange={(e) => handleEditFormChange('gender', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={editFormData.phone}
+                      onChange={(e) => handleEditFormChange('phone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Barangay</label>
+                    <select
+                      value={editFormData.barangay}
+                      onChange={(e) => handleEditFormChange('barangay', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select Barangay</option>
+                      {BARANGAYS.slice(1).map(b => (
+                        <option key={b.value} value={b.value}>{b.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                    <textarea
+                      value={editFormData.address}
+                      onChange={(e) => handleEditFormChange('address', e.target.value)}
+                      rows="2"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Program Status */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Program Status</h3>
+                <div className="space-y-3">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.is_4ps_member}
+                      onChange={(e) => handleEditFormChange('is_4ps_member', e.target.checked)}
+                      className="w-4 h-4 mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">4Ps Member</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.is_pregnant}
+                      onChange={(e) => handleEditFormChange('is_pregnant', e.target.checked)}
+                      className="w-4 h-4 mr-3 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Pregnant</span>
+                  </label>
+                  {editFormData.is_pregnant && (
+                    <div className="ml-7">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Due Date</label>
+                      <input
+                        type="date"
+                        value={editFormData.pregnancy_due_date}
+                        onChange={(e) => handleEditFormChange('pregnancy_due_date', e.target.value)}
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.is_senior_citizen}
+                      onChange={(e) => handleEditFormChange('is_senior_citizen', e.target.checked)}
+                      className="w-4 h-4 mr-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Senior Citizen</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.is_birth_registered}
+                      onChange={(e) => handleEditFormChange('is_birth_registered', e.target.checked)}
+                      className="w-4 h-4 mr-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Birth Registered</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Medical Information */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Medical Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Medical Conditions</label>
+                    <textarea
+                      value={editFormData.medical_conditions}
+                      onChange={(e) => handleEditFormChange('medical_conditions', e.target.value)}
+                      rows="2"
+                      placeholder="List any known medical conditions"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Allergies</label>
+                    <textarea
+                      value={editFormData.allergies}
+                      onChange={(e) => handleEditFormChange('allergies', e.target.value)}
+                      rows="2"
+                      placeholder="List any known allergies"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Emergency Contact</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Contact Person</label>
+                    <input
+                      type="text"
+                      value={editFormData.emergency_contact}
+                      onChange={(e) => handleEditFormChange('emergency_contact', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Emergency Phone</label>
+                    <input
+                      type="tel"
+                      value={editFormData.emergency_phone}
+                      onChange={(e) => handleEditFormChange('emergency_phone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={closeModals}
+                disabled={saving}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
             </div>
           </div>
