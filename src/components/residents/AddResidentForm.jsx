@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config.js';
 
-// Barangay list for General Luna
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
   { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
@@ -44,6 +43,10 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
   const isEditMode = !!editData;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [duplicates, setDuplicates] = useState([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [forceSave, setForceSave] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: editData?.first_name || '',
@@ -72,6 +75,51 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
 
   const [formErrors, setFormErrors] = useState({});
 
+  // Check for duplicates when key fields change
+  useEffect(() => {
+    if (!isEditMode && formData.first_name && formData.last_name) {
+      const timer = setTimeout(() => {
+        checkForDuplicates();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.first_name, formData.last_name, formData.date_of_birth, isEditMode]);
+
+  const checkForDuplicates = async () => {
+    if (!formData.first_name.trim() || !formData.last_name.trim()) return;
+
+    setCheckingDuplicate(true);
+    try {
+      const response = await fetch(`${API_URL}/residents/check-duplicate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          middle_name: formData.middle_name,
+          date_of_birth: formData.date_of_birth
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.duplicateFound && data.duplicates.length > 0) {
+        setDuplicates(data.duplicates);
+        setShowDuplicateWarning(true);
+      } else {
+        setDuplicates([]);
+        setShowDuplicateWarning(false);
+      }
+    } catch (err) {
+      console.error('Error checking duplicates:', err);
+    } finally {
+      setCheckingDuplicate(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({ 
@@ -81,6 +129,11 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
+    }
+
+    // Reset force save when user makes changes
+    if (showDuplicateWarning) {
+      setForceSave(false);
     }
   };
 
@@ -123,6 +176,12 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     
     if (!validateForm()) return;
 
+    // Show duplicate warning if duplicates found and user hasn't confirmed
+    if (!isEditMode && showDuplicateWarning && !forceSave) {
+      alert('Potential duplicate residents found! Please review the warning below or click "Save Anyway" to proceed.');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -138,7 +197,8 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           : null,
         birth_registry_date: formData.birth_registry_date && formData.is_birth_registered
           ? new Date(formData.birth_registry_date + 'T00:00:00.000Z').toISOString()
-          : null
+          : null,
+        skip_duplicate_check: forceSave
       };
 
       const url = isEditMode 
@@ -156,6 +216,16 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle duplicate error from backend
+        if (response.status === 409 && errorData.duplicateFound) {
+          setDuplicates([errorData.duplicate]);
+          setShowDuplicateWarning(true);
+          alert('This resident already exists! Please review the duplicate information below.');
+          setLoading(false);
+          return;
+        }
+        
         throw new Error(errorData.message || 'Failed to save resident');
       }
 
@@ -167,6 +237,15 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForceSave = () => {
+    setForceSave(true);
+    setShowDuplicateWarning(false);
+  };
+
+  const getBarangayLabel = (value) => {
+    return BARANGAYS.find(b => b.value === value)?.label || value;
   };
 
   const currentAge = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
@@ -182,6 +261,9 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           <h1 className="text-xl font-normal text-black">
             {isEditMode ? 'Edit Resident' : 'Add Resident'}
           </h1>
+          {checkingDuplicate && (
+            <span className="text-xs text-blue-600 animate-pulse">Checking for duplicates...</span>
+          )}
         </div>
         <button
           onClick={onCancel || (() => window.history.back())}
@@ -192,6 +274,73 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
           </svg>
         </button>
       </div>
+
+      {/* Duplicate Warning */}
+      {showDuplicateWarning && duplicates.length > 0 && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 px-6 py-4">
+          <div className="flex items-start">
+            <svg className="w-6 h-6 text-amber-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-amber-800 mb-2">
+                Potential Duplicate Resident Found!
+              </h3>
+              <p className="text-xs text-amber-700 mb-3">
+                A resident with similar information already exists in the system. Please verify before continuing.
+              </p>
+              {duplicates.map((dup, idx) => (
+                <div key={idx} className="bg-white rounded border border-amber-200 p-3 mb-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="font-semibold text-gray-700">Name:</span>
+                      <span className="ml-1 text-gray-900">{dup.full_name}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Age:</span>
+                      <span className="ml-1 text-gray-900">{dup.age} years</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Gender:</span>
+                      <span className="ml-1 text-gray-900">{dup.gender}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-700">Barangay:</span>
+                      <span className="ml-1 text-gray-900">{getBarangayLabel(dup.barangay)}</span>
+                    </div>
+                    {dup.address && (
+                      <div className="col-span-2">
+                        <span className="font-semibold text-gray-700">Address:</span>
+                        <span className="ml-1 text-gray-900">{dup.address}</span>
+                      </div>
+                    )}
+                    {dup.phone && (
+                      <div className="col-span-2">
+                        <span className="font-semibold text-gray-700">Phone:</span>
+                        <span className="ml-1 text-gray-900">{dup.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setShowDuplicateWarning(false)}
+                  className="text-xs px-3 py-1.5 bg-white border border-amber-500 text-amber-700 rounded hover:bg-amber-50"
+                >
+                  Review Form
+                </button>
+                <button
+                  onClick={handleForceSave}
+                  className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700"
+                >
+                  This is a Different Person - Proceed Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Form Content */}
       <div className="flex-1 overflow-y-auto">
@@ -331,6 +480,7 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
             </div>
           </div>
 
+          {/* Rest of the form sections remain the same... */}
           {/* Household Details Section */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
@@ -550,6 +700,15 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
         >
           CANCEL
         </button>
+        {showDuplicateWarning && !forceSave && (
+          <button
+            type="button"
+            onClick={handleForceSave}
+            className="px-6 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 transition-colors flex items-center gap-2"
+          >
+            SAVE ANYWAY
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSubmit}

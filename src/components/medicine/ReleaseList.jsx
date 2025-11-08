@@ -1,523 +1,918 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, X, Eye, Edit2, Trash2, Calendar, Package, CheckCircle, Clock } from 'lucide-react';
-import { useMedicineRelease } from '../../hooks/useMedicineRelease';
-import api from '../../../api';
+import { useState, useEffect } from "react";
+import { Search, Filter, X, Eye, Edit2, Trash2, RefreshCw, FileDown, FileText, ChevronLeft, ChevronRight, UserCheck, Heart, UserCog, Users, Pill, Activity, Calendar } from "lucide-react";
+import api from '../../../api.js';
 
-const ReleaseList = () => {
-  const { 
-    getReleases,
-    updateRelease,
-    deleteRelease,
-    updateReleaseOnBlockchain,
-    deleteReleaseOnBlockchain,
-    updateReleaseBlockchainInfo,
-    loading
-  } = useMedicineRelease();
-  
-  const [releases, setReleases] = useState([]);
-  const [filteredReleases, setFilteredReleases] = useState([]);
-  const [selectedRelease, setSelectedRelease] = useState(null);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({});
-  const [actionLoading, setActionLoading] = useState(false);
+const BARANGAYS = [
+  { value: '', label: 'All Barangays' },
+  { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
+  { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
+  { value: 'BARANGAY_1_POBLACION', label: 'Barangay 1 (Poblacion)' },
+  { value: 'BARANGAY_2_POBLACION', label: 'Barangay 2 (Poblacion)' },
+  { value: 'BARANGAY_3_POBLACION', label: 'Barangay 3 (Poblacion)' },
+  { value: 'BARANGAY_4_POBLACION', label: 'Barangay 4 (Poblacion)' },
+  { value: 'BARANGAY_5_POBLACION', label: 'Barangay 5 (Poblacion)' },
+  { value: 'BARANGAY_6_POBLACION', label: 'Barangay 6 (Poblacion)' },
+  { value: 'BARANGAY_7_POBLACION', label: 'Barangay 7 (Poblacion)' },
+  { value: 'BARANGAY_8_POBLACION', label: 'Barangay 8 (Poblacion)' },
+  { value: 'BARANGAY_9_POBLACION', label: 'Barangay 9 (Poblacion)' },
+  { value: 'LAVIDES', label: 'Lavides' },
+  { value: 'MAGSAYSAY', label: 'Magsaysay' },
+  { value: 'MALAYA', label: 'Malaya' },
+  { value: 'NIEVA', label: 'Nieva' },
+  { value: 'RECTO', label: 'Recto' },
+  { value: 'SAN_IGNACIO_IBABA', label: 'San Ignacio Ibaba' },
+  { value: 'SAN_IGNACIO_ILAYA', label: 'San Ignacio Ilaya' },
+  { value: 'SAN_ISIDRO_IBABA', label: 'San Isidro Ibaba' },
+  { value: 'SAN_ISIDRO_ILAYA', label: 'San Isidro Ilaya' },
+  { value: 'SAN_JOSE', label: 'San Jose' },
+  { value: 'SAN_NICOLAS', label: 'San Nicolas' },
+  { value: 'SAN_VICENTE', label: 'San Vicente' },
+  { value: 'SANTA_MARIA_IBABA', label: 'Santa Maria Ibaba' },
+  { value: 'SANTA_MARIA_ILAYA', label: 'Santa Maria Ilaya' },
+  { value: 'SUMILANG', label: 'Sumilang' },
+  { value: 'VILLARICA', label: 'Villarica' }
+];
+
+const AGE_CATEGORIES = [
+  { value: '', label: 'All Ages' },
+  { value: 'ZERO_TO_23_MONTHS', label: '0-23 Months' },
+  { value: 'TWENTY_FOUR_TO_59_MONTHS', label: '24-59 Months' },
+  { value: 'SIXTY_TO_71_MONTHS', label: '60-71 Months' },
+  { value: 'ABOVE_71_MONTHS', label: 'Above 71 Months' }
+];
+
+const ResidentList = ({ onEdit, onView }) => {
+  const [residents, setResidents] = useState([]);
+  const [filters, setFilters] = useState({ 
+    search: "",
+    barangay: "",
+    age_category: "",
+    is_4ps_member: "",
+    is_pregnant: "",
+    is_senior_citizen: ""
+  });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-
-  // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMedicine, setSelectedMedicine] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  const [medicines, setMedicines] = useState([]);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedResident, setSelectedResident] = useState(null);
+  const [residentDetails, setResidentDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   useEffect(() => {
-    fetchReleases();
-    fetchMedicines();
-  }, []);
+    loadResidents();
+  }, [page, filters]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [releases, searchTerm, selectedMedicine, selectedStatus, startDate, endDate]);
-
-  const fetchReleases = async () => {
+  const loadResidents = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await getReleases();
-      const releasesArray = data?.data || [];
-      setReleases(releasesArray);
-      setFilteredReleases(releasesArray);
-    } catch (error) {
-      console.error('Error fetching releases:', error);
-      setReleases([]);
-      setFilteredReleases([]);
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('limit', '12');
+      
+      if (filters.search) params.append('search', filters.search);
+      if (filters.barangay) params.append('barangay', filters.barangay);
+      if (filters.age_category) params.append('age_category', filters.age_category);
+      if (filters.is_4ps_member) params.append('is_4ps_member', filters.is_4ps_member);
+      if (filters.is_pregnant) params.append('is_pregnant', filters.is_pregnant);
+      if (filters.is_senior_citizen) params.append('is_senior_citizen', filters.is_senior_citizen);
+
+      const response = await api.get(`/residents?${params.toString()}`);
+      const residentsArray = response.data.data || response.data.residents || response.data || [];
+      setResidents(Array.isArray(residentsArray) ? residentsArray : []);
+      setTotalPages(response.data.pagination?.totalPages || response.data.totalPages || 1);
+      setLoading(false);
+    } catch (err) {
+      const errorMessage = err.message || err.response?.data?.message || "Failed to load residents";
+      setError(errorMessage);
+      setResidents([]);
+      setLoading(false);
     }
   };
 
-  const fetchMedicines = async () => {
+  const loadResidentDetails = async (residentId) => {
+    setDetailsLoading(true);
     try {
-      const { data: json } = await api.get('/medicines');
-      const medicineArray = json?.data || [];
-      setMedicines(medicineArray);
-    } catch (error) {
-      console.error('Error fetching medicines:', error);
-      setMedicines([]);
+      const response = await api.get(`/residents/${residentId}`);
+      setResidentDetails(response.data.data);
+    } catch (err) {
+      console.error('Error loading resident details:', err);
+      alert('Failed to load complete resident details');
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...releases];
+  const handleSearch = (e) => {
+    setFilters((prev) => ({ ...prev, search: e.target.value }));
+    setPage(1);
+  };
 
-    if (searchTerm) {
-      filtered = filtered.filter(release =>
-        release.resident_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        release.medicine?.medicine_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        release.concern?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (selectedMedicine) {
-      filtered = filtered.filter(release => release.medicine_id === parseInt(selectedMedicine));
-    }
-
-    if (selectedStatus) {
-      if (selectedStatus === 'synced') {
-        filtered = filtered.filter(release => release.blockchain_tx_hash);
-      } else if (selectedStatus === 'pending') {
-        filtered = filtered.filter(release => !release.blockchain_tx_hash);
-      }
-    }
-
-    if (startDate) {
-      filtered = filtered.filter(release => new Date(release.date_released) >= new Date(startDate));
-    }
-    if (endDate) {
-      filtered = filtered.filter(release => new Date(release.date_released) <= new Date(endDate));
-    }
-
-    setFilteredReleases(filtered);
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPage(1);
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedMedicine('');
-    setSelectedStatus('');
-    setStartDate('');
-    setEndDate('');
-  };
-
-  const totalReleases = releases.length;
-  const totalQuantity = releases.reduce((sum, r) => sum + (r.quantity_released || 0), 0);
-  const syncedCount = releases.filter(r => r.blockchain_tx_hash).length;
-  const pendingCount = releases.filter(r => !r.blockchain_tx_hash).length;
-
-  const handleView = (release) => {
-    setSelectedRelease(release);
-    setShowViewModal(true);
-  };
-
-  const handleEditClick = (release) => {
-    setSelectedRelease(release);
-    setEditFormData({
-      resident_name: release.resident_name || '',
-      resident_age: release.resident_age || '',
-      concern: release.concern || '',
-      quantity_released: release.quantity_released || '',
-      notes: release.notes || '',
-      date_released: release.date_released ? new Date(release.date_released).toISOString().split('T')[0] : '',
-      prescription_number: release.prescription_number || '',
-      prescribing_doctor: release.prescribing_doctor || '',
-      dosage_instructions: release.dosage_instructions || ''
+    setFilters({
+      search: "",
+      barangay: "",
+      age_category: "",
+      is_4ps_member: "",
+      is_pregnant: "",
+      is_senior_citizen: ""
     });
-    setShowEditModal(true);
+    setPage(1);
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setActionLoading(true);
-
+  const handleDelete = async (residentId) => {
+    if (!confirm("Are you sure you want to delete this resident?")) return;
     try {
-      const updated = await updateRelease(selectedRelease.release_id, {
-        ...editFormData,
-        resident_age: editFormData.resident_age ? parseInt(editFormData.resident_age) : null,
-        quantity_released: parseInt(editFormData.quantity_released),
-        date_released: new Date(editFormData.date_released).toISOString()
-      });
-
-      try {
-        const chain = await updateReleaseOnBlockchain(selectedRelease.release_id, {
-          ...selectedRelease,
-          ...editFormData,
-          quantity_released: parseInt(editFormData.quantity_released),
-          date_released: new Date(editFormData.date_released).toISOString()
-        });
-        await updateReleaseBlockchainInfo(selectedRelease.release_id, {
-          blockchain_hash: chain.dataHash,
-          blockchain_tx_hash: chain.transactionHash
-        });
-      } catch (chainErr) {
-        console.error('Release blockchain update failed:', chainErr);
-        alert('Updated in database, but blockchain sync failed. It will remain pending.');
-      }
-
-      alert('Release updated successfully!');
-      setShowEditModal(false);
-      fetchReleases();
-    } catch (error) {
-      console.error('Error updating release:', error);
-      alert('Failed to update release: ' + error.message);
-    } finally {
-      setActionLoading(false);
+      await api.delete(`/residents/${residentId}`);
+      alert("Resident deleted successfully");
+      loadResidents();
+    } catch (err) {
+      const errorMessage = err.message || err.response?.data?.message || "Failed to delete resident";
+      alert(`Error: ${errorMessage}`);
     }
   };
 
-  const handleDelete = async (release) => {
-    if (!window.confirm(`Are you sure you want to delete this release for ${release.resident_name}?`)) {
-      return;
-    }
+  const handleViewClick = (resident) => {
+    setSelectedResident(resident);
+    setShowViewModal(true);
+    loadResidentDetails(resident.resident_id);
+  };
 
-    setActionLoading(true);
-    try {
-      try {
-        await deleteReleaseOnBlockchain(release.release_id);
-      } catch (chainErr) {
-        console.error('Blockchain delete failed:', chainErr);
-      }
-
-      await deleteRelease(release.release_id);
-      
-      alert('Release deleted successfully!');
-      fetchReleases();
-    } catch (error) {
-      console.error('Error deleting release:', error);
-      alert('Failed to delete release: ' + error.message);
-    } finally {
-      setActionLoading(false);
+  const handleEditClick = (residentId) => {
+    const resident = residents.find(r => r.resident_id === residentId);
+    if (onEdit) {
+      onEdit(resident);
     }
   };
 
-  const activeFiltersCount = [searchTerm, selectedMedicine, selectedStatus, startDate, endDate].filter(Boolean).length;
+  const handleRefresh = () => {
+    loadResidents();
+  };
+
+  const exportToCSV = () => {
+    const headers = ['ID', 'Name', 'Gender', 'Age', 'Phone', 'Barangay', 'Address', '4Ps', 'Pregnant', 'Senior', 'Birth Reg.'];
+    const csvData = residents.map(r => [
+      r.resident_id,
+      r.full_name,
+      r.gender,
+      r.age,
+      r.phone || '',
+      getBarangayLabel(r.barangay),
+      r.address || '',
+      r.is_4ps_member ? 'Yes' : 'No',
+      r.is_pregnant ? 'Yes' : 'No',
+      r.is_senior_citizen ? 'Yes' : 'No',
+      r.is_birth_registered ? 'Yes' : 'No'
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `residents_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const printWindow = window.open('', '_blank');
+    const tableHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Residents List</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #1e40af; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+          th { background-color: #1e40af; color: white; }
+          tr:nth-child(even) { background-color: #f9fafb; }
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
+          .badge-4ps { background-color: #dcfce7; color: #166534; }
+          .badge-pregnant { background-color: #fce7f3; color: #9f1239; }
+          .badge-senior { background-color: #f3e8ff; color: #6b21a8; }
+        </style>
+      </head>
+      <body>
+        <h1>Residents Directory</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Gender</th>
+              <th>Age</th>
+              <th>Phone</th>
+              <th>Barangay</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${residents.map(r => `
+              <tr>
+                <td>${r.resident_id}</td>
+                <td>${r.full_name}</td>
+                <td>${r.gender}</td>
+                <td>${r.age}</td>
+                <td>${r.phone || 'N/A'}</td>
+                <td>${getBarangayLabel(r.barangay)}</td>
+                <td>
+                  ${r.is_4ps_member ? '<span class="badge badge-4ps">4Ps</span>' : ''}
+                  ${r.is_pregnant ? '<span class="badge badge-pregnant">Pregnant</span>' : ''}
+                  ${r.is_senior_citizen ? '<span class="badge badge-senior">Senior</span>' : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(tableHTML);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const closeModals = () => {
+    setShowViewModal(false);
+    setSelectedResident(null);
+    setResidentDetails(null);
+  };
+
+  const getBarangayLabel = (value) => {
+    return BARANGAYS.find(b => b.value === value)?.label || value;
+  };
+
+  const activeFiltersCount = Object.values(filters).filter(v => v !== '').length - (filters.search ? 1 : 0);
+
+  const toggleSelectAll = () => {
+    if (selectedRows.length === residents.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(residents.map(r => r.resident_id));
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    if (selectedRows.includes(id)) {
+      setSelectedRows(selectedRows.filter(rowId => rowId !== id));
+    } else {
+      setSelectedRows([...selectedRows, id]);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Medicine Releases</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Manage medicine distribution records</p>
-            </div>
-            
-            {/* Stats Compact */}
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <div className="text-2xl font-semibold text-gray-900">{totalReleases}</div>
-                <div className="text-xs text-gray-500">Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-semibold text-gray-900">{totalQuantity}</div>
-                <div className="text-xs text-gray-500">Quantity</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-semibold text-emerald-600">{syncedCount}</div>
-                <div className="text-xs text-gray-500">Synced</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-semibold text-amber-600">{pendingCount}</div>
-                <div className="text-xs text-gray-500">Pending</div>
-              </div>
-            </div>
+      {/* Top Bar */}
+      <div className="bg-[#2b3e50] text-white px-6 py-4 shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Users size={28} />
+            <h1 className="text-2xl font-bold">Residents</h1>
           </div>
-        </div>
-
-        {/* Search and Filter Bar */}
-        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by resident, medicine, or concern..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
-                showFilters || activeFiltersCount > 0
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Refresh"
             >
-              <Filter className="w-4 h-4" />
-              Filters
-              {activeFiltersCount > 0 && (
-                <span className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
+              <RefreshCw size={18} />
+              <span className="text-sm font-medium">Refresh</span>
             </button>
-
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Clear all
-              </button>
-            )}
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Export to CSV"
+            >
+              <FileText size={18} />
+              <span className="text-sm font-medium">CSV</span>
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-[#3d5569] hover:bg-[#4a6376] rounded-md transition-colors"
+              title="Export to PDF"
+            >
+              <FileDown size={18} />
+              <span className="text-sm font-medium">PDF</span>
+            </button>
+            <button
+              onClick={() => (window.location.href = "/residents/new")}
+              className="flex items-center gap-2 px-4 py-2 bg-[#f47920] hover:bg-[#e66d0f] rounded-md transition-colors font-semibold"
+            >
+              + Add Resident
+            </button>
           </div>
-
-          {/* Expandable Filters */}
-          {showFilters && (
-            <div className="mt-3 grid grid-cols-4 gap-3 pt-3 border-t border-gray-200">
-              <select
-                value={selectedMedicine}
-                onChange={(e) => setSelectedMedicine(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Medicines</option>
-                {Array.isArray(medicines) && medicines.map(med => (
-                  <option key={med.medicine_id} value={med.medicine_id}>
-                    {med.medicine_name}
-                  </option>
-                ))}
-              </select>
-              
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Status</option>
-                <option value="synced">Synced</option>
-                <option value="pending">Pending</option>
-              </select>
-              
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Start Date"
-              />
-              
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="End Date"
-              />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="px-6 py-4">
-        {loading ? (
-          <div className="bg-white rounded border border-gray-200 p-12 text-center">
-            <p className="text-gray-500">Loading releases...</p>
+      {/* Stats Bar */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Users size={20} className="text-blue-600" />
+            <span className="text-sm text-gray-600">Total:</span>
+            <span className="text-sm font-bold text-gray-900">{residents.length}</span>
           </div>
-        ) : filteredReleases.length === 0 ? (
-          <div className="bg-white rounded border border-gray-200 p-12 text-center">
-            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No releases found</p>
+          <div className="flex items-center gap-2">
+            <UserCheck size={20} className="text-green-600" />
+            <span className="text-sm text-gray-600">4Ps:</span>
+            <span className="text-sm font-bold text-gray-900">
+              {residents.filter(r => r.is_4ps_member).length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Heart size={20} className="text-pink-600" />
+            <span className="text-sm text-gray-600">Pregnant:</span>
+            <span className="text-sm font-bold text-gray-900">
+              {residents.filter(r => r.is_pregnant).length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <UserCog size={20} className="text-purple-600" />
+            <span className="text-sm text-gray-600">Seniors:</span>
+            <span className="text-sm font-bold text-gray-900">
+              {residents.filter(r => r.is_senior_citizen).length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters Bar */}
+      <div className="bg-white border-b px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search residents..."
+              value={filters.search}
+              onChange={handleSearch}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`relative flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+              showFilters 
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Filter size={18} />
+            Filters
             {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-              >
-                Clear filters
-              </button>
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
             )}
-          </div>
-        ) : (
-          <div className="bg-white rounded border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Medicine</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Resident</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qty</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Concern</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredReleases.map((release) => (
-                  <tr key={release.release_id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {new Date(release.date_released).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {release.medicine?.medicine_name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {release.resident_name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {release.quantity_released}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                      {release.concern || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {release.blockchain_tx_hash ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
-                          <CheckCircle className="w-3 h-3" />
-                          Synced
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
-                          <Clock className="w-3 h-3" />
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleView(release)}
-                          className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="View"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEditClick(release)}
-                          className="p-1.5 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(release)}
-                          className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          disabled={actionLoading}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+          </button>
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              <X size={16} />
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Barangay</label>
+              <select
+                value={filters.barangay}
+                onChange={(e) => handleFilterChange('barangay', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {BARANGAYS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Age Category</label>
+              <select
+                value={filters.age_category}
+                onChange={(e) => handleFilterChange('age_category', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {AGE_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-2">Program Status</label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_4ps_member === 'true'}
+                    onChange={(e) => handleFilterChange('is_4ps_member', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  4Ps Member
+                </label>
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_pregnant === 'true'}
+                    onChange={(e) => handleFilterChange('is_pregnant', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                  />
+                  Pregnant
+                </label>
+                <label className="flex items-center text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_senior_citizen === 'true'}
+                    onChange={(e) => handleFilterChange('is_senior_citizen', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  Senior Citizen
+                </label>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* View Modal */}
-      {showViewModal && selectedRelease && (
+      {/* Main Content */}
+      <div className="p-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <X className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-900">Error Loading Residents</p>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+                {error.includes('authentication') || error.includes('401') || error.includes('Unauthorized') ? (
+                  <button
+                    onClick={() => window.location.href = '/login'}
+                    className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md"
+                  >
+                    Go to Login
+                  </button>
+                ) : (
+                  <button 
+                    onClick={loadResidents}
+                    className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="p-16 text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-blue-600"></div>
+              <p className="mt-4 text-sm text-gray-600">Loading residents...</p>
+            </div>
+          ) : residents.length === 0 ? (
+            <div className="p-16 text-center">
+              <Users className="mx-auto h-16 w-16 text-gray-300 mb-3" />
+              <p className="text-base text-gray-900 font-semibold">No residents found</p>
+              <p className="text-sm text-gray-600 mt-1">Try adjusting your filters or search criteria</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="w-10 px-4 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.length === residents.length && residents.length > 0}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Gender
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Age
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Barangay
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {residents.map((res) => (
+                      <tr 
+                        key={res.resident_id} 
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.includes(res.resident_id)}
+                            onChange={() => toggleSelectRow(res.resident_id)}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          #{res.resident_id}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleViewClick(res)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {res.full_name}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                            res.gender === 'MALE'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-pink-100 text-pink-700'
+                          }`}>
+                            {res.gender}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {res.age}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {res.phone || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {getBarangayLabel(res.barangay)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {res.is_4ps_member && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                4Ps
+                              </span>
+                            )}
+                            {res.is_pregnant && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-700">
+                                Pregnant
+                              </span>
+                            )}
+                            {res.is_senior_citizen && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                Senior
+                              </span>
+                            )}
+                            {res.is_birth_registered && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                Birth Reg.
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleViewClick(res)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleEditClick(res.resident_id)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(res.resident_id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Showing page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced View Modal with Medical Records & Medicine Releases */}
+      {showViewModal && selectedResident && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Release Details</h2>
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-[#2b3e50] px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Resident Profile</h2>
               <button
-                onClick={() => setShowViewModal(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                onClick={closeModals}
+                className="text-white hover:bg-[#3d5569] rounded p-1 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X size={24} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRelease.medicine?.medicine_name || 'N/A'}</p>
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              {detailsLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
+                  <p className="mt-2 text-sm text-gray-600">Loading details...</p>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Number</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRelease.stock?.batch_number || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Resident Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRelease.resident_name}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Age</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRelease.resident_age || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Medical Concern</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedRelease.concern || '-'}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Released</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRelease.quantity_released}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Date Released</label>
-                  <p className="mt-1 text-sm text-gray-900">{new Date(selectedRelease.date_released).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedRelease.notes || '-'}</p>
-              </div>
-
-              {(selectedRelease.prescription_number || selectedRelease.prescribing_doctor || selectedRelease.dosage_instructions) && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Prescription Details</h3>
-                  <div className="space-y-4">
-                    {selectedRelease.prescription_number && (
+              ) : (
+                <>
+                  {/* Personal Information */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                      <Users size={20} className="text-blue-600" />
+                      Personal Information
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Prescription Number</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedRelease.prescription_number}</p>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Full Name</p>
+                        <p className="text-sm text-gray-900">{selectedResident.full_name}</p>
                       </div>
-                    )}
-                    {selectedRelease.prescribing_doctor && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Prescribing Doctor</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedRelease.prescribing_doctor}</p>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Gender</p>
+                        <p className="text-sm text-gray-900">{selectedResident.gender}</p>
                       </div>
-                    )}
-                    {selectedRelease.dosage_instructions && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Dosage Instructions</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedRelease.dosage_instructions}</p>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Date of Birth</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.date_of_birth 
+                            ? new Date(selectedResident.date_of_birth).toLocaleDateString()
+                            : 'N/A'}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {selectedRelease.blockchain_tx_hash && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Blockchain Information</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Hash</label>
-                      <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-2 rounded">{selectedRelease.blockchain_tx_hash}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Data Hash</label>
-                      <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-2 rounded">{selectedRelease.blockchain_hash}</p>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Age</p>
+                        <p className="text-sm text-gray-900">{selectedResident.age} years</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Phone</p>
+                        <p className="text-sm text-gray-900">{selectedResident.phone || 'N/A'}</p>
+                      </div>
+                      {selectedResident.barangay && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 mb-1">Barangay</p>
+                          <p className="text-sm text-gray-900">{getBarangayLabel(selectedResident.barangay)}</p>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Address</p>
+                        <p className="text-sm text-gray-900">{selectedResident.address || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Program Status */}
+                  {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                        <Activity size={20} className="text-green-600" />
+                        Program Status
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedResident.is_4ps_member && (
+                          <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                            <p className="text-sm text-green-900 font-semibold">4Ps Member</p>
+                          </div>
+                        )}
+                        {selectedResident.is_pregnant && (
+                          <div className="bg-pink-50 border border-pink-200 rounded-md p-3">
+                            <p className="text-sm text-pink-900 font-semibold">Pregnant</p>
+                            {selectedResident.pregnancy_due_date && (
+                              <p className="text-xs text-pink-800 mt-1">
+                                Due: {new Date(selectedResident.pregnancy_due_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {selectedResident.is_senior_citizen && (
+                          <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
+                            <p className="text-sm text-purple-900 font-semibold">Senior Citizen</p>
+                          </div>
+                        )}
+                        {selectedResident.is_birth_registered && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                            <p className="text-sm text-orange-900 font-semibold">Birth Registered</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Medicine Release History */}
+                  {residentDetails?.medicine_releases && residentDetails.medicine_releases.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                        <Pill size={20} className="text-purple-600" />
+                        Recent Medicine Releases
+                      </h3>
+                      <div className="space-y-3">
+                        {residentDetails.medicine_releases.map((release) => (
+                          <div key={release.release_id} className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {release.medicine?.medicine_name || 'Unknown Medicine'}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {release.medicine?.dosage_form} {release.medicine?.strength}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                  <div>
+                                    <span className="font-medium text-gray-600">Date:</span>
+                                    <span className="ml-1 text-gray-900">
+                                      {new Date(release.date_released).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Quantity:</span>
+                                    <span className="ml-1 text-gray-900">{release.quantity_released}</span>
+                                  </div>
+                                  {release.concern && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Concern:</span>
+                                      <span className="ml-1 text-gray-900">{release.concern}</span>
+                                    </div>
+                                  )}
+                                  {release.prescribing_doctor && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Doctor:</span>
+                                      <span className="ml-1 text-gray-900">{release.prescribing_doctor}</span>
+                                    </div>
+                                  )}
+                                  {release.dosage_instructions && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-600">Instructions:</span>
+                                      <span className="ml-1 text-gray-900">{release.dosage_instructions}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {release.blockchain_tx_hash && (
+                                <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full flex-shrink-0">
+                                  Verified
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Medical Records Section - Placeholder for future telemedicine integration */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                      <Calendar size={20} className="text-red-600" />
+                      Medical History
+                    </h3>
+                    
+                    {/* Current Medical Info */}
+                    {(selectedResident.medical_conditions || selectedResident.allergies) && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                        <h4 className="text-sm font-semibold text-blue-900 mb-3">Current Medical Information</h4>
+                        <div className="space-y-3">
+                          {selectedResident.medical_conditions && (
+                            <div>
+                              <p className="text-xs font-semibold text-blue-700 mb-1">Medical Conditions</p>
+                              <p className="text-sm text-blue-900">{selectedResident.medical_conditions}</p>
+                            </div>
+                          )}
+                          {selectedResident.allergies && (
+                            <div>
+                              <p className="text-xs font-semibold text-blue-700 mb-1">Known Allergies</p>
+                              <p className="text-sm text-blue-900">{selectedResident.allergies}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Placeholder for Consultation Records */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-md p-6 text-center">
+                      <Activity size={32} className="mx-auto text-gray-300 mb-2" />
+                      <p className="text-sm text-gray-600 font-medium">No consultation records available</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Telemedicine and RHU consultation records will appear here
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Emergency Contact */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
+                      Emergency Contact
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Contact Person</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.emergency_contact || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Emergency Phone</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedResident.emergency_phone || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
+            <div className="bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
               <button
-                onClick={() => setShowViewModal(false)}
-                className="w-full px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors"
+                onClick={() => {
+                  closeModals();
+                  handleEditClick(selectedResident.resident_id);
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+              >
+                Edit Resident
+              </button>
+              <button
+                onClick={closeModals}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
               >
                 Close
               </button>
@@ -525,145 +920,8 @@ const ReleaseList = () => {
           </div>
         </div>
       )}
-
-      {/* Edit Modal */}
-      {showEditModal && selectedRelease && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Edit Release</h2>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit}>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Resident Name *</label>
-                    <input
-                      type="text"
-                      value={editFormData.resident_name}
-                      onChange={(e) => setEditFormData({...editFormData, resident_name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                    <input
-                      type="number"
-                      value={editFormData.resident_age}
-                      onChange={(e) => setEditFormData({...editFormData, resident_age: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Medical Concern</label>
-                  <input
-                    type="text"
-                    value={editFormData.concern}
-                    onChange={(e) => setEditFormData({...editFormData, concern: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                    <input
-                      type="number"
-                      value={editFormData.quantity_released}
-                      onChange={(e) => setEditFormData({...editFormData, quantity_released: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Released *</label>
-                    <input
-                      type="date"
-                      value={editFormData.date_released}
-                      onChange={(e) => setEditFormData({...editFormData, date_released: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <textarea
-                    value={editFormData.notes}
-                    onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="3"
-                  />
-                </div>
-
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Prescription Details</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prescription Number</label>
-                      <input
-                        type="text"
-                        value={editFormData.prescription_number}
-                        onChange={(e) => setEditFormData({...editFormData, prescription_number: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prescribing Doctor</label>
-                      <input
-                        type="text"
-                        value={editFormData.prescribing_doctor}
-                        onChange={(e) => setEditFormData({...editFormData, prescribing_doctor: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Dosage Instructions</label>
-                      <textarea
-                        value={editFormData.dosage_instructions}
-                        onChange={(e) => setEditFormData({...editFormData, dosage_instructions: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows="2"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3">
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  {actionLoading ? 'Updating...' : 'Update & Sync to Blockchain'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default ReleaseList;
+export default ResidentList;
