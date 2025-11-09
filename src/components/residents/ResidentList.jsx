@@ -170,9 +170,12 @@ const ResidentList = ({ onEdit, onView }) => {
         barangay: fullResident.barangay || '',
         address: fullResident.address || '',
         is_4ps_member: fullResident.is_4ps_member || false,
+        is_philhealth_member: fullResident.is_philhealth_member || false,
+        philhealth_number: fullResident.philhealth_number || '',
         is_pregnant: fullResident.is_pregnant || false,
         is_senior_citizen: fullResident.is_senior_citizen || false,
         is_birth_registered: fullResident.is_birth_registered || false,
+        other_program: fullResident.other_program || '',
         pregnancy_due_date: fullResident.pregnancy_due_date || '',
         medical_conditions: fullResident.medical_conditions || '',
         allergies: fullResident.allergies || '',
@@ -423,14 +426,14 @@ const ResidentList = ({ onEdit, onView }) => {
       {/* Search and Filters Bar */}
       <div className="bg-white border-b px-6 py-3">
         <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+                      <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Search residents..."
               value={filters.search}
               onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <button
@@ -468,7 +471,7 @@ const ResidentList = ({ onEdit, onView }) => {
               <select
                 value={filters.barangay}
                 onChange={(e) => handleFilterChange('barangay', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {BARANGAYS.map(b => (
                   <option key={b.value} value={b.value}>{b.label}</option>
@@ -480,7 +483,7 @@ const ResidentList = ({ onEdit, onView }) => {
               <select
                 value={filters.age_category}
                 onChange={(e) => handleFilterChange('age_category', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {AGE_CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -490,7 +493,7 @@ const ResidentList = ({ onEdit, onView }) => {
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-2">Program Status</label>
               <div className="flex items-center gap-4">
-                <label className="flex items-center text-sm cursor-pointer">
+                <label className="flex items-center text-sm cursor-pointer text-black">
                   <input
                     type="checkbox"
                     checked={filters.is_4ps_member === 'true'}
@@ -499,7 +502,7 @@ const ResidentList = ({ onEdit, onView }) => {
                   />
                   4Ps Member
                 </label>
-                <label className="flex items-center text-sm cursor-pointer">
+                <label className="flex items-center text-sm cursor-pointer text-black">
                   <input
                     type="checkbox"
                     checked={filters.is_pregnant === 'true'}
@@ -508,7 +511,7 @@ const ResidentList = ({ onEdit, onView }) => {
                   />
                   Pregnant
                 </label>
-                <label className="flex items-center text-sm cursor-pointer">
+                <label className="flex items-center text-sm cursor-pointer text-black">
                   <input
                     type="checkbox"
                     checked={filters.is_senior_citizen === 'true'}
@@ -802,7 +805,7 @@ const ResidentList = ({ onEdit, onView }) => {
                   </div>
 
                   {/* Program Status */}
-                  {(selectedResident.is_4ps_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered) && (
+                  {(selectedResident.is_4ps_member || selectedResident.is_philhealth_member || selectedResident.is_pregnant || selectedResident.is_senior_citizen || selectedResident.is_birth_registered || selectedResident.other_program) && (
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
                         <Activity size={20} className="text-green-600" />
@@ -812,6 +815,16 @@ const ResidentList = ({ onEdit, onView }) => {
                         {selectedResident.is_4ps_member && (
                           <div className="bg-green-50 border border-green-200 rounded-md p-3">
                             <p className="text-sm text-green-900 font-semibold">4Ps Member</p>
+                          </div>
+                        )}
+                        {selectedResident.is_philhealth_member && (
+                          <div className="bg-teal-50 border border-teal-200 rounded-md p-3">
+                            <p className="text-sm text-teal-900 font-semibold">PhilHealth Member</p>
+                            {selectedResident.philhealth_number && (
+                              <p className="text-xs text-teal-800 mt-1 font-mono">
+                                {selectedResident.philhealth_number}
+                              </p>
+                            )}
                           </div>
                         )}
                         {selectedResident.is_pregnant && (
@@ -834,6 +847,12 @@ const ResidentList = ({ onEdit, onView }) => {
                             <p className="text-sm text-orange-900 font-semibold">Birth Registered</p>
                           </div>
                         )}
+                        {selectedResident.other_program && (
+                          <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3 col-span-2">
+                            <p className="text-xs text-indigo-700 font-semibold mb-1">Other Programs</p>
+                            <p className="text-sm text-indigo-900 font-medium">{selectedResident.other_program}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -843,7 +862,7 @@ const ResidentList = ({ onEdit, onView }) => {
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
                         <Pill size={20} className="text-purple-600" />
-                        Recent Medicine Releases
+                        Medicine Release History
                       </h3>
                       <div className="space-y-3">
                         {residentDetails.medicine_releases.map((release) => (
@@ -895,6 +914,57 @@ const ResidentList = ({ onEdit, onView }) => {
                                 </span>
                               )}
                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Consultation History */}
+                  {residentDetails?.consultations && residentDetails.consultations.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+                        <Calendar size={20} className="text-blue-600" />
+                        Consultation History
+                      </h3>
+                      <div className="space-y-3">
+                        {residentDetails.consultations.map((consultation) => (
+                          <div key={consultation.consultation_id} className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900 mb-1">
+                                  {consultation.chief_complaint}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                  <Calendar size={12} />
+                                  <span>{new Date(consultation.scheduled_date).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span>{consultation.scheduled_time}</span>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold text-white ${
+                                consultation.status === 'COMPLETED' ? 'bg-green-500' :
+                                consultation.status === 'CANCELLED' ? 'bg-red-500' :
+                                consultation.status === 'IN_PROGRESS' ? 'bg-yellow-500' :
+                                'bg-blue-500'
+                              }`}>
+                                {consultation.status}
+                              </span>
+                            </div>
+                            {consultation.symptoms && (
+                              <div className="mb-2">
+                                <span className="text-xs font-medium text-gray-600">Symptoms:</span>
+                                <p className="text-xs text-gray-900 mt-1">{consultation.symptoms}</p>
+                              </div>
+                            )}
+                            {consultation.consultation_type && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-medium text-gray-600">Type:</span>
+                                <span className="px-2 py-0.5 bg-white rounded text-gray-900 font-medium">
+                                  {consultation.consultation_type}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -971,7 +1041,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="text"
                       value={editFormData.first_name}
                       onChange={(e) => handleEditFormChange('first_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -981,7 +1051,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="text"
                       value={editFormData.last_name}
                       onChange={(e) => handleEditFormChange('last_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -991,7 +1061,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="text"
                       value={editFormData.middle_name}
                       onChange={(e) => handleEditFormChange('middle_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1000,7 +1070,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="date"
                       value={editFormData.date_of_birth}
                       onChange={(e) => handleEditFormChange('date_of_birth', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -1009,7 +1079,7 @@ const ResidentList = ({ onEdit, onView }) => {
                     <select
                       value={editFormData.gender}
                       onChange={(e) => handleEditFormChange('gender', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="MALE">Male</option>
@@ -1022,7 +1092,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="tel"
                       value={editFormData.phone}
                       onChange={(e) => handleEditFormChange('phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1030,7 +1100,7 @@ const ResidentList = ({ onEdit, onView }) => {
                     <select
                       value={editFormData.barangay}
                       onChange={(e) => handleEditFormChange('barangay', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Barangay</option>
                       {BARANGAYS.slice(1).map(b => (
@@ -1044,7 +1114,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       value={editFormData.address}
                       onChange={(e) => handleEditFormChange('address', e.target.value)}
                       rows="2"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1063,6 +1133,30 @@ const ResidentList = ({ onEdit, onView }) => {
                     />
                     <span className="text-sm font-medium text-gray-700">4Ps Member</span>
                   </label>
+                  
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.is_philhealth_member}
+                      onChange={(e) => handleEditFormChange('is_philhealth_member', e.target.checked)}
+                      className="w-4 h-4 mr-3 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">PhilHealth Member</span>
+                  </label>
+                  
+                  {editFormData.is_philhealth_member && (
+                    <div className="ml-7">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">PhilHealth Number</label>
+                      <input
+                        type="text"
+                        value={editFormData.philhealth_number}
+                        onChange={(e) => handleEditFormChange('philhealth_number', e.target.value)}
+                        placeholder="XX-XXXXXXXXX-X"
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                  
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -1079,7 +1173,7 @@ const ResidentList = ({ onEdit, onView }) => {
                         type="date"
                         value={editFormData.pregnancy_due_date}
                         onChange={(e) => handleEditFormChange('pregnancy_due_date', e.target.value)}
-                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
@@ -1101,6 +1195,18 @@ const ResidentList = ({ onEdit, onView }) => {
                     />
                     <span className="text-sm font-medium text-gray-700">Birth Registered</span>
                   </label>
+                  
+                  <div className="pt-3 border-t border-gray-200">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Other Programs/Memberships</label>
+                    <input
+                      type="text"
+                      value={editFormData.other_program}
+                      onChange={(e) => handleEditFormChange('other_program', e.target.value)}
+                      placeholder="e.g., PWD ID, Solo Parent, Indigenous People"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Enter any other government programs or special categories</p>
+                  </div>
                 </div>
               </div>
 
@@ -1115,7 +1221,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       onChange={(e) => handleEditFormChange('medical_conditions', e.target.value)}
                       rows="2"
                       placeholder="List any known medical conditions"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1125,7 +1231,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       onChange={(e) => handleEditFormChange('allergies', e.target.value)}
                       rows="2"
                       placeholder="List any known allergies"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1141,7 +1247,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="text"
                       value={editFormData.emergency_contact}
                       onChange={(e) => handleEditFormChange('emergency_contact', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1150,7 +1256,7 @@ const ResidentList = ({ onEdit, onView }) => {
                       type="tel"
                       value={editFormData.emergency_phone}
                       onChange={(e) => handleEditFormChange('emergency_phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
