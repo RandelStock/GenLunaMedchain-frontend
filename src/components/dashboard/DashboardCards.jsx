@@ -244,6 +244,83 @@ export const StocksCard = () => {
   );
 };
 
+export const ConsultationCard = () => {
+  const [data, setData] = useState({ total: 0, loading: true });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get('/consultations');
+        const consultationsData = response.data?.data || [];
+        setData({ total: consultationsData.length, loading: false });
+      } catch (error) {
+        console.error('Error fetching consultations:', error);
+        setData({ total: 0, loading: false });
+      }
+    };
+    fetchData();
+  }, []);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+          <Activity className="w-5 h-5 text-purple-600" />
+        </div>
+        {data.loading && (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-2xl font-bold text-gray-900">
+          {data.loading ? '...' : data.total.toLocaleString()}
+        </p>
+        <p className="text-sm font-medium text-gray-900">Consultations</p>
+        <p className="text-xs text-gray-700">Total appointments</p>
+      </div>
+    </div>
+  );
+};
+
+export const MedicineInventoryCard = () => {
+  const [data, setData] = useState({ total: 0, lowStock: 0, loading: true });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get('/medicines');
+        const medicinesData = response.data?.data || [];
+        const lowStockCount = medicinesData.filter(m => m.quantity < 10).length;
+        setData({ total: medicinesData.length, lowStock: lowStockCount, loading: false });
+      } catch (error) {
+        console.error('Error fetching medicine inventory:', error);
+        setData({ total: 0, lowStock: 0, loading: false });
+      }
+    };
+    fetchData();
+  }, []);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+          <Package className="w-5 h-5 text-teal-600" />
+        </div>
+        {data.loading && (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-teal-600 border-t-transparent"></div>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-2xl font-bold text-gray-900">
+          {data.loading ? '...' : data.total.toLocaleString()}
+        </p>
+        <p className="text-sm font-medium text-gray-900">Medicine Inventory</p>
+        <p className="text-xs text-gray-700">{data.lowStock} low stock items</p>
+      </div>
+    </div>
+  );
+};
+
 // Alias exports for compatibility with AdminHome.jsx
 export const ReceiptsCard = StocksCard;
 export const TransactionHistoryCard = BlockchainHistoryCard;
