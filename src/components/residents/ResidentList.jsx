@@ -49,8 +49,10 @@ const ResidentList = ({ onEdit, onView }) => {
     barangay: "",
     age_category: "",
     is_4ps_member: "",
+    is_philhealth_member: "",
     is_pregnant: "",
-    is_senior_citizen: ""
+    is_senior_citizen: "",
+    is_profile_complete: ""
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -82,8 +84,10 @@ const ResidentList = ({ onEdit, onView }) => {
       if (filters.barangay) params.append('barangay', filters.barangay);
       if (filters.age_category) params.append('age_category', filters.age_category);
       if (filters.is_4ps_member) params.append('is_4ps_member', filters.is_4ps_member);
+      if (filters.is_philhealth_member) params.append('is_philhealth_member', filters.is_philhealth_member);
       if (filters.is_pregnant) params.append('is_pregnant', filters.is_pregnant);
       if (filters.is_senior_citizen) params.append('is_senior_citizen', filters.is_senior_citizen);
+      if (filters.is_profile_complete) params.append('is_profile_complete', filters.is_profile_complete);
 
       const response = await api.get(`/residents?${params.toString()}`);
       const residentsArray = response.data.data || response.data.residents || response.data || [];
@@ -127,8 +131,10 @@ const ResidentList = ({ onEdit, onView }) => {
       barangay: "",
       age_category: "",
       is_4ps_member: "",
+      is_philhealth_member: "",
       is_pregnant: "",
-      is_senior_citizen: ""
+      is_senior_citizen: "",
+      is_profile_complete: ""
     });
     setPage(1);
   };
@@ -223,7 +229,7 @@ const ResidentList = ({ onEdit, onView }) => {
   };
 
   const exportToCSV = () => {
-    const headers = ['ID', 'Name', 'Gender', 'Age', 'Phone', 'Barangay', 'Address', '4Ps', 'Pregnant', 'Senior', 'Birth Reg.'];
+    const headers = ['ID', 'Name', 'Gender', 'Age', 'Phone', 'Barangay', 'Address', '4Ps', 'PhilHealth', 'Pregnant', 'Senior', 'Birth Reg.'];
     const csvData = residents.map(r => [
       r.resident_id,
       r.full_name,
@@ -233,6 +239,7 @@ const ResidentList = ({ onEdit, onView }) => {
       getBarangayLabel(r.barangay),
       r.address || '',
       r.is_4ps_member ? 'Yes' : 'No',
+      r.is_philhealth_member ? 'Yes' : 'No',
       r.is_pregnant ? 'Yes' : 'No',
       r.is_senior_citizen ? 'Yes' : 'No',
       r.is_birth_registered ? 'Yes' : 'No'
@@ -252,69 +259,196 @@ const ResidentList = ({ onEdit, onView }) => {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportToPDF = () => {
-    const printWindow = window.open('', '_blank');
-    const tableHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Residents List</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #1e40af; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-          th { background-color: #1e40af; color: white; }
-          tr:nth-child(even) { background-color: #f9fafb; }
-          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
-          .badge-4ps { background-color: #dcfce7; color: #166534; }
-          .badge-pregnant { background-color: #fce7f3; color: #9f1239; }
-          .badge-senior { background-color: #f3e8ff; color: #6b21a8; }
-        </style>
-      </head>
-      <body>
-        <h1>Residents Directory</h1>
-        <p>Generated on: ${new Date().toLocaleString()}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Gender</th>
-              <th>Age</th>
-              <th>Phone</th>
-              <th>Barangay</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${residents.map(r => `
+  const exportToPDF = async () => {
+    try {
+      // Fetch ALL residents for PDF export
+      const response = await api.get('/residents?limit=10000'); // Get all residents
+      const allResidents = response.data.data || response.data.residents || response.data || [];
+      
+      if (!Array.isArray(allResidents) || allResidents.length === 0) {
+        alert('No residents to export');
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      const tableHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Residents List - Complete Directory</title>
+          <style>
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px;
+              font-size: 10px;
+            }
+            h1 { 
+              color: #1e40af; 
+              margin-bottom: 10px;
+              font-size: 18px;
+            }
+            .header-info {
+              margin-bottom: 15px;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #1e40af;
+            }
+            .stats {
+              display: flex;
+              gap: 20px;
+              margin-bottom: 15px;
+              font-size: 11px;
+            }
+            .stat-item {
+              padding: 5px 10px;
+              background: #f0f0f0;
+              border-radius: 4px;
+            }
+            .stat-label {
+              font-weight: bold;
+              color: #666;
+            }
+            .stat-value {
+              font-weight: bold;
+              color: #1e40af;
+              margin-left: 5px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 10px;
+              font-size: 9px;
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 6px 4px; 
+              text-align: left;
+            }
+            th { 
+              background-color: #1e40af; 
+              color: white;
+              font-weight: bold;
+              position: sticky;
+              top: 0;
+            }
+            tr:nth-child(even) { 
+              background-color: #f9fafb; 
+            }
+            .badge { 
+              display: inline-block; 
+              padding: 2px 5px; 
+              border-radius: 3px; 
+              font-size: 8px; 
+              margin-right: 3px;
+              font-weight: bold;
+            }
+            .badge-4ps { 
+              background-color: #dcfce7; 
+              color: #166534; 
+            }
+            .badge-philhealth { 
+              background-color: #ccfbf1; 
+              color: #115e59; 
+            }
+            .badge-pregnant { 
+              background-color: #fce7f3; 
+              color: #9f1239; 
+            }
+            .badge-senior { 
+              background-color: #f3e8ff; 
+              color: #6b21a8; 
+            }
+            .badge-birth { 
+              background-color: #ffedd5; 
+              color: #9a3412; 
+            }
+            .page-break {
+              page-break-after: always;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-info">
+            <h1>📋 Residents Complete Directory</h1>
+            <p style="margin: 5px 0; color: #666;">Generated on: ${new Date().toLocaleString()}</p>
+            <div class="stats">
+              <div class="stat-item">
+                <span class="stat-label">Total Residents:</span>
+                <span class="stat-value">${allResidents.length}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">4Ps Members:</span>
+                <span class="stat-value">${allResidents.filter(r => r.is_4ps_member).length}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">PhilHealth:</span>
+                <span class="stat-value">${allResidents.filter(r => r.is_philhealth_member).length}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Pregnant:</span>
+                <span class="stat-value">${allResidents.filter(r => r.is_pregnant).length}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Seniors:</span>
+                <span class="stat-value">${allResidents.filter(r => r.is_senior_citizen).length}</span>
+              </div>
+            </div>
+          </div>
+          <table>
+            <thead>
               <tr>
-                <td>${r.resident_id}</td>
-                <td>${r.full_name}</td>
-                <td>${r.gender}</td>
-                <td>${r.age}</td>
-                <td>${r.phone || 'N/A'}</td>
-                <td>${getBarangayLabel(r.barangay)}</td>
-                <td>
-                  ${r.is_4ps_member ? '<span class="badge badge-4ps">4Ps</span>' : ''}
-                  ${r.is_pregnant ? '<span class="badge badge-pregnant">Pregnant</span>' : ''}
-                  ${r.is_senior_citizen ? '<span class="badge badge-senior">Senior</span>' : ''}
-                </td>
+                <th style="width: 5%;">ID</th>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 8%;">Gender</th>
+                <th style="width: 5%;">Age</th>
+                <th style="width: 12%;">Phone</th>
+                <th style="width: 18%;">Barangay</th>
+                <th style="width: 32%;">Status & Programs</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
-    printWindow.document.write(tableHTML);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+            </thead>
+            <tbody>
+              ${allResidents.map(r => `
+                <tr>
+                  <td>${r.resident_id}</td>
+                  <td style="font-weight: bold;">${r.full_name}</td>
+                  <td>${r.gender}</td>
+                  <td>${r.age}</td>
+                  <td>${r.phone || 'N/A'}</td>
+                  <td>${getBarangayLabel(r.barangay)}</td>
+                  <td>
+                    ${r.is_4ps_member ? '<span class="badge badge-4ps">4Ps</span>' : ''}
+                    ${r.is_philhealth_member ? '<span class="badge badge-philhealth">PhilHealth</span>' : ''}
+                    ${r.is_pregnant ? '<span class="badge badge-pregnant">Pregnant</span>' : ''}
+                    ${r.is_senior_citizen ? '<span class="badge badge-senior">Senior</span>' : ''}
+                    ${r.is_birth_registered ? '<span class="badge badge-birth">Birth Reg</span>' : ''}
+                    ${!r.is_4ps_member && !r.is_philhealth_member && !r.is_pregnant && !r.is_senior_citizen && !r.is_birth_registered ? '<span style="color: #999;">None</span>' : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 9px;">
+            <p>GenLuna MedChain - Barangay Health Center Management System</p>
+            <p>Total Records: ${allResidents.length} | Document printed on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      printWindow.document.write(tableHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error exporting to PDF:', error);
+      alert('Failed to export PDF: ' + error.message);
+    }
   };
 
   const closeModals = () => {
@@ -407,6 +541,13 @@ const ResidentList = ({ onEdit, onView }) => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Activity size={20} className="text-teal-600" />
+            <span className="text-sm text-gray-600">PhilHealth:</span>
+            <span className="text-sm font-bold text-gray-900">
+              {residents.filter(r => r.is_philhealth_member).length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <Heart size={20} className="text-pink-600" />
             <span className="text-sm text-gray-600">Pregnant:</span>
             <span className="text-sm font-bold text-gray-900">
@@ -492,7 +633,7 @@ const ResidentList = ({ onEdit, onView }) => {
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-2">Program Status</label>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <label className="flex items-center text-sm cursor-pointer text-black">
                   <input
                     type="checkbox"
@@ -501,6 +642,15 @@ const ResidentList = ({ onEdit, onView }) => {
                     className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   4Ps Member
+                </label>
+                <label className="flex items-center text-sm cursor-pointer text-black">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_philhealth_member === 'true'}
+                    onChange={(e) => handleFilterChange('is_philhealth_member', e.target.checked ? 'true' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  PhilHealth
                 </label>
                 <label className="flex items-center text-sm cursor-pointer text-black">
                   <input
@@ -519,6 +669,15 @@ const ResidentList = ({ onEdit, onView }) => {
                     className="w-4 h-4 mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
                   Senior Citizen
+                </label>
+                <label className="flex items-center text-sm cursor-pointer text-black">
+                  <input
+                    type="checkbox"
+                    checked={filters.is_profile_complete === 'false'}
+                    onChange={(e) => handleFilterChange('is_profile_complete', e.target.checked ? 'false' : '')}
+                    className="w-4 h-4 mr-2 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                  />
+                  Incomplete Profile
                 </label>
               </div>
             </div>
@@ -654,6 +813,11 @@ const ResidentList = ({ onEdit, onView }) => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
+                            {!res.is_profile_complete && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                ⚠️ Incomplete
+                              </span>
+                            )}
                             {res.is_4ps_member && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
                                 4Ps
@@ -762,10 +926,17 @@ const ResidentList = ({ onEdit, onView }) => {
                 <>
                   {/* Personal Information */}
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
-                      <Users size={20} className="text-blue-600" />
-                      Personal Information
-                    </h3>
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b">
+                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <Users size={20} className="text-blue-600" />
+                        Personal Information
+                      </h3>
+                      {!selectedResident.is_profile_complete && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                          ⚠️ Incomplete Profile
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs font-semibold text-gray-600 mb-1">Full Name</p>

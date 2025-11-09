@@ -837,6 +837,7 @@ export default function MedicineList() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Location</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Expiry Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase">Actions</th>
                   </tr>
@@ -847,6 +848,18 @@ export default function MedicineList() {
                     const hasExpiredStock = med.medicine_stocks?.some(
                       (s) => new Date(s.expiry_date) < new Date()
                     );
+                    
+                    // Get earliest expiry date
+                    const getEarliestExpiry = () => {
+                      if (!med.medicine_stocks || med.medicine_stocks.length === 0) return null;
+                      const dates = med.medicine_stocks.map(s => new Date(s.expiry_date));
+                      const earliest = new Date(Math.min(...dates));
+                      return earliest;
+                    };
+                    
+                    const earliestExpiry = getEarliestExpiry();
+                    const isExpired = earliestExpiry && earliestExpiry < new Date();
+                    
                     return (
                       <tr key={med.medicine_id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -872,6 +885,15 @@ export default function MedicineList() {
                           <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-900">
                             {totalStock} units
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-black">
+                          {earliestExpiry ? (
+                            <span className={`font-medium ${isExpired ? 'text-red-600' : 'text-black'}`}>
+                              {earliestExpiry.toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-black">N/A</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span
