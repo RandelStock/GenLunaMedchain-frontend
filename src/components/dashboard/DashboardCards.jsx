@@ -73,13 +73,13 @@ export const TransactionHistoryCard = ({ transactionStats }) => {
       </div>
       <div className="flex items-center justify-between mb-3">
         <div className="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-md">
-          {data.loading ? 'Loading...' : `Total: ${data.total} on-chain`}
+          {data.loading ? 'Loading...' : `Total: ${data.total}`}
         </div>
       </div>
       <div className="text-xs text-gray-600 mb-2">
-        Immutable blockchain audit trail
+        {data.loading ? 'Loading...' : `${data.onChain} on-chain`}
       </div>
-      <Link to="/transaction-history" className="text-sm text-blue-600 hover:text-blue-800">
+      <Link to="/blockchain" className="text-sm text-blue-600 hover:text-blue-800">
         View Blockchain History
       </Link>
     </div>
