@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Pill, Link2, Database, Users, TrendingUp, Activity, Package, FileText } from 'lucide-react';
-import api from '../../api.js';
+import api from '../../../api.js';
 
 const DashboardCards = () => {
   const [stats, setStats] = useState({
