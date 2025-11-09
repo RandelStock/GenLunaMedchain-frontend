@@ -44,24 +44,22 @@ export const ReceiptsCard = ({ receiptCount }) => {
 };
 
 export const TransactionHistoryCard = ({ transactionStats }) => {
-  const [data, setData] = useState({ total: transactionStats?.total || 0, onChain: 0, loading: !transactionStats });
+  const [data, setData] = useState({ total: 0, onChain: 0, loading: true });
 
   useEffect(() => {
-    if (!transactionStats) {
-      const fetchData = async () => {
-        try {
-          const response = await api.get('/blockchain/hashes');
-          const hashes = response.data?.hashes || [];
-          const onChainCount = hashes.filter(h => h.txHash).length;
-          setData({ total: hashes.length, onChain: onChainCount, loading: false });
-        } catch (error) {
-          console.error('Error fetching blockchain history:', error);
-          setData({ total: 0, onChain: 0, loading: false });
-        }
-      };
-      fetchData();
-    }
-  }, [transactionStats]);
+    const fetchData = async () => {
+      try {
+        const response = await api.get('/blockchain/hashes');
+        const hashes = response.data?.hashes || [];
+        const onChainCount = hashes.filter(h => h.txHash).length;
+        setData({ total: hashes.length, onChain: onChainCount, loading: false });
+      } catch (error) {
+        console.error('Error fetching blockchain history:', error);
+        setData({ total: 0, onChain: 0, loading: false });
+      }
+    };
+    fetchData();
+  }, []);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4">
