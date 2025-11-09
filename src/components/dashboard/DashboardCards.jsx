@@ -321,6 +321,84 @@ export const MedicineInventoryCard = () => {
   );
 };
 
+export const PatientAppointmentCard = () => {
+  const [data, setData] = useState({ total: 0, upcoming: 0, loading: true });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get('/consultations/patient');
+        const appointmentsData = response.data?.data || [];
+        const upcomingCount = appointmentsData.filter(a => a.status === 'scheduled').length;
+        setData({ total: appointmentsData.length, upcoming: upcomingCount, loading: false });
+      } catch (error) {
+        console.error('Error fetching patient appointments:', error);
+        setData({ total: 0, upcoming: 0, loading: false });
+      }
+    };
+    fetchData();
+  }, []);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+          <Activity className="w-5 h-5 text-blue-600" />
+        </div>
+        {data.loading && (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-2xl font-bold text-gray-900">
+          {data.loading ? '...' : data.total.toLocaleString()}
+        </p>
+        <p className="text-sm font-medium text-gray-900">My Appointments</p>
+        <p className="text-xs text-gray-700">{data.upcoming} upcoming</p>
+      </div>
+    </div>
+  );
+};
+
+export const PatientPrescriptionCard = () => {
+  const [data, setData] = useState({ total: 0, active: 0, loading: true });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get('/prescriptions/patient');
+        const prescriptionsData = response.data?.data || [];
+        const activeCount = prescriptionsData.filter(p => p.status === 'active').length;
+        setData({ total: prescriptionsData.length, active: activeCount, loading: false });
+      } catch (error) {
+        console.error('Error fetching patient prescriptions:', error);
+        setData({ total: 0, active: 0, loading: false });
+      }
+    };
+    fetchData();
+  }, []);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+          <Pill className="w-5 h-5 text-green-600" />
+        </div>
+        {data.loading && (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-600 border-t-transparent"></div>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-2xl font-bold text-gray-900">
+          {data.loading ? '...' : data.total.toLocaleString()}
+        </p>
+        <p className="text-sm font-medium text-gray-900">My Prescriptions</p>
+        <p className="text-xs text-gray-700">{data.active} active</p>
+      </div>
+    </div>
+  );
+};
+
 // Alias exports for compatibility with AdminHome.jsx
 export const ReceiptsCard = StocksCard;
 export const TransactionHistoryCard = BlockchainHistoryCard;
