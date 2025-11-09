@@ -272,35 +272,18 @@ const ResidentDashboard = () => {
       }
       const token = localStorage.getItem('token');
       
-      // First, try to get basic stats from compare endpoint
-      let compareData = null;
-      try {
-        const response = await fetch(`${API_URL}/residents/compare/barangays`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            compareData = data.data;
-            console.log('Compare data received:', compareData);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching compare data:', error);
-      }
-      
-      // Then fetch detailed stats for each barangay
+      // Fetch residents for each barangay with very high limit
       const promises = BARANGAYS.map(async (barangay) => {
         try {
-          // Try to get residents list to calculate age categories manually
-          const residentsResponse = await fetch(`${API_URL}/residents?barangay=${encodeURIComponent(barangay.value)}&limit=1000`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
+          // Use high limit to ensure we get ALL residents
+          const residentsResponse = await fetch(
+            `${API_URL}/residents?barangay=${encodeURIComponent(barangay.value)}&limit=10000`, 
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
             }
-          });
+          );
           
           let ageCategories = {
             ZERO_TO_5_YEARS: 0,
@@ -320,36 +303,50 @@ const ResidentDashboard = () => {
           
           if (residentsResponse.ok) {
             const residentsData = await residentsResponse.json();
-            residents = residentsData.data || residentsData.residents || residentsData || [];
-            // Only include residents that belong to the current barangay
+            
+            // Handle different possible response structures
+            if (residentsData.data && Array.isArray(residentsData.data)) {
+              residents = residentsData.data;
+            } else if (residentsData.residents && Array.isArray(residentsData.residents)) {
+              residents = residentsData.residents;
+            } else if (Array.isArray(residentsData)) {
+              residents = residentsData;
+            }
+            
+            // CRITICAL FIX: Filter to ensure we only have residents from THIS barangay
+            // This handles cases where the API doesn't filter properly
             residents = residents.filter(resident => resident.barangay === barangay.value);
             
-            // Calculate age categories from actual residents
-            if (Array.isArray(residents)) {
-              residents.forEach(resident => {
-                const age = resident.age;
-                
-                // Age categories
-                if (age >= 0 && age <= 5) {
-                  ageCategories.ZERO_TO_5_YEARS++;
-                } else if (age >= 6 && age <= 12) {
-                  ageCategories.SIX_TO_12_YEARS++;
-                } else if (age >= 13 && age <= 17) {
-                  ageCategories.THIRTEEN_TO_17_YEARS++;
-                } else if (age >= 18 && age <= 59) {
-                  ageCategories.EIGHTEEN_TO_59_YEARS++;
-                } else if (age >= 60) {
-                  ageCategories.SIXTY_PLUS_YEARS++;
-                }
-                
-                // Gender breakdown
-                if (resident.gender === 'MALE') {
-                  genderBreakdown.MALE++;
-                } else if (resident.gender === 'FEMALE') {
-                  genderBreakdown.FEMALE++;
-                }
-              });
-            }
+            console.log(`${barangay.label}: Found ${residents.length} residents`);
+            
+            // Calculate age categories and other stats
+            residents.forEach(resident => {
+              const age = resident.age;
+              
+              // Age categories
+              if (age >= 0 && age <= 5) {
+                ageCategories.ZERO_TO_5_YEARS++;
+              } else if (age >= 6 && age <= 12) {
+                ageCategories.SIX_TO_12_YEARS++;
+              } else if (age >= 13 && age <= 17) {
+                ageCategories.THIRTEEN_TO_17_YEARS++;
+              } else if (age >= 18 && age <= 59) {
+                ageCategories.EIGHTEEN_TO_59_YEARS++;
+              } else if (age >= 60) {
+                ageCategories.SIXTY_PLUS_YEARS++;
+              }
+              
+              // Gender breakdown
+              if (resident.gender === 'MALE') {
+                genderBreakdown.MALE++;
+              } else if (resident.gender === 'FEMALE') {
+                genderBreakdown.FEMALE++;
+              } else if (resident.gender === 'OTHER') {
+                genderBreakdown.OTHER++;
+              }
+            });
+          } else {
+            console.error(`Failed to fetch residents for ${barangay.label}:`, residentsResponse.status);
           }
           
           return {
@@ -363,6 +360,7 @@ const ResidentDashboard = () => {
                 pregnantResidents: residents.filter(r => r.is_pregnant).length,
                 seniorCitizens: residents.filter(r => r.is_senior_citizen).length,
                 birthRegistered: residents.filter(r => r.is_birth_registered).length,
+                philhealthMembers: residents.filter(r => r.is_philhealth_member).length,
                 ageCategories: ageCategories,
                 genderBreakdown: genderBreakdown
               }
@@ -370,12 +368,39 @@ const ResidentDashboard = () => {
           };
         } catch (error) {
           console.error(`Error fetching ${barangay.label}:`, error);
-          return { barangay: barangay.value, data: null };
+          return { 
+            barangay: barangay.value, 
+            data: {
+              success: false,
+              barangay: barangay.value,
+              stats: {
+                totalResidents: 0,
+                fourPsMembers: 0,
+                pregnantResidents: 0,
+                seniorCitizens: 0,
+                birthRegistered: 0,
+                philhealthMembers: 0,
+                ageCategories: {
+                  ZERO_TO_5_YEARS: 0,
+                  SIX_TO_12_YEARS: 0,
+                  THIRTEEN_TO_17_YEARS: 0,
+                  EIGHTEEN_TO_59_YEARS: 0,
+                  SIXTY_PLUS_YEARS: 0
+                },
+                genderBreakdown: {
+                  MALE: 0,
+                  FEMALE: 0,
+                  OTHER: 0
+                }
+              }
+            }
+          };
         }
       });
 
       const results = await Promise.all(promises);
       const dataMap = {};
+      
       results.forEach(result => {
         if (result.data) {
           dataMap[result.barangay] = result.data;
@@ -383,6 +408,14 @@ const ResidentDashboard = () => {
       });
       
       console.log('Complete barangay data map:', dataMap);
+      
+      // Log summary for debugging
+      const totalResidents = Object.values(dataMap).reduce((sum, d) => sum + (d.stats?.totalResidents || 0), 0);
+      console.log(`=== SUMMARY ===`);
+      console.log(`Total residents across all barangays: ${totalResidents}`);
+      console.log(`Expected: 1350 (27 × 50)`);
+      console.log(`===============`);
+      
       setBarangayData(dataMap);
     } catch (error) {
       console.error('Error fetching barangay data:', error);
