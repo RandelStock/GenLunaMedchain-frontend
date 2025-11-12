@@ -427,28 +427,7 @@ const PatientHome = () => {
         {activeSection === 'home' && (
           <>
             {/* COMPACT Health Programs - 4 column grid */}
-            <div className="bg-gradient-to-br from-orange-50 to-blue-50 rounded-lg p-6 mb-8">
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Health Programs & Services</h2>
-                <div className="h-1 w-16 bg-gradient-to-r from-orange-600 to-blue-800 mx-auto mt-2"></div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { icon: FaHeartbeat, title: 'Maternal & Child', color: 'orange' },
-                  { icon: FaUserMd, title: 'Primary Care', color: 'blue' },
-                  { icon: FaStethoscope, title: 'Disease Prevention', color: 'orange' },
-                  { icon: FaCapsules, title: 'Medicine Assistance', color: 'blue' }
-                ].map((program, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-lg text-center border hover:shadow-lg transition-all">
-                    <div className={`bg-${program.color}-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2`}>
-                      <program.icon className={`text-xl text-${program.color}-600`} />
-                    </div>
-                    <h3 className="font-semibold text-sm text-gray-900">{program.title}</h3>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <HealthServicesSection />
 
             {/* COLLAPSIBLE Barangay Section */}
             <div className="mb-8">

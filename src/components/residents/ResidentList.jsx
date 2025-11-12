@@ -259,18 +259,29 @@ const ResidentList = ({ onEdit, onView }) => {
     window.URL.revokeObjectURL(url);
   };
 
+
   const exportToPDF = async () => {
     try {
-      // Fetch ALL residents for PDF export
-      const response = await api.get('/residents?limit=10000'); // Get all residents
-      const allResidents = response.data.data || response.data.residents || response.data || [];
+      console.log('Starting PDF export...');
+      
+      // Use the optimized export endpoint
+      const response = await api.get('/residents/export/all');
+      const allResidents = response.data.data || [];
       
       if (!Array.isArray(allResidents) || allResidents.length === 0) {
         alert('No residents to export');
         return;
       }
 
+      console.log(`Successfully fetched ${allResidents.length} residents for export`);
+
       const printWindow = window.open('', '_blank');
+      
+      if (!printWindow) {
+        alert('Please allow pop-ups to export PDF');
+        return;
+      }
+      
       const tableHTML = `
         <!DOCTYPE html>
         <html>
@@ -300,6 +311,7 @@ const ResidentList = ({ onEdit, onView }) => {
               gap: 20px;
               margin-bottom: 15px;
               font-size: 11px;
+              flex-wrap: wrap;
             }
             .stat-item {
               padding: 5px 10px;
@@ -325,6 +337,7 @@ const ResidentList = ({ onEdit, onView }) => {
               border: 1px solid #ddd; 
               padding: 6px 4px; 
               text-align: left;
+              word-wrap: break-word;
             }
             th { 
               background-color: #1e40af; 
@@ -343,6 +356,7 @@ const ResidentList = ({ onEdit, onView }) => {
               font-size: 8px; 
               margin-right: 3px;
               font-weight: bold;
+              white-space: nowrap;
             }
             .badge-4ps { 
               background-color: #dcfce7; 
@@ -364,8 +378,13 @@ const ResidentList = ({ onEdit, onView }) => {
               background-color: #ffedd5; 
               color: #9a3412; 
             }
-            .page-break {
-              page-break-after: always;
+            .footer {
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px solid #ddd;
+              text-align: center;
+              color: #666;
+              font-size: 9px;
             }
           </style>
         </head>
@@ -412,9 +431,9 @@ const ResidentList = ({ onEdit, onView }) => {
               ${allResidents.map(r => `
                 <tr>
                   <td>${r.resident_id}</td>
-                  <td style="font-weight: bold;">${r.full_name}</td>
+                  <td style="font-weight: bold;">${r.full_name || `${r.first_name} ${r.last_name}`}</td>
                   <td>${r.gender}</td>
-                  <td>${r.age}</td>
+                  <td>${r.age || 'N/A'}</td>
                   <td>${r.phone || 'N/A'}</td>
                   <td>${getBarangayLabel(r.barangay)}</td>
                   <td>
@@ -429,9 +448,9 @@ const ResidentList = ({ onEdit, onView }) => {
               `).join('')}
             </tbody>
           </table>
-          <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 9px;">
-            <p>GenLuna MedChain - Barangay Health Center Management System</p>
-            <p>Total Records: ${allResidents.length} | Document printed on ${new Date().toLocaleDateString()}</p>
+          <div class="footer">
+            <p><strong>GenLuna MedChain</strong> - Barangay Health Center Management System</p>
+            <p>Total Records: ${allResidents.length} | Document generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
           </div>
         </body>
         </html>
@@ -441,13 +460,25 @@ const ResidentList = ({ onEdit, onView }) => {
       printWindow.document.close();
       printWindow.focus();
       
+      // Give the browser time to render before printing
       setTimeout(() => {
         printWindow.print();
       }, 500);
       
     } catch (error) {
       console.error('Error exporting to PDF:', error);
-      alert('Failed to export PDF: ' + error.message);
+      
+      let errorMessage = 'Failed to export PDF';
+      
+      if (error.response?.status === 504 || error.response?.status === 500) {
+        errorMessage = 'Server timeout while fetching residents. The database may be under heavy load. Please try again in a moment.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     }
   };
 
