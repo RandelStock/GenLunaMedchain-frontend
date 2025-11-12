@@ -6,6 +6,7 @@ import { useConnect, useDisconnect, useAddress, metamaskWallet } from "@thirdweb
 import MedicineList from '../medicine/MedicineList';
 import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
+import HealthServicesSection from './HealthServicesSection'; 
 
 // Import all images
 import logo from "../../img/logo.png";
