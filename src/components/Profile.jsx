@@ -111,7 +111,7 @@ export default function ProfileUI() {
                   <FaUser className="text-6xl text-blue-500" />
                 </div>
                 
-                <div className="flex-1 text-center lg:text-left lg:ml-6 min-w-0">
+                <div className="flex-1 text-center lg:text-left lg:ml-6 min-w-0 mt-16 lg:mt-0">
                   {isEditing ? (
                     <input
                       type="text"

@@ -79,7 +79,7 @@ const ResidentList = ({ onEdit, onView }) => {
     try {
       const params = new URLSearchParams();
       params.append('page', page);
-      params.append('limit', '12');
+      params.append('limit', '100'); // Changed to 100
       
       if (filters.search) params.append('search', filters.search);
       if (filters.barangay) params.append('barangay', filters.barangay);
@@ -762,9 +762,9 @@ const ResidentList = ({ onEdit, onView }) => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                     <tr>
                       <th className="w-10 px-4 py-3 text-left">
                         <input
