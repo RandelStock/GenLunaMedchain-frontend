@@ -17,6 +17,7 @@ import {
   FaCalendarAlt,
   FaBars,
   FaTimes,
+  FaChartLine,
 } from "react-icons/fa";
 import { useAddress } from "@thirdweb-dev/react";
 import { useRole } from "../auth/RoleProvider";
@@ -91,6 +92,8 @@ const Sidebar = () => {
         ],
         system: [
           { path: "/blockchain", icon: FaLink, label: "Blockchain" },
+          { path: "/consultations/calendar", icon: FaCalendarAlt, label: "Consultation Calendar" },
+          { path: "/consultations/statistics", icon: FaChartLine, label: "Consultaion Statistics" },
           // { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
           { path: "/audit-logs/all", icon: FaHistory, label: "All Audit Logs" },
           { path: "/profile", icon: FaUser, label: "Profile" },
@@ -120,7 +123,8 @@ const Sidebar = () => {
         ],
         system: [
           { path: "/blockchain", icon: FaLink, label: "Blockchain" },
-          { path: "/consultation", icon: FaVideo, label: "Consultation" },
+          { path: "/consultations/calendar", icon: FaCalendarAlt, label: "Consultation Calendar" },
+          { path: "/consultations/statistics", icon: FaChartLine, label: "Consultaion Statistics" },
           // { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
           { path: "/audit-logs/all", icon: FaHistory, label: "All Audit Logs" },
           { path: "/profile", icon: FaUser, label: "Profile" },

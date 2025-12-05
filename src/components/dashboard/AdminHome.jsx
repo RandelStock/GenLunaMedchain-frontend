@@ -1,5 +1,5 @@
 // src/components/dashboard/AdminHome.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useReceiptCount } from '../receipts/ReceiptsTable';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import MedicineList from '../medicine/MedicineList';
@@ -36,8 +36,60 @@ const AdminHome = () => {
   const receiptCount = useReceiptCount();
   const { getStats, contractConnected } = useTransactionHistory();
   const [activeTab, setActiveTab] = useState('overview');
+  const [consultationStats, setConsultationStats] = useState({
+    scheduled: 0,
+    inProgress: 0,
+    completed: 0,
+    cancelled: 0
+  });
+  const [loading, setLoading] = useState(false);
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
+
+  // Fetch consultation statistics
+  useEffect(() => {
+    const fetchConsultationStats = async () => {
+      if (activeTab === 'consultations') {
+        setLoading(true);
+        try {
+          // Fetch today's consultations
+          const today = new Date();
+          const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
+          const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
+          
+          const response = await fetch(
+            `/api/consultations?date_from=${startOfDay}&date_to=${endOfDay}&limit=1000`,
+            {
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const consultations = data.data || [];
+
+            // Count by status
+            const stats = {
+              scheduled: consultations.filter(c => c.status === 'SCHEDULED').length,
+              inProgress: consultations.filter(c => c.status === 'IN_PROGRESS').length,
+              completed: consultations.filter(c => c.status === 'COMPLETED').length,
+              cancelled: consultations.filter(c => c.status === 'CANCELLED').length
+            };
+
+            setConsultationStats(stats);
+          }
+        } catch (error) {
+          console.error('Error fetching consultation stats:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchConsultationStats();
+  }, [activeTab]);
 
   console.log("DEBUG CHECK >>>");
   console.log("MedicineList:", MedicineList);
@@ -183,8 +235,6 @@ const AdminHome = () => {
                   </div>
                   <span className="text-sm font-semibold text-gray-900">Add Resident</span>
                 </Link>
-
-                
               </div>
             </div>
 
@@ -277,19 +327,12 @@ const AdminHome = () => {
                   >
                     🔗 Blockchain History
                   </Link>
-                  {/* <Link
-                    to="/transaction-history"
-                    className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
-                  >
-                    💳 Transaction History
-                  </Link> */}
                   <Link
                     to="/audit-logs/all"
                     className="block p-3 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-gray-200"
                   >
                     📝 Audit Logs
                   </Link>
-                  
                 </div>
               </div>
             </div>
@@ -414,29 +457,41 @@ const AdminHome = () => {
             {/* Quick Stats */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
               <h4 className="text-base font-bold text-gray-900 mb-4">Today's Overview</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-blue-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Scheduled</div>
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading statistics...</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                      {consultationStats.scheduled}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Scheduled</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-yellow-600 mb-1">
+                      {consultationStats.inProgress}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">In Progress</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {consultationStats.completed}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Completed</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-red-600 mb-1">
+                      {consultationStats.cancelled}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Cancelled</div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-yellow-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">In Progress</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-green-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Completed</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-red-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Cancelled</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* New Reports Tab */}
+        {/* Reports Tab */}
         {activeTab === 'reports' && (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -446,19 +501,6 @@ const AdminHome = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-                {/* <Link
-                  to="/audit-logs/all"
-                  className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
-                >
-                  <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                    <FaExchangeAlt className="text-2xl text-green-600" />
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900 mb-1">Transactions</h3>
-                  <p className="text-sm text-gray-600">Complete transaction history</p>
-                  <div className="mt-3 text-2xl font-bold text-green-600">{transactionStats.total}</div>
-                </Link> */}
-
                 <Link
                   to="/blockchain"
                   className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl hover:shadow-md transition-all border border-purple-200"
