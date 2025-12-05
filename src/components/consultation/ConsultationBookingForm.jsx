@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaCheck } from 'react-icons/fa';
-import API_BASE_URL from '../../config.js';
 
+// Mock API_BASE_URL for demonstration
+const API_BASE_URL = 'https://api.example.com';
 const API_URL = API_BASE_URL;
 
 const BARANGAYS = [
@@ -274,22 +275,22 @@ const ConsultationBookingForm = ({
     switch (step) {
       case 1:
         return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-black mb-4">Schedule Consultation</h3>
+          <div className="space-y-4 sm:space-y-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-black mb-3 sm:mb-4">Schedule Consultation</h3>
             {(prefilledData || initialDate) && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <FaCheck className="text-green-600" />
-                  <p className="font-semibold text-green-900">Time Slot Selected</p>
+                  <FaCheck className="text-green-600 flex-shrink-0" />
+                  <p className="font-semibold text-green-900 text-sm sm:text-base">Time Slot Selected</p>
                 </div>
-                <p className="text-sm text-green-800">
+                <p className="text-xs sm:text-sm text-green-800">
                   {new Date(prefilledData?.date || initialDate).toLocaleDateString()} at {prefilledData?.time || initialTime}
                   {(prefilledData?.providerName || initialProviderName) && ` with ${prefilledData?.providerName || initialProviderName}`}
                 </p>
                 <p className="text-xs text-green-700 mt-1">You can change these details below if needed</p>
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
                   Consultation Date <span className="text-red-500">*</span>
@@ -301,7 +302,7 @@ const ConsultationBookingForm = ({
                   onChange={handleChange}
                   min={getMinDate()}
                   max={getMaxDate()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 />
                 {formErrors.scheduled_date && <p className="text-red-500 text-xs mt-1">{formErrors.scheduled_date}</p>}
               </div>
@@ -322,7 +323,7 @@ const ConsultationBookingForm = ({
                     }));
                     setAvailableSlots([]);
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 >
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>
@@ -338,7 +339,7 @@ const ConsultationBookingForm = ({
                   name="assigned_doctor_id"
                   value={formData.assigned_doctor_id}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 >
                   <option value="">Select Doctor</option>
                   {doctors.map(doctor => {
@@ -363,7 +364,7 @@ const ConsultationBookingForm = ({
                   name="assigned_nurse_id"
                   value={formData.assigned_nurse_id}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 >
                   <option value="">Select Nurse</option>
                   {nurses.map(nurse => {
@@ -386,22 +387,22 @@ const ConsultationBookingForm = ({
               {loadingSlots ? (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-black mt-2">Loading available slots...</p>
+                  <p className="text-black mt-2 text-sm">Loading available slots...</p>
                 </div>
               ) : availableSlots.length === 0 ? (
                 <div className="text-center py-4">
-                  <p className="text-black">No available time slots for the selected date and provider.</p>
-                  <p className="text-sm text-gray-600 mt-1">Please select a different date or provider.</p>
+                  <p className="text-black text-sm">No available time slots for the selected date and provider.</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1">Please select a different date or provider.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {availableSlots.map((slot, index) => (
                     <button
                       key={index}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, scheduled_time: slot.time }))}
                       disabled={!slot.available}
-                      className={`p-3 text-sm rounded-lg border transition-colors font-medium ${
+                      className={`p-2 sm:p-3 text-xs sm:text-sm rounded-lg border transition-colors font-medium ${
                         slot.available
                           ? formData.scheduled_time === slot.time
                             ? 'bg-blue-600 text-white border-blue-600'
@@ -421,10 +422,10 @@ const ConsultationBookingForm = ({
 
       case 2:
         return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-black mb-4">Patient Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+          <div className="space-y-4 sm:space-y-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-black mb-3 sm:mb-4">Patient Information</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-black mb-2">
                   Full Name <span className="text-red-500">*</span>
                 </label>
@@ -433,7 +434,7 @@ const ConsultationBookingForm = ({
                   name="patient_name"
                   value={formData.patient_name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="Enter your full name"
                 />
                 {formErrors.patient_name && <p className="text-red-500 text-xs mt-1">{formErrors.patient_name}</p>}
@@ -447,7 +448,7 @@ const ConsultationBookingForm = ({
                   name="patient_phone"
                   value={formData.patient_phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="09XXXXXXXXX"
                 />
                 {formErrors.patient_phone && <p className="text-red-500 text-xs mt-1">{formErrors.patient_phone}</p>}
@@ -459,7 +460,7 @@ const ConsultationBookingForm = ({
                   name="patient_email"
                   value={formData.patient_email}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="your.email@example.com"
                 />
                 {formErrors.patient_email && <p className="text-red-500 text-xs mt-1">{formErrors.patient_email}</p>}
@@ -471,7 +472,7 @@ const ConsultationBookingForm = ({
                   name="patient_age"
                   value={formData.patient_age}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="Age"
                   min="0"
                   max="120"
@@ -483,14 +484,14 @@ const ConsultationBookingForm = ({
                   name="patient_gender"
                   value={formData.patient_gender}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 >
                   {GENDERS.map(gender => (
                     <option key={gender.value} value={gender.value}>{gender.label}</option>
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-black mb-2">
                   Barangay <span className="text-red-500">*</span>
                 </label>
@@ -498,7 +499,7 @@ const ConsultationBookingForm = ({
                   name="patient_barangay"
                   value={formData.patient_barangay}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 >
                   <option value="">Select Barangay</option>
                   {BARANGAYS.map(barangay => (
@@ -515,7 +516,7 @@ const ConsultationBookingForm = ({
                 value={formData.patient_address}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="Enter your complete address"
               />
             </div>
@@ -524,8 +525,8 @@ const ConsultationBookingForm = ({
 
       case 3:
         return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-black mb-4">Medical Information</h3>
+          <div className="space-y-4 sm:space-y-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-black mb-3 sm:mb-4">Medical Information</h3>
             <div>
               <label className="block text-sm font-medium text-black mb-2">
                 Chief Complaint <span className="text-red-500">*</span>
@@ -535,7 +536,7 @@ const ConsultationBookingForm = ({
                 value={formData.chief_complaint}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="Describe your main concern or symptoms"
               />
               {formErrors.chief_complaint && <p className="text-red-500 text-xs mt-1">{formErrors.chief_complaint}</p>}
@@ -547,7 +548,7 @@ const ConsultationBookingForm = ({
                 value={formData.symptoms}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="Describe any symptoms you're experiencing"
               />
             </div>
@@ -558,7 +559,7 @@ const ConsultationBookingForm = ({
                 value={formData.medical_history}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="Any relevant medical history or previous conditions"
               />
             </div>
@@ -569,7 +570,7 @@ const ConsultationBookingForm = ({
                 value={formData.current_medications}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="List any medications you're currently taking"
               />
             </div>
@@ -580,7 +581,7 @@ const ConsultationBookingForm = ({
                 value={formData.allergies}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                 placeholder="List any allergies or adverse reactions"
               />
             </div>
@@ -590,7 +591,7 @@ const ConsultationBookingForm = ({
                 name="consultation_type"
                 value={formData.consultation_type}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
               >
                 {CONSULTATION_TYPES.map(type => (
                   <option key={type.value} value={type.value}>{type.label}</option>
@@ -606,13 +607,13 @@ const ConsultationBookingForm = ({
           : nurses.find(n => n.user_id === formData.assigned_nurse_id);
         
         return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-black mb-4">Confirm Your Consultation</h3>
-            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+          <div className="space-y-4 sm:space-y-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-black mb-3 sm:mb-4">Confirm Your Consultation</h3>
+            <div className="bg-gray-50 rounded-lg p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium text-black mb-2">Patient Information</h4>
-                  <div className="space-y-1 text-sm text-black">
+                  <h4 className="font-medium text-black mb-2 text-sm sm:text-base">Patient Information</h4>
+                  <div className="space-y-1 text-xs sm:text-sm text-black">
                     <p><strong>Name:</strong> {formData.patient_name}</p>
                     <p><strong>Phone:</strong> {formData.patient_phone}</p>
                     {formData.patient_email && <p><strong>Email:</strong> {formData.patient_email}</p>}
@@ -622,8 +623,8 @@ const ConsultationBookingForm = ({
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-medium text-black mb-2">Consultation Details</h4>
-                  <div className="space-y-1 text-sm text-black">
+                  <h4 className="font-medium text-black mb-2 text-sm sm:text-base">Consultation Details</h4>
+                  <div className="space-y-1 text-xs sm:text-sm text-black">
                     <p><strong>Date:</strong> {new Date(formData.scheduled_date).toLocaleDateString()}</p>
                     <p><strong>Time:</strong> {formData.scheduled_time}</p>
                     <p><strong>Type:</strong> {CONSULTATION_TYPES.find(t => t.value === formData.consultation_type)?.label}</p>
@@ -635,14 +636,14 @@ const ConsultationBookingForm = ({
                 </div>
               </div>
               <div>
-                <h4 className="font-medium text-black mb-2">Chief Complaint</h4>
-                <p className="text-sm text-black bg-white p-3 rounded border">
+                <h4 className="font-medium text-black mb-2 text-sm sm:text-base">Chief Complaint</h4>
+                <p className="text-xs sm:text-sm text-black bg-white p-3 rounded border">
                   {formData.chief_complaint}
                 </p>
               </div>
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-800 text-sm">{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+                  <p className="text-red-800 text-xs sm:text-sm">{error}</p>
                 </div>
               )}
             </div>
@@ -655,39 +656,41 @@ const ConsultationBookingForm = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
+    <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 z-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-black">Schedule Online Consultation</h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
+          <h2 className="text-lg sm:text-2xl font-bold text-black">Schedule Online Consultation</h2>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-bold leading-none">×</button>
         </div>
       </div>
       
-      <div className="p-6">
-        <div className="flex items-center justify-center mb-8">
-          {[1, 2, 3, 4].map((stepNumber) => (
-            <div key={stepNumber} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step >= stepNumber ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
-              }`}>
-                {stepNumber}
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center justify-center mb-6 sm:mb-8 overflow-x-auto">
+          <div className="flex items-center min-w-max">
+            {[1, 2, 3, 4].map((stepNumber) => (
+              <div key={stepNumber} className="flex items-center">
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
+                  step >= stepNumber ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
+                }`}>
+                  {stepNumber}
+                </div>
+                {stepNumber < 4 && (
+                  <div className={`w-12 sm:w-16 h-1 mx-1 sm:mx-2 ${step > stepNumber ? 'bg-blue-600' : 'bg-gray-300'}`} />
+                )}
               </div>
-              {stepNumber < 4 && (
-                <div className={`w-16 h-1 mx-2 ${step > stepNumber ? 'bg-blue-600' : 'bg-gray-300'}`} />
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
         
         {renderStepContent()}
         
-        <div className="flex justify-between mt-8">
+        <div className="flex justify-between mt-6 sm:mt-8 gap-2 sm:gap-0">
           <div>
             {step > 1 && (
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-black hover:bg-gray-50 transition-colors font-medium"
+                className="px-4 sm:px-6 py-2 text-sm sm:text-base border border-gray-300 rounded-lg text-black hover:bg-gray-50 transition-colors font-medium"
               >
                 Previous
               </button>
@@ -698,7 +701,7 @@ const ConsultationBookingForm = ({
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 Next
               </button>
@@ -707,10 +710,10 @@ const ConsultationBookingForm = ({
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
+                className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
               >
                 {loading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
-                {loading ? 'Scheduling...' : 'Confirm & Schedule'}
+                <span className="whitespace-nowrap">{loading ? 'Scheduling...' : 'Confirm & Schedule'}</span>
               </button>
             )}
           </div>

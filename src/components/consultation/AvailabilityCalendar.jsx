@@ -129,44 +129,45 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
   const currentProviders = providerType === 'doctor' ? doctors : nurses;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Check Availability</h2>
-          <FaCalendarAlt className="text-3xl opacity-80" />
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Check Availability</h2>
+          <FaCalendarAlt className="text-2xl sm:text-3xl opacity-80" />
         </div>
-        <p className="text-blue-100">
+        <p className="text-sm sm:text-base text-blue-100">
           Find the perfect time for your consultation
         </p>
       </div>
 
       {/* Provider Selection */}
-      <div className="border-b border-gray-200 p-6 bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Select Healthcare Provider</h3>
+      <div className="border-b border-gray-200 p-4 sm:p-6 bg-gray-50">
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">Select Healthcare Provider</h3>
         
         {/* Provider Type Toggle */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-3 sm:mb-4">
           <button
             onClick={() => handleProviderTypeChange('doctor')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-sm sm:text-base font-medium transition-all flex items-center justify-center gap-2 ${
               providerType === 'doctor'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
             }`}
           >
-            <FaUserMd />
-            Doctor
+            <FaUserMd className="text-sm sm:text-base" />
+            <span className="hidden xs:inline">Doctor</span>
+            <span className="xs:hidden">Doc</span>
           </button>
           <button
             onClick={() => handleProviderTypeChange('nurse')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-sm sm:text-base font-medium transition-all flex items-center justify-center gap-2 ${
               providerType === 'nurse'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
             }`}
           >
-            <FaUserNurse />
+            <FaUserNurse className="text-sm sm:text-base" />
             Nurse
           </button>
         </div>
@@ -175,7 +176,7 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
         <select
           value={selectedProviderId}
           onChange={(e) => setSelectedProviderId(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-gray-900"
+          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-gray-900"
         >
           <option value="">Select {providerType === 'doctor' ? 'Doctor' : 'Nurse'}</option>
           {currentProviders.map(provider => {
@@ -194,25 +195,25 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
       </div>
 
       {/* Date Navigation */}
-      <div className="border-b border-gray-200 p-6 bg-gray-50">
-        <div className="flex items-center justify-between">
+      <div className="border-b border-gray-200 p-4 sm:p-6 bg-gray-50">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
           <button
             onClick={() => handleDateChange(-1)}
             disabled={isPast}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-black"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-black"
           >
             ← Previous
           </button>
           
-          <div className="text-center">
+          <div className="text-center w-full sm:w-auto">
             <input
               type="date"
               value={selectedDate}
               min={new Date().toISOString().split('T')[0]}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-gray-900"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-gray-900"
             />
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-xs sm:text-sm text-gray-600 mt-2">
               {new Date(selectedDate).toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -224,7 +225,7 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
           
           <button
             onClick={() => handleDateChange(1)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all font-medium text-black"
+            className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all font-medium text-black"
           >
             Next →
           </button>
@@ -232,14 +233,14 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
       </div>
 
       {/* Legend */}
-      <div className="border-b border-gray-200 p-4 bg-gray-50">
-        <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+      <div className="border-b border-gray-200 p-3 sm:p-4 bg-gray-50">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded"></div>
             <span className="text-gray-700">Available</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-300 rounded"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gray-300 rounded"></div>
             <span className="text-gray-700">Unavailable</span>
           </div>
         </div>
@@ -247,31 +248,31 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
 
       {/* Error Message */}
       {error && (
-        <div className="m-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="m-4 sm:m-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+          <p className="text-sm sm:text-base text-red-800">{error}</p>
         </div>
       )}
 
       {/* Time Slots Grid */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {!selectedProviderId ? (
-          <div className="text-center py-12">
-            <FaUserMd className="text-gray-400 text-5xl mx-auto mb-4" />
-            <p className="text-gray-600">Please select a healthcare provider to view available time slots</p>
+          <div className="text-center py-8 sm:py-12">
+            <FaUserMd className="text-gray-400 text-4xl sm:text-5xl mx-auto mb-3 sm:mb-4" />
+            <p className="text-sm sm:text-base text-gray-600 px-4">Please select a healthcare provider to view available time slots</p>
           </div>
         ) : loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading availability...</p>
+          <div className="text-center py-8 sm:py-12">
+            <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-3 sm:mb-4"></div>
+            <p className="text-sm sm:text-base text-gray-600">Loading availability...</p>
           </div>
         ) : availability.length === 0 ? (
-          <div className="text-center py-12">
-            <FaClock className="text-gray-400 text-5xl mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">No available time slots for the selected date and provider</p>
-            <p className="text-sm text-gray-500">Please select a different date or provider</p>
+          <div className="text-center py-8 sm:py-12">
+            <FaClock className="text-gray-400 text-4xl sm:text-5xl mx-auto mb-3 sm:mb-4" />
+            <p className="text-sm sm:text-base text-gray-600 mb-2 px-4">No available time slots for the selected date and provider</p>
+            <p className="text-xs sm:text-sm text-gray-500 px-4">Please select a different date or provider</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
             {availability.map((slot, index) => {
               const isUnavailable = !slot.available;
               
@@ -281,25 +282,25 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
                   onClick={() => handleTimeSlotClick(slot)}
                   disabled={isUnavailable}
                   className={`
-                    relative p-4 rounded-xl border-2 transition-all text-left
+                    relative p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left
                     ${isUnavailable 
                       ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-60' 
-                      : 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-lg hover:scale-105 cursor-pointer'
+                      : 'bg-green-50 border-green-300 hover:border-green-400 hover:shadow-lg active:scale-95 sm:hover:scale-105 cursor-pointer'
                     }
                   `}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <FaClock className={`
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                    <FaClock className={`text-sm sm:text-base
                       ${isUnavailable ? 'text-gray-400' : 'text-green-600'}
                     `} />
                     {isUnavailable ? (
-                      <FaTimes className="text-red-500" />
+                      <FaTimes className="text-red-500 text-sm sm:text-base" />
                     ) : (
-                      <FaCheck className="text-green-600" />
+                      <FaCheck className="text-green-600 text-sm sm:text-base" />
                     )}
                   </div>
                   
-                  <div className={`font-bold text-lg mb-1 ${
+                  <div className={`font-bold text-base sm:text-lg mb-0.5 sm:mb-1 ${
                     isUnavailable ? 'text-gray-600' : 'text-green-900'
                   }`}>
                     {slot.time}
@@ -318,12 +319,12 @@ const AvailabilityCalendar = ({ onTimeSlotSelect }) => {
       </div>
 
       {/* Info Footer */}
-      <div className="border-t border-gray-200 bg-blue-50 p-6">
-        <div className="flex items-start gap-3">
-          <FaUserMd className="text-blue-600 text-xl mt-1 flex-shrink-0" />
+      <div className="border-t border-gray-200 bg-blue-50 p-4 sm:p-6">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <FaUserMd className="text-blue-600 text-lg sm:text-xl mt-0.5 sm:mt-1 flex-shrink-0" />
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">How it works</h3>
-            <p className="text-sm text-gray-700">
+            <h3 className="font-semibold text-sm sm:text-base text-gray-900 mb-1">How it works</h3>
+            <p className="text-xs sm:text-sm text-gray-700">
               Select a healthcare provider, choose a date, then click on an available time slot to proceed with booking your consultation.
             </p>
           </div>

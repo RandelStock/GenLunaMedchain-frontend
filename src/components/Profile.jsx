@@ -100,27 +100,29 @@ export default function ProfileUI() {
         ) : (
           <>
             {/* Profile Header with Banner */}
-            <div className="bg-gradient-to-r from-orange-500 to-blue-600 h-32 relative"></div>
+            <div className="bg-gradient-to-r from-orange-500 to-blue-600 h-32 relative flex items-center justify-center">
+              <h2 className="text-white text-2xl font-bold">Gen Luna Med Chain User Profile</h2>
+            </div>
             
             <div className="px-8 pb-8">
               {/* Profile Picture and Basic Info */}
-              <div className="flex flex-col md:flex-row items-center md:items-end -mt-16 mb-8">
-                <div className="w-28 h-28 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden z-10">
+              <div className="flex flex-col lg:flex-row items-center lg:items-end -mt-16 mb-8 gap-4">
+                <div className="w-28 h-28 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden z-10 flex-shrink-0">
                   <FaUser className="text-6xl text-blue-500" />
                 </div>
                 
-                <div className="md:ml-6 mt-4 md:mt-0 text-center md:text-left flex-1">
+                <div className="flex-1 text-center lg:text-left lg:ml-6 min-w-0">
                   {isEditing ? (
                     <input
                       type="text"
                       name="full_name"
                       value={editForm.full_name}
                       onChange={handleInputChange}
-                      className="text-2xl font-bold text-gray-800 border-b-2 border-blue-500 focus:outline-none bg-transparent w-full md:w-auto"
+                      className="text-2xl font-bold text-gray-800 border-b-2 border-blue-500 focus:outline-none bg-transparent w-full"
                       placeholder="Full Name"
                     />
                   ) : (
-                    <h1 className="text-2xl font-bold text-gray-800">{profile?.full_name || 'User'}</h1>
+                    <h1 className="text-2xl font-bold text-gray-800 break-words">{profile?.full_name || 'User'}</h1>
                   )}
                   
                   {isEditing ? (
@@ -129,16 +131,16 @@ export default function ProfileUI() {
                       name="email"
                       value={editForm.email}
                       onChange={handleInputChange}
-                      className="text-orange-600 border-b-2 border-blue-500 focus:outline-none bg-transparent mt-1 w-full md:w-auto"
+                      className="text-orange-600 border-b-2 border-blue-500 focus:outline-none bg-transparent mt-1 w-full"
                       placeholder="Email"
                     />
                   ) : (
-                    <p className="text-orange-600">{profile?.email || 'No email provided'}</p>
+                    <p className="text-orange-600 break-words mt-1">{profile?.email || 'No email provided'}</p>
                   )}
                 </div>
 
                 {/* Edit/Save/Cancel Buttons */}
-                <div className="flex gap-2 mt-4 md:mt-0">
+                <div className="flex gap-2 flex-shrink-0">
                   {isEditing ? (
                     <>
                       <button
