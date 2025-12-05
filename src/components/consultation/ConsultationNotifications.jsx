@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FaBell, FaCalendarCheck, FaTimes, FaCheckCircle } from 'react-icons/fa';
 import API_BASE_URL from '../../config.js';
 
@@ -17,7 +18,7 @@ const ConsultationNotifications = () => {
     // Poll for new consultations every 30 seconds
     const interval = setInterval(() => {
       loadNotifications();
-    }, 30000); // 30 seconds
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -35,13 +36,14 @@ const ConsultationNotifications = () => {
         hasWallet: !!wallet 
       });
       
-      // Get today's date range
+      // Get date range for upcoming consultations (today + next 7 days)
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      const futureDate = new Date(today);
+      futureDate.setDate(futureDate.getDate() + 7); // Next 7 days
       
       const dateFrom = todayStart.toISOString().split('T')[0];
-      const dateTo = todayEnd.toISOString().split('T')[0];
+      const dateTo = futureDate.toISOString().split('T')[0];
       
       console.log('📅 Date range:', { dateFrom, dateTo });
       
@@ -50,12 +52,11 @@ const ConsultationNotifications = () => {
       
       console.log('🌐 API URL:', url);
       
-      // Fetch today's consultations (all statuses)
+      // Fetch upcoming consultations
       const headers = {
         'Content-Type': 'application/json'
       };
       
-      // Only add auth headers if available
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -80,28 +81,35 @@ const ConsultationNotifications = () => {
         const consultations = data.data;
         console.log(`📋 Found ${consultations.length} consultations`);
         
-        // Filter for today's scheduled/confirmed consultations only
-        const todayConsultations = consultations.filter(c => {
+        // Filter for upcoming scheduled/confirmed consultations
+        const upcomingConsultations = consultations.filter(c => {
           const scheduledDate = new Date(c.scheduled_date);
-          const isToday = scheduledDate.toDateString() === today.toDateString();
+          const isUpcoming = scheduledDate >= todayStart;
           const isActiveStatus = ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(c.status);
-          return isToday && isActiveStatus;
+          return isUpcoming && isActiveStatus;
         });
         
-        console.log(`🎯 Active consultations today: ${todayConsultations.length}`);
+        // Sort by date and time (earliest first)
+        upcomingConsultations.sort((a, b) => {
+          const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
+          const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
+          return dateA - dateB;
+        });
+        
+        console.log(`🎯 Upcoming consultations: ${upcomingConsultations.length}`);
         
         // Check for new consultations since last check
         const storedLastChecked = localStorage.getItem('lastNotificationCheck');
         const lastCheckTime = storedLastChecked ? new Date(storedLastChecked) : new Date(0);
         
-        const newConsultations = todayConsultations.filter(c => {
+        const newConsultations = upcomingConsultations.filter(c => {
           const createdAt = new Date(c.created_at);
           return createdAt > lastCheckTime;
         });
         
         console.log(`🆕 New consultations: ${newConsultations.length}`);
         
-        setNotifications(todayConsultations);
+        setNotifications(upcomingConsultations);
         setUnreadCount(newConsultations.length);
         
         // Show browser notification for new consultations
@@ -109,7 +117,7 @@ const ConsultationNotifications = () => {
           if ('Notification' in window && Notification.permission === 'granted') {
             console.log('🔔 Showing browser notification');
             new Notification('New Consultation Booking', {
-              body: `${newConsultations.length} new consultation${newConsultations.length > 1 ? 's' : ''} scheduled today`,
+              body: `${newConsultations.length} new consultation${newConsultations.length > 1 ? 's' : ''} scheduled`,
               icon: '/favicon.ico',
               tag: 'consultation-notification'
             });
@@ -124,7 +132,6 @@ const ConsultationNotifications = () => {
     } catch (error) {
       console.error('❌ Error loading notifications:', error);
       setError(error.message);
-      // Don't show error in UI for polling failures
     } finally {
       setLoading(false);
     }
@@ -173,9 +180,23 @@ const ConsultationNotifications = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Check if it's today
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+    // Check if it's tomorrow
+    if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    }
+    // Otherwise show the date
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
-      day: 'numeric' 
+      day: 'numeric',
+      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
     });
   };
 
@@ -197,6 +218,20 @@ const ConsultationNotifications = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
+
+
+
+  // Group consultations by date
+  const groupedNotifications = notifications.reduce((groups, consultation) => {
+    const date = consultation.scheduled_date;
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(consultation);
+    return groups;
+  }, {});
+
+  const sortedDates = Object.keys(groupedNotifications).sort();
 
   return (
     <div className="relative">
@@ -237,13 +272,9 @@ const ConsultationNotifications = () => {
               <div className="flex items-center gap-2">
                 <FaBell className="text-xl" />
                 <div>
-                  <h3 className="font-bold text-lg">Today's Consultations</h3>
+                  <h3 className="font-bold text-lg">Upcoming Consultations</h3>
                   <p className="text-xs text-blue-100">
-                    {new Date().toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
+                    Next 7 days
                   </p>
                 </div>
               </div>
@@ -280,63 +311,73 @@ const ConsultationNotifications = () => {
               ) : notifications.length === 0 ? (
                 <div className="p-8 text-center">
                   <FaCheckCircle className="text-5xl text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No consultations scheduled for today</p>
+                  <p className="text-gray-500 font-medium">No upcoming consultations</p>
                   <p className="text-sm text-gray-400 mt-1">New bookings will appear here</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {notifications.map((consultation) => (
-                    <div
-                      key={consultation.consultation_id}
-                      className="p-4 hover:bg-blue-50 transition-colors cursor-pointer"
-                      onClick={() => {
-                        window.location.href = '/consultations/calendar';
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 bg-blue-100 p-2 rounded-lg">
-                          <FaCalendarCheck className="text-blue-600 text-xl" />
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-bold text-gray-900 truncate">
-                              {consultation.patient_name}
-                            </p>
-                            <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                              {formatTime(consultation.scheduled_time)}
-                            </span>
-                          </div>
-                          
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {consultation.chief_complaint}
-                          </p>
-                          
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(consultation.status)}`}>
-                              {consultation.status.replace(/_/g, ' ')}
-                            </span>
-                            {consultation.consultation_type && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                {consultation.consultation_type}
-                              </span>
-                            )}
-                            {consultation.patient_barangay && (
-                              <span className="text-xs text-gray-500">
-                                {formatBarangay(consultation.patient_barangay)}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {/* Provider Info */}
-                          {(consultation.assigned_doctor || consultation.assigned_nurse) && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              👨‍⚕️ {consultation.assigned_doctor 
-                                ? `Dr. ${consultation.assigned_doctor.full_name}` 
-                                : consultation.assigned_nurse?.full_name}
+                <div>
+                  {sortedDates.map((date) => (
+                    <div key={date}>
+                      {/* Date Header */}
+                      <div className="sticky top-0 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 border-b border-gray-200">
+                        {formatDate(date)} - {new Date(date).toLocaleDateString('en-US', { weekday: 'long' })}
+                      </div>
+                      
+                      {/* Consultations for this date */}
+                      <div className="divide-y divide-gray-200">
+                        {groupedNotifications[date].map((consultation) => (
+                          <Link
+                            to="/consultations/calendar"
+                            key={consultation.consultation_id}
+                            className="block p-4 hover:bg-blue-50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 bg-blue-100 p-2 rounded-lg">
+                                <FaCalendarCheck className="text-blue-600 text-xl" />
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="font-bold text-gray-900 truncate">
+                                    {consultation.patient_name}
+                                  </p>
+                                  <span className="text-xs font-semibold text-blue-600 ml-2 flex-shrink-0">
+                                    {formatTime(consultation.scheduled_time)}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                  {consultation.chief_complaint}
+                                </p>
+                                
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(consultation.status)}`}>
+                                    {consultation.status.replace(/_/g, ' ')}
+                                  </span>
+                                  {consultation.consultation_type && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                      {consultation.consultation_type}
+                                    </span>
+                                  )}
+                                  {consultation.patient_barangay && (
+                                    <span className="text-xs text-gray-500">
+                                      📍 {formatBarangay(consultation.patient_barangay)}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* Provider Info */}
+                                {(consultation.assigned_doctor || consultation.assigned_nurse) && (
+                                  <div className="mt-2 text-xs text-gray-500">
+                                    👨‍⚕️ {consultation.assigned_doctor 
+                                      ? `Dr. ${consultation.assigned_doctor.full_name}` 
+                                      : consultation.assigned_nurse?.full_name}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -348,7 +389,7 @@ const ConsultationNotifications = () => {
             <div className="border-t border-gray-200 p-3 bg-gray-50 rounded-b-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-600">
-                  {notifications.length} consultation{notifications.length !== 1 ? 's' : ''} today
+                  {notifications.length} upcoming consultation{notifications.length !== 1 ? 's' : ''}
                 </span>
                 <button
                   onClick={(e) => {
@@ -361,14 +402,12 @@ const ConsultationNotifications = () => {
                   {loading ? '⟳ Refreshing...' : '⟳ Refresh'}
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  window.location.href = '/consultations/calendar';
-                }}
-                className="w-full text-center text-sm font-semibold text-blue-600 hover:text-blue-700 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+              <Link
+                to="/consultations/calendar"
+                className="block w-full text-center text-sm font-semibold text-blue-600 hover:text-blue-700 py-2 hover:bg-blue-50 rounded-lg transition-colors"
               >
                 View All Consultations →
-              </button>
+              </Link>
             </div>
           </div>
         </>

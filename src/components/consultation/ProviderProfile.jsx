@@ -296,7 +296,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading provider profile...</p>
+          <p className="text-black font-medium">Loading provider profile...</p>
         </div>
       </div>
     );
@@ -306,8 +306,8 @@ const ProviderProfile = ({ providerId, onClose }) => {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6">
-          <p className="text-red-600">Provider not found</p>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg">
+          <p className="text-red-600 font-medium">Provider not found</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
             Close
           </button>
         </div>
@@ -328,10 +328,10 @@ const ProviderProfile = ({ providerId, onClose }) => {
                 <FaUserNurse className="text-2xl text-green-600" />
               )}
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-black">
                   {provider.role === 'ADMIN' ? 'Doctor' : 'Nurse'} Profile
                 </h2>
-                <p className="text-gray-600">{provider.full_name}</p>
+                <p className="text-black font-medium">{provider.full_name}</p>
               </div>
             </div>
             <button
@@ -357,7 +357,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                 className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-black hover:text-blue-600 hover:border-gray-300'
                 }`}
               >
                 <tab.icon />
@@ -371,62 +371,62 @@ const ProviderProfile = ({ providerId, onClose }) => {
         <div className="p-6">
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-800">{error}</p>
+              <p className="text-red-800 font-medium">{error}</p>
             </div>
           )}
 
           {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+              <h3 className="text-lg font-semibold text-black">Personal Information</h3>
               
               <form onSubmit={handleProfileUpdate} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-black mb-2">
                       Full Name
                     </label>
                     <input
                       type="text"
                       value={profileForm.full_name}
                       onChange={(e) => setProfileForm(prev => ({ ...prev, full_name: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-black mb-2">
                       Email
                     </label>
                     <input
                       type="email"
                       value={profileForm.email}
                       onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-black mb-2">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={profileForm.phone}
                       onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-black mb-2">
                       Assigned Barangay
                     </label>
                     <select
                       value={profileForm.assigned_barangay}
                       onChange={(e) => setProfileForm(prev => ({ ...prev, assigned_barangay: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     >
                       <option value="">Select Barangay</option>
                       {BARANGAYS.map(barangay => (
@@ -446,7 +446,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     onChange={(e) => setProfileForm(prev => ({ ...prev, is_active: e.target.checked }))}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="is_active" className="text-sm font-medium text-black">
                     Active Provider
                   </label>
                 </div>
@@ -454,7 +454,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 font-medium"
                 >
                   <FaSave />
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -467,22 +467,22 @@ const ProviderProfile = ({ providerId, onClose }) => {
           {activeTab === 'availability' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Weekly Availability Schedule</h3>
+                <h3 className="text-lg font-semibold text-black">Weekly Availability Schedule</h3>
               </div>
 
               {/* Add New Availability */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-4">Add/Update Availability</h4>
+                <h4 className="font-medium text-black mb-4">Add/Update Availability</h4>
                 <form onSubmit={handleAvailabilitySubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Day of Week
                       </label>
                       <select
                         value={availabilityForm.day_of_week}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, day_of_week: parseInt(e.target.value) }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         required
                       >
                         {DAYS_OF_WEEK.map(day => (
@@ -494,13 +494,13 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Start Time
                       </label>
                       <select
                         value={availabilityForm.start_time}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, start_time: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         required
                       >
                         {TIME_SLOTS.map(time => (
@@ -510,13 +510,13 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         End Time
                       </label>
                       <select
                         value={availabilityForm.end_time}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, end_time: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         required
                       >
                         {TIME_SLOTS.map(time => (
@@ -528,13 +528,13 @@ const ProviderProfile = ({ providerId, onClose }) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Break Start
                       </label>
                       <select
                         value={availabilityForm.break_start_time}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, break_start_time: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       >
                         <option value="">No Break</option>
                         {TIME_SLOTS.map(time => (
@@ -544,13 +544,13 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Break End
                       </label>
                       <select
                         value={availabilityForm.break_end_time}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, break_end_time: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       >
                         <option value="">No Break</option>
                         {TIME_SLOTS.map(time => (
@@ -560,13 +560,13 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Slot Duration (min)
                       </label>
                       <select
                         value={availabilityForm.slot_duration}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, slot_duration: parseInt(e.target.value) }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       >
                         <option value={15}>15 minutes</option>
                         <option value={30}>30 minutes</option>
@@ -576,7 +576,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Max Consultations/Day
                       </label>
                       <input
@@ -585,7 +585,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                         max="50"
                         value={availabilityForm.max_consultations}
                         onChange={(e) => setAvailabilityForm(prev => ({ ...prev, max_consultations: parseInt(e.target.value) }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         required
                       />
                     </div>
@@ -594,7 +594,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 font-medium"
                   >
                     <FaPlus />
                     {saving ? 'Saving...' : 'Save Availability'}
@@ -604,27 +604,27 @@ const ProviderProfile = ({ providerId, onClose }) => {
 
               {/* Current Availability */}
               <div>
-                <h4 className="font-medium text-gray-900 mb-4">Current Schedule</h4>
+                <h4 className="font-medium text-black mb-4">Current Schedule</h4>
                 <div className="space-y-3">
                   {DAYS_OF_WEEK.map(day => {
                     const availability = getDayAvailability(day.value);
                     return (
                       <div key={day.value} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
                         <div className="flex items-center gap-4">
-                          <div className="w-20 font-medium text-gray-900">{day.label}</div>
+                          <div className="w-20 font-medium text-black">{day.label}</div>
                           {availability ? (
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 text-sm text-black">
                               <span className="flex items-center gap-1">
                                 <FaClock />
                                 {availability.start_time} - {availability.end_time}
                               </span>
                               {availability.break_start_time && availability.break_end_time && (
-                                <span className="text-orange-600">
+                                <span className="text-orange-600 font-medium">
                                   Break: {availability.break_start_time} - {availability.break_end_time}
                                 </span>
                               )}
-                              <span>{availability.slot_duration}min slots</span>
-                              <span>Max: {availability.max_consultations}</span>
+                              <span className="font-medium">{availability.slot_duration}min slots</span>
+                              <span className="font-medium">Max: {availability.max_consultations}</span>
                             </div>
                           ) : (
                             <span className="text-gray-400">Not available</span>
@@ -650,22 +650,22 @@ const ProviderProfile = ({ providerId, onClose }) => {
           {activeTab === 'specializations' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Specializations</h3>
+                <h3 className="text-lg font-semibold text-black">Specializations</h3>
               </div>
 
               {/* Add Specialization */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-4">Add Specialization</h4>
+                <h4 className="font-medium text-black mb-4">Add Specialization</h4>
                 <form onSubmit={handleAddSpecialization} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Specialization
                       </label>
                       <select
                         value={specializationForm.specialization}
                         onChange={(e) => setSpecializationForm(prev => ({ ...prev, specialization: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         required
                       >
                         <option value="">Select Specialization</option>
@@ -676,7 +676,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-black mb-2">
                         Years of Experience
                       </label>
                       <input
@@ -685,20 +685,20 @@ const ProviderProfile = ({ providerId, onClose }) => {
                         max="50"
                         value={specializationForm.years_experience}
                         onChange={(e) => setSpecializationForm(prev => ({ ...prev, years_experience: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-black mb-2">
                       Description
                     </label>
                     <textarea
                       value={specializationForm.description}
                       onChange={(e) => setSpecializationForm(prev => ({ ...prev, description: e.target.value }))}
                       rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       placeholder="Additional details about this specialization..."
                     />
                   </div>
@@ -711,7 +711,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                       onChange={(e) => setSpecializationForm(prev => ({ ...prev, is_primary: e.target.checked }))}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <label htmlFor="is_primary_spec" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="is_primary_spec" className="text-sm font-medium text-black">
                       Primary Specialization
                     </label>
                   </div>
@@ -719,7 +719,7 @@ const ProviderProfile = ({ providerId, onClose }) => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 font-medium"
                   >
                     <FaPlus />
                     {saving ? 'Adding...' : 'Add Specialization'}
@@ -729,14 +729,14 @@ const ProviderProfile = ({ providerId, onClose }) => {
 
               {/* Current Specializations */}
               <div>
-                <h4 className="font-medium text-gray-900 mb-4">Current Specializations</h4>
+                <h4 className="font-medium text-black mb-4">Current Specializations</h4>
                 {provider.provider_specializations && provider.provider_specializations.length > 0 ? (
                   <div className="space-y-3">
                     {provider.provider_specializations.map(spec => (
                       <div key={spec.specialization_id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h5 className="font-medium text-gray-900">{spec.specialization}</h5>
+                            <h5 className="font-medium text-black">{spec.specialization}</h5>
                             {spec.is_primary && (
                               <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full flex items-center gap-1">
                                 <FaStar />
@@ -745,10 +745,10 @@ const ProviderProfile = ({ providerId, onClose }) => {
                             )}
                           </div>
                           {spec.description && (
-                            <p className="text-sm text-gray-600 mt-1">{spec.description}</p>
+                            <p className="text-sm text-black mt-1">{spec.description}</p>
                           )}
                           {spec.years_experience && (
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="text-sm text-black mt-1 font-medium">
                               {spec.years_experience} years of experience
                             </p>
                           )}

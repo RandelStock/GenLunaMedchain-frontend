@@ -4,6 +4,7 @@ import { useReceiptCount } from '../receipts/ReceiptsTable';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import MedicineList from '../medicine/MedicineList';
 import { Link } from "react-router-dom";
+import API_BASE_URL from '../../config.js';
 import { 
   FaPlus, 
   FaMinus, 
@@ -32,53 +33,67 @@ import {
 
 import ConsultationNotifications from '../consultation/ConsultationNotifications';
 
+const API_URL = API_BASE_URL;
+
 const AdminHome = () => {
   const receiptCount = useReceiptCount();
   const { getStats, contractConnected } = useTransactionHistory();
   const [activeTab, setActiveTab] = useState('overview');
   const [consultationStats, setConsultationStats] = useState({
-    scheduled: 0,
-    inProgress: 0,
-    completed: 0,
-    cancelled: 0
+    totalConsultations: 0,
+    scheduledConsultations: 0,
+    completedConsultations: 0,
+    cancelledConsultations: 0,
+    todayConsultations: 0,
+    upcomingConsultations: 0,
+    inProgress: 0
   });
   const [loading, setLoading] = useState(false);
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
 
-  // Fetch consultation statistics
+  // Fetch consultation statistics using the same logic as ConsultationStatistics component
   useEffect(() => {
     const fetchConsultationStats = async () => {
       if (activeTab === 'consultations') {
         setLoading(true);
         try {
-          // Fetch today's consultations
-          const today = new Date();
-          const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
-          const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
-          
-          const response = await fetch(
-            `/api/consultations?date_from=${startOfDay}&date_to=${endOfDay}&limit=1000`,
-            {
-              headers: {
-                'Content-Type': 'application/json'
-              }
+          // Fetch summary stats from the backend API
+          const statsResponse = await fetch(`${API_URL}/consultations/stats/summary`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
-          );
+          });
+          
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            if (statsData.success) {
+              // Fetch today's consultations to count in-progress status
+              const today = new Date();
+              const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
+              const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
+              
+              const todayResponse = await fetch(
+                `${API_URL}/consultations?date_from=${startOfDay}&date_to=${endOfDay}&limit=1000`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  }
+                }
+              );
 
-          if (response.ok) {
-            const data = await response.json();
-            const consultations = data.data || [];
+              let inProgressCount = 0;
+              if (todayResponse.ok) {
+                const todayData = await todayResponse.json();
+                const consultations = todayData.data || [];
+                inProgressCount = consultations.filter(c => c.status === 'IN_PROGRESS' || c.status === 'CONFIRMED').length;
+              }
 
-            // Count by status
-            const stats = {
-              scheduled: consultations.filter(c => c.status === 'SCHEDULED').length,
-              inProgress: consultations.filter(c => c.status === 'IN_PROGRESS').length,
-              completed: consultations.filter(c => c.status === 'COMPLETED').length,
-              cancelled: consultations.filter(c => c.status === 'CANCELLED').length
-            };
-
-            setConsultationStats(stats);
+              setConsultationStats({
+                ...statsData.stats,
+                inProgress: inProgressCount
+              });
+            }
           }
         } catch (error) {
           console.error('Error fetching consultation stats:', error);
@@ -463,7 +478,7 @@ const AdminHome = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-blue-600 mb-1">
-                      {consultationStats.scheduled}
+                      {consultationStats.scheduledConsultations}
                     </div>
                     <div className="text-xs text-gray-600 font-medium">Scheduled</div>
                   </div>
@@ -475,13 +490,13 @@ const AdminHome = () => {
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-green-600 mb-1">
-                      {consultationStats.completed}
+                      {consultationStats.completedConsultations}
                     </div>
                     <div className="text-xs text-gray-600 font-medium">Completed</div>
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
                     <div className="text-2xl font-bold text-red-600 mb-1">
-                      {consultationStats.cancelled}
+                      {consultationStats.cancelledConsultations}
                     </div>
                     <div className="text-xs text-gray-600 font-medium">Cancelled</div>
                   </div>
