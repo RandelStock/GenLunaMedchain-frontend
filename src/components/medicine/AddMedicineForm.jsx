@@ -246,6 +246,27 @@ export default function AddMedicineForm() {
       const dbResponse = await api.post("/medicines", medicineData);
       const { medicine, stock } = dbResponse.data;
 
+      // ADD THIS DEBUG CHECK:
+      console.log("Checking blockchain for ID:", medicine.medicine_id);
+      const existingHash = await getMedicineHash(medicine.medicine_id);
+      console.log("Existing blockchain entry:", existingHash);
+
+      if (existingHash && existingHash.exists) {
+        setError(
+          `⚠️ Medicine ID ${medicine.medicine_id} already exists on blockchain!\n` +
+          `This means your database and blockchain are out of sync.\n\n` +
+          `Added by: ${existingHash.addedBy}\n` +
+          `Hash: ${existingHash.dataHash}\n\n` +
+          `You need to either:\n` +
+          `1. Delete the old blockchain entry first\n` +
+          `2. Use a different medicine ID\n` +
+          `3. Clean up test data on blockchain`
+        );
+        setLoading(false);
+        return;
+      }
+
+
       const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
       const hashData = {
         name: medicineData.medicine_name,

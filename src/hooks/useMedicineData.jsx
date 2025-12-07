@@ -86,16 +86,25 @@ export function useMedicineInventory() {
   };
 
   const generateMedicineHash = (medicineData) => {
-    const dataString = JSON.stringify({
-      name: medicineData.name,
-      batchNumber: medicineData.batchNumber,
-      quantity: medicineData.quantity,
-      expirationDate: medicineData.expirationDate,
-      location: medicineData.location,
-      timestamp: medicineData.timestamp || Date.now(),
-    });
+    try {
+      if (!medicineData || typeof medicineData !== 'object') {
+        return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+      }
 
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+      const dataString = JSON.stringify({
+        name: medicineData.name,
+        batchNumber: medicineData.batchNumber,
+        quantity: medicineData.quantity,
+        expirationDate: medicineData.expirationDate,
+        location: medicineData.location,
+        timestamp: medicineData.timestamp || Date.now(),
+      });
+
+      return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+    } catch (err) {
+      console.error('Error generating hash:', err);
+      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+    }
   };
 
   const storeMedicineHash = async (medicineId, dataHash) => {
@@ -104,27 +113,75 @@ export function useMedicineInventory() {
     }
 
     if (!hasAccess) {
-      throw new Error("Access denied. You need MEDICINE_MANAGER or ADMIN role to perform this action.");
+      throw new Error("Access denied. You need STAFF or ADMIN role to perform this action.");
+    }
+
+    // Validate inputs
+    const parsedId = Number(medicineId);
+    if (isNaN(parsedId) || parsedId < 0) {
+      throw new Error(`Invalid medicineId: ${medicineId}`);
+    }
+
+    if (!dataHash || typeof dataHash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
+      throw new Error(`Invalid hash format: ${dataHash}`);
+    }
+
+    console.log('Storing medicine hash:', { medicineId: parsedId, dataHash });
+
+    // CRITICAL: Use ethers ONLY (skip ThirdWeb entirely for bytes32)
+    if (!signer) {
+      throw new Error("Signer not available. Please ensure MetaMask is connected.");
     }
 
     try {
-      const tx = await contract.call("storeMedicineHash", [medicineId, dataHash]);
-      console.log("Hash stored on blockchain:", tx);
-      return tx;
-    } catch (err) {
-      console.error("Failed to store hash:", err);
-      if (signer) {
-        try {
-          const abi = getABI();
-          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeMedicineHash(medicineId, dataHash);
-          const receipt = await tx.wait();
-          return receipt;
-        } catch (ethersErr) {
-          console.error("Both methods failed:", err, ethersErr);
+      const abi = getABI();
+      const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+      
+      // Check if hash already exists
+      try {
+        const existing = await contractWithSigner.getMedicineHash(parsedId);
+        if (existing[3]) { // exists = true
+          throw new Error(`Medicine ID ${parsedId} already exists on blockchain`);
+        }
+      } catch (checkErr) {
+        // Ignore "does not exist" errors
+        if (!checkErr.message?.includes('does not exist')) {
+          console.warn('Hash check warning:', checkErr.message);
         }
       }
-      throw err;
+
+      // Estimate gas first
+      console.log('Estimating gas...');
+      const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
+      console.log('Gas estimate:', gasEstimate.toString());
+
+      // Send transaction
+      const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
+        gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
+      });
+      
+      console.log('Transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt.transactionHash);
+      
+      return receipt;
+    } catch (err) {
+      console.error("storeMedicineHash failed:", err);
+      
+      // Better error messages
+      let errorMsg = err?.message || err;
+      
+      if (errorMsg.includes('already exists')) {
+        throw new Error(`Medicine ID ${parsedId} already exists on blockchain. Database and blockchain are out of sync.`);
+      } else if (errorMsg.includes('user rejected') || errorMsg.includes('denied')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (errorMsg.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas fees');
+      } else if (errorMsg.includes('nonce')) {
+        throw new Error('Nonce error. Please reset MetaMask or wait a moment.');
+      }
+      
+      throw new Error(`Blockchain transaction failed: ${errorMsg}`);
     }
   };
 
