@@ -171,28 +171,27 @@ export function useMedicineInventory() {
         // Otherwise continue (some providers return errors for non-existent entries)
       }
 
-      // Pass hash as pure hex string (not arrayified)
-      const tx = await contract.call("storeMedicineHash", [parsedId, dataHash]);
-      console.log("Hash stored on blockchain (thirdweb):", tx);
-      return tx;
-    } catch (err) {
-      console.error("ThirdWeb storeMedicineHash failed:", err?.message || err);
-      // Fallback to ethers signer when available
+      // TRY ETHERS SIGNER FIRST (handles bytes32 type correctly)
       if (signer) {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
           const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash);
-          console.log('Ethers tx sent:', tx.hash);
+          console.log('Ethers storeMedicineHash tx sent:', tx.hash);
           const receipt = await tx.wait();
-          console.log('Ethers tx confirmed:', receipt.transactionHash || receipt.hash);
+          console.log('Ethers storeMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
           return receipt;
         } catch (ethersErr) {
-          console.error("Ethers fallback failed:", ethersErr?.message || ethersErr);
+          console.error("Ethers storeMedicineHash failed:", ethersErr?.message || ethersErr);
           throw new Error(`Blockchain transaction failed: ${ethersErr?.message || ethersErr}`);
         }
       }
 
+      // Fallback to ThirdWeb if no signer (unlikely scenario)
+      const tx = await contract.call("storeMedicineHash", [parsedId, dataHash]);
+      console.log("Hash stored on blockchain (thirdweb fallback):", tx);
+      return tx;
+    } catch (err) {
       throw new Error(`Blockchain transaction failed: ${err?.message || err}`);
     }
   };
@@ -207,27 +206,29 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("updateMedicineHash", [medicineId, newDataHash]);
-
-      console.log("Hash updated:", tx);
-      return tx;
-
-    } catch (err) {
-      console.error("Update failed:", err);
-      
+      // TRY ETHERS SIGNER FIRST
       if (signer) {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
           const tx = await contractWithSigner.updateMedicineHash(medicineId, newDataHash);
+          console.log('Ethers updateMedicineHash tx sent:', tx.hash);
           const receipt = await tx.wait();
+          console.log('Ethers updateMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
           return receipt;
         } catch (ethersErr) {
-          console.error("Both update methods failed:", err, ethersErr);
+          console.error("Ethers updateMedicineHash failed:", ethersErr?.message || ethersErr);
+          throw new Error(`Blockchain transaction failed: ${ethersErr?.message || ethersErr}`);
         }
       }
-      
-      throw err;
+
+      // Fallback to ThirdWeb
+      const tx = await contract.call("updateMedicineHash", [medicineId, newDataHash]);
+      console.log("Hash updated (thirdweb fallback):", tx);
+      return tx;
+
+    } catch (err) {
+      throw new Error(`Update failed: ${err?.message || err}`);
     }
   };
 
@@ -241,8 +242,19 @@ export function useMedicineInventory() {
     }
 
     try {
+      // TRY ETHERS SIGNER FIRST
+      if (signer) {
+        const abi = getABI();
+        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+        const tx = await contractWithSigner.deleteMedicineHash(medicineId);
+        console.log('Ethers deleteMedicineHash tx sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('Ethers deleteMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
+        return receipt;
+      }
+
       const tx = await contract.call("deleteMedicineHash", [medicineId]);
-      console.log("Hash deleted:", tx);
+      console.log("Hash deleted (thirdweb fallback):", tx);
       return tx;
     } catch (err) {
       console.error("Failed to delete hash:", err);
@@ -256,6 +268,20 @@ export function useMedicineInventory() {
     }
 
     try {
+      // TRY ETHERS SIGNER FIRST
+      if (signer) {
+        try {
+          const abi = getABI();
+          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+          const isValid = await contractWithSigner.verifyMedicineHash(medicineId, dataHash);
+          return isValid;
+        } catch (ethersErr) {
+          console.error("Ethers verifyMedicineHash failed:", ethersErr?.message || ethersErr);
+          throw ethersErr;
+        }
+      }
+
+      // Fallback to ThirdWeb
       const isValid = await contract.call("verifyMedicineHash", [medicineId, dataHash]);
       return isValid;
     } catch (err) {
@@ -287,27 +313,29 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("storeReceiptHash", [receiptId, dataHash]);
-
-      console.log("Receipt hash stored:", tx);
-      return tx;
-
-    } catch (err) {
-      console.error("Failed to store receipt hash:", err);
-      
+      // TRY ETHERS SIGNER FIRST
       if (signer) {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
           const tx = await contractWithSigner.storeReceiptHash(receiptId, dataHash);
+          console.log('Ethers storeReceiptHash tx sent:', tx.hash);
           const receipt = await tx.wait();
+          console.log('Ethers storeReceiptHash confirmed:', receipt.transactionHash || receipt.hash);
           return receipt;
         } catch (ethersErr) {
-          console.error("Both methods failed:", err, ethersErr);
+          console.error("Ethers storeReceiptHash failed:", ethersErr?.message || ethersErr);
+          throw new Error(`Blockchain transaction failed: ${ethersErr?.message || ethersErr}`);
         }
       }
-      
-      throw err;
+
+      // Fallback to ThirdWeb
+      const tx = await contract.call("storeReceiptHash", [receiptId, dataHash]);
+      console.log("Receipt hash stored (thirdweb fallback):", tx);
+      return tx;
+
+    } catch (err) {
+      throw new Error(`Failed to store receipt hash: ${err?.message || err}`);
     }
   };
 
@@ -317,13 +345,28 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("updateReceiptHash", [receiptId, newDataHash]);
+      // TRY ETHERS SIGNER FIRST
+      if (signer) {
+        try {
+          const abi = getABI();
+          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+          const tx = await contractWithSigner.updateReceiptHash(receiptId, newDataHash);
+          console.log('Ethers updateReceiptHash tx sent:', tx.hash);
+          const receipt = await tx.wait();
+          console.log('Ethers updateReceiptHash confirmed:', receipt.transactionHash || receipt.hash);
+          return receipt;
+        } catch (ethersErr) {
+          console.error("Ethers updateReceiptHash failed:", ethersErr?.message || ethersErr);
+          throw new Error(`Blockchain transaction failed: ${ethersErr?.message || ethersErr}`);
+        }
+      }
 
-      console.log("Receipt hash updated:", tx);
+      // Fallback to ThirdWeb
+      const tx = await contract.call("updateReceiptHash", [receiptId, newDataHash]);
+      console.log("Receipt hash updated (thirdweb fallback):", tx);
       return tx;
     } catch (err) {
-      console.error("Failed to update receipt hash:", err);
-      throw err;
+      throw new Error(`Failed to update receipt hash: ${err?.message || err}`);
     }
   };
 
@@ -333,8 +376,19 @@ export function useMedicineInventory() {
     }
 
     try {
+      // TRY ETHERS SIGNER FIRST
+      if (signer) {
+        const abi = getABI();
+        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+        const tx = await contractWithSigner.deleteReceiptHash(receiptId);
+        console.log('Ethers deleteReceiptHash tx sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('Ethers deleteReceiptHash confirmed:', receipt.transactionHash || receipt.hash);
+        return receipt;
+      }
+
       const tx = await contract.call("deleteReceiptHash", [receiptId]);
-      console.log("Receipt hash deleted:", tx);
+      console.log("Receipt hash deleted (thirdweb fallback):", tx);
       return tx;
     } catch (err) {
       console.error("Failed to delete receipt hash:", err);
@@ -348,6 +402,20 @@ export function useMedicineInventory() {
     }
 
     try {
+      // TRY ETHERS SIGNER FIRST
+      if (signer) {
+        try {
+          const abi = getABI();
+          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+          const isValid = await contractWithSigner.verifyReceiptHash(receiptId, dataHash);
+          return isValid;
+        } catch (ethersErr) {
+          console.error("Ethers verifyReceiptHash failed:", ethersErr?.message || ethersErr);
+          throw ethersErr;
+        }
+      }
+
+      // Fallback to ThirdWeb
       const isValid = await contract.call("verifyReceiptHash", [receiptId, dataHash]);
       return isValid;
     } catch (err) {
@@ -410,3 +478,8 @@ export function useMedicineInventory() {
     abiLoaded: !!getABI(),
   };
 }
+
+
+
+
+

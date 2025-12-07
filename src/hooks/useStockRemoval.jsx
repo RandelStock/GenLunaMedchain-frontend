@@ -142,14 +142,28 @@ export const useStockRemoval = () => {
     try {
       console.log(`Storing removal hash for ID ${removalId}...`);
       console.log(`Data hash: ${dataHash}`);
-      
-      // Try using thirdweb contract.call first
+
+      // TRY ETHERS SIGNER FIRST (handles bytes32 correctly)
+      if (signer) {
+        const abi = ContractABI.abi;
+        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+        const tx = await contractWithSigner.storeRemovalHash(parsedId, dataHash);
+        console.log("Transaction sent:", tx.hash);
+        const receipt = await tx.wait();
+        console.log("Transaction confirmed:", receipt.transactionHash);
+
+        return {
+          hash: receipt.transactionHash,
+          receipt: receipt,
+          transactionHash: receipt.transactionHash
+        };
+      }
+
+      // Fallback to thirdweb contract.call
       try {
-        // send bytes as hex string (not Uint8Array)
         const tx = await contract.call("storeRemovalHash", [parsedId, dataHash]);
-        console.log("Transaction sent:", tx);
-        
-        // Normalize the response to handle different thirdweb return formats
+        console.log("Transaction sent (thirdweb):", tx);
+
         const normalizedTx = {
           hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
           receipt: tx.receipt || tx,
@@ -162,23 +176,7 @@ export const useStockRemoval = () => {
 
         return normalizedTx;
       } catch (err) {
-        console.log("Thirdweb call failed, trying direct ethers...", err.message);
-        
-        // Fallback to direct ethers contract
-        if (signer) {
-          const abi = ContractABI.abi;
-          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeRemovalHash(parsedId, dataHash);
-          console.log("Transaction sent:", tx.hash);
-          const receipt = await tx.wait();
-          console.log("Transaction confirmed:", receipt.transactionHash);
-          
-          return {
-            hash: receipt.transactionHash,
-            receipt: receipt,
-            transactionHash: receipt.transactionHash
-          };
-        }
+        console.log("Thirdweb call failed:", err.message);
         throw err;
       }
     } catch (err) {

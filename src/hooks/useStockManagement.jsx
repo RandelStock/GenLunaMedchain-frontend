@@ -145,10 +145,25 @@ export const useStockManagement = () => {
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
       console.log(`Using method: ${methodName}`);
       
-      // Pass hash as pure hex string (not arrayified)
+      // TRY ETHERS SIGNER FIRST (handles bytes32 correctly)
+      if (signer) {
+        const abi = ContractABI.abi;
+        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+        const tx = await contractWithSigner[methodName](parsedId, dataHash);
+        console.log("Transaction sent:", tx.hash);
+        const receipt = await tx.wait();
+
+        return {
+          hash: receipt.transactionHash,
+          receipt: receipt,
+          transactionHash: receipt.transactionHash
+        };
+      }
+
+      // Fallback to thirdweb contract.call
       const tx = await contract.call(methodName, [parsedId, dataHash]);
-      console.log("Transaction sent:", tx);
-      
+      console.log("Transaction sent (thirdweb):", tx);
+
       const normalizedTx = {
         hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
         receipt: tx.receipt || tx,
