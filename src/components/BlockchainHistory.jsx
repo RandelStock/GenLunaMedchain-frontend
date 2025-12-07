@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload } from 'react-icons/fa';
+import { useContract } from "@thirdweb-dev/react";
 import api from '../../api.js';
 
+// Import your contract details
+const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS"; // Replace with your actual contract address
+const ContractABI = {}; // Replace with your actual ABI
+
 export default function BlockchainHistory() {
+  const { contract } = useContract(CONTRACT_ADDRESS, ContractABI.abi);
   const [blockchainData, setBlockchainData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [verificationStatus, setVerificationStatus] = useState({});
+  const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
 
   const [stats, setStats] = useState({
     total: 0,
@@ -19,14 +27,13 @@ export default function BlockchainHistory() {
     removals: 0
   });
 
-  // Fetch blockchain hashes
+  // Fetch blockchain hashes from database
   const fetchBlockchainData = async () => {
     setLoading(true);
     setError(null);
     try {
       const { data } = await api.get('/blockchain/hashes');
       
-      // Handle new response structure
       const hashes = data?.hashes || [];
       const counts = data?.counts || {};
       
@@ -47,6 +54,92 @@ export default function BlockchainHistory() {
       setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ NEW: Scan blockchain for missing records
+  const scanBlockchainForMissing = async () => {
+    if (!contract) {
+      alert("Contract not loaded. Please refresh the page.");
+      return;
+    }
+    
+    try {
+      setScanning(true);
+      setScanProgress({ current: 0, total: 0 });
+      console.log("🔍 Scanning blockchain for missing records...");
+      
+      // Get medicines from database to determine scan range
+      const dbResponse = await api.get('/medicines');
+      const medicines = dbResponse.data.data || [];
+      const maxId = Math.max(...medicines.map(m => m.medicine_id), 0);
+      const scanLimit = Math.max(maxId + 50, 100); // Scan beyond max ID
+      
+      setScanProgress({ current: 0, total: scanLimit });
+      
+      const missingRecords = [];
+      const existingIds = new Set(blockchainData.map(r => r.recordId));
+      
+      console.log(`Scanning IDs 1 to ${scanLimit}...`);
+      
+      for (let i = 1; i <= scanLimit; i++) {
+        setScanProgress({ current: i, total: scanLimit });
+        
+        if (existingIds.has(i)) {
+          continue; // Skip already known records
+        }
+        
+        try {
+          const hashData = await contract.call("getMedicineHash", [i]);
+          
+          if (hashData[3]) { // exists = true on blockchain
+            const medicine = medicines.find(m => m.medicine_id === i);
+            
+            missingRecords.push({
+              type: 'medicine',
+              recordId: i,
+              hash: hashData[0],
+              addedBy: hashData[1],
+              addedByName: medicine?.added_by_name || 'Unknown',
+              timestamp: hashData[2].toNumber(),
+              exists: true,
+              txHash: medicine?.blockchain_tx_hash || null,
+              inDatabase: !!medicine,
+              foundByScan: true // ✅ Flag to highlight it was found by scan
+            });
+            
+            console.log(`✅ Found missing record: Medicine #${i}`);
+          }
+        } catch (err) {
+          // Ignore "does not exist" errors
+          if (!err.message?.includes('does not exist')) {
+            console.warn(`Error checking medicine ${i}:`, err);
+          }
+        }
+      }
+      
+      if (missingRecords.length > 0) {
+        console.log(`✅ Found ${missingRecords.length} missing records!`);
+        
+        // Add missing records to the list
+        const updatedData = [...blockchainData, ...missingRecords];
+        setBlockchainData(updatedData);
+        setFilteredData(updatedData);
+        
+        // Recalculate stats
+        calculateStats(updatedData);
+        
+        alert(`🎉 Found ${missingRecords.length} records on blockchain that weren't in the history!\n\nRecords found: ${missingRecords.map(r => `#${r.recordId}`).join(', ')}`);
+      } else {
+        alert("✅ No missing records found. Database and blockchain are in sync!");
+      }
+      
+    } catch (err) {
+      console.error("Scan error:", err);
+      alert(`❌ Scan failed: ${err.message}`);
+    } finally {
+      setScanning(false);
+      setScanProgress({ current: 0, total: 0 });
     }
   };
 
@@ -74,7 +167,6 @@ export default function BlockchainHistory() {
     }
 
     setFilteredData(filtered);
-    calculateStats(filtered);
   }, [searchTerm, filterType, blockchainData]);
 
   const calculateStats = (data) => {
@@ -141,7 +233,7 @@ export default function BlockchainHistory() {
 
   const handleExportCSV = () => {
     const csvContent = [
-      ['Type', 'Record ID', 'Data Hash', 'Added By', 'Added By Name', 'Timestamp', 'Status', 'TX Hash'],
+      ['Type', 'Record ID', 'Data Hash', 'Added By', 'Added By Name', 'Timestamp', 'Status', 'TX Hash', 'Found By Scan'],
       ...filteredData.map(item => [
         item.type,
         item.recordId || 'N/A',
@@ -150,7 +242,8 @@ export default function BlockchainHistory() {
         item.addedByName || 'Unknown',
         formatTimestamp(item.timestamp),
         item.exists ? 'Active' : 'Deleted',
-        item.txHash || 'N/A'
+        item.txHash || 'N/A',
+        item.foundByScan ? 'Yes' : 'No'
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 
@@ -205,12 +298,31 @@ export default function BlockchainHistory() {
             <div className="flex items-center gap-2">
               <button
                 onClick={fetchBlockchainData}
-                disabled={loading}
+                disabled={loading || scanning}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaSync className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
+              
+              {/* ✅ NEW: Scan Blockchain Button */}
+              <button
+                onClick={scanBlockchainForMissing}
+                disabled={loading || scanning || !contract}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 border border-indigo-600 rounded hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {scanning ? (
+                  <>
+                    <FaSync className="w-3.5 h-3.5 animate-spin" />
+                    Scanning {scanProgress.current}/{scanProgress.total}
+                  </>
+                ) : (
+                  <>
+                    🔍 Scan Blockchain
+                  </>
+                )}
+              </button>
+              
               <button
                 onClick={handleExportCSV}
                 disabled={filteredData.length === 0}
@@ -251,6 +363,22 @@ export default function BlockchainHistory() {
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-red-600">{stats.removals}</div>
               <div className="text-xs text-gray-600 mt-0.5">Removals</div>
+            </div>
+          </div>
+
+          {/* ✅ NEW: Warning Banner */}
+          <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-yellow-900 mb-1 flex items-center gap-2">
+                  ⚠️ Database View with Blockchain Verification
+                </h3>
+                <p className="text-xs text-yellow-800 leading-relaxed">
+                  This page shows records from the database by default. Some blockchain records might be missing 
+                  if they were stored on-chain but not properly saved to the database. Click <strong>"Scan Blockchain"</strong> to 
+                  find all records directly from the smart contract and identify any sync issues.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -319,11 +447,20 @@ export default function BlockchainHistory() {
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <FaLink className="text-6xl text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Hashes Found</h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mb-4">
               {blockchainData.length === 0 
                 ? "No hashes have been stored yet" 
                 : "No hashes match your search criteria"}
             </p>
+            {blockchainData.length === 0 && contract && (
+              <button
+                onClick={scanBlockchainForMissing}
+                disabled={scanning}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50"
+              >
+                🔍 Scan Blockchain for Records
+              </button>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -356,14 +493,26 @@ export default function BlockchainHistory() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredData.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={idx} 
+                      className={`hover:bg-gray-50 transition-colors ${
+                        item.foundByScan ? 'bg-yellow-50' : ''
+                      }`}
+                    >
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border ${getTypeColor(item.type)}`}>
                           {getTypeIcon(item.type)} {item.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                        #{item.recordId}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono text-gray-900">#{item.recordId}</span>
+                          {item.foundByScan && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800" title="Found by blockchain scan">
+                              🔍
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm font-mono">
                         <div className="flex items-center gap-2">

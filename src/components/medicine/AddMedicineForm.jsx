@@ -696,24 +696,6 @@ export default function AddMedicineForm() {
                 <span>Add Medicine</span>
               )}
             </button>
-            <button
-              type="button"
-              onClick={async () => {
-                const abi = getABI();
-                const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-                
-                const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
-                const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
-                
-                const admin = await contractWithSigner.hasRole(DEFAULT_ADMIN_ROLE, address);
-                const staff = await contractWithSigner.hasRole(STAFF_ROLE, address);
-                
-                alert(`Admin: ${admin}\nStaff: ${staff}\n\nAddress: ${address}`);
-              }}
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-            >
-              🔍 Check My Roles
-            </button>
           </div>
         </form>
       </div>
