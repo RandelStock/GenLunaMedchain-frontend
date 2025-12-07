@@ -18,15 +18,21 @@ export const useStockManagement = () => {
 
   // Generate hash for stock data
   const generateStockHash = (stockData) => {
-    const dataString = JSON.stringify({
-      stock_id: stockData.stock_id,
-      medicine_id: stockData.medicine_id,
-      batch_number: stockData.batch_number,
-      quantity: stockData.quantity,
-      expiry_date: stockData.expiry_date
-    });
+    try {
+      const dataString = JSON.stringify({
+        stock_id: stockData.stock_id,
+        medicine_id: stockData.medicine_id,
+        batch_number: stockData.batch_number,
+        quantity: stockData.quantity,
+        expiry_date: stockData.expiry_date,
+        timestamp: Date.now()
+      });
 
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+      return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+    } catch (err) {
+      console.error('generateStockHash error:', err);
+      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+    }
   };
 
   // Create stock in database
@@ -112,6 +118,18 @@ export const useStockManagement = () => {
     try {
       console.log(`Storing/updating stock hash for ID ${stockId}...`);
       console.log(`Data hash: ${dataHash}`);
+      if (!stockId && stockId !== 0) {
+        throw new Error('Invalid stockId');
+      }
+
+      const parsedId = Number(stockId);
+      if (isNaN(parsedId) || parsedId < 0) {
+        throw new Error(`Invalid stockId: ${stockId}`);
+      }
+
+      if (!dataHash || typeof dataHash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
+        throw new Error('Invalid dataHash format');
+      }
       
       // Check if stock hash already exists
       let hashExists = false;
@@ -127,7 +145,7 @@ export const useStockManagement = () => {
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
       console.log(`Using method: ${methodName}`);
       
-      const tx = await contract.call(methodName, [stockId, dataHash]);
+      const tx = await contract.call(methodName, [parsedId, dataHash]);
       console.log("Transaction sent:", tx);
       
       const normalizedTx = {

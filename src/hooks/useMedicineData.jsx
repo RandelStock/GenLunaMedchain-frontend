@@ -86,16 +86,30 @@ export function useMedicineInventory() {
   };
 
   const generateMedicineHash = (medicineData) => {
-    const dataString = JSON.stringify({
-      name: medicineData.name,
-      batchNumber: medicineData.batchNumber,
-      quantity: medicineData.quantity,
-      expirationDate: medicineData.expirationDate,
-      location: medicineData.location,
-      timestamp: medicineData.timestamp || Date.now(),
-    });
+    // Ensure each hash is unique by including a fresh timestamp at call time.
+    // If no medicineData provided, fall back to a cryptographically-random 32-byte value.
+    try {
+      if (medicineData && typeof medicineData === 'object') {
+        const dataString = JSON.stringify({
+          name: medicineData.name,
+          batchNumber: medicineData.batchNumber,
+          quantity: medicineData.quantity,
+          expirationDate: medicineData.expirationDate,
+          location: medicineData.location,
+          // Always use a fresh timestamp at call time to avoid duplicate hashes
+          timestamp: Date.now(),
+        });
 
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+        return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+      }
+
+      // Fallback: generate a random 32-byte hex value (always unique)
+      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+    } catch (err) {
+      console.error('Error generating medicine hash:', err);
+      // Last-resort: random 32 bytes
+      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+    }
   };
 
   const storeMedicineHash = async (medicineId, dataHash) => {
@@ -107,24 +121,49 @@ export function useMedicineInventory() {
       throw new Error("Access denied. You need MEDICINE_MANAGER or ADMIN role to perform this action.");
     }
 
+    // Validate inputs to avoid malformed RPC calls
+    console.log('Blockchain payload:', { medicineId, dataHash, typeofId: typeof medicineId, hashLength: dataHash?.length });
+
+    if (!medicineId && medicineId !== 0) {
+      throw new Error('Invalid blockchain payload: Missing medicineId');
+    }
+
+    const parsedId = Number(medicineId);
+    if (isNaN(parsedId) || parsedId < 0) {
+      throw new Error(`Invalid medicineId: ${medicineId}`);
+    }
+
+    if (!dataHash || typeof dataHash !== 'string') {
+      throw new Error('Invalid blockchain payload: Missing or invalid hash');
+    }
+
+    if (!/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
+      throw new Error(`Invalid hash format: ${dataHash}`);
+    }
+
     try {
-      const tx = await contract.call("storeMedicineHash", [medicineId, dataHash]);
-      console.log("Hash stored on blockchain:", tx);
+      const tx = await contract.call("storeMedicineHash", [parsedId, dataHash]);
+      console.log("Hash stored on blockchain (thirdweb):", tx);
       return tx;
     } catch (err) {
-      console.error("Failed to store hash:", err);
+      console.error("ThirdWeb storeMedicineHash failed:", err?.message || err);
+      // Fallback to ethers signer when available
       if (signer) {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeMedicineHash(medicineId, dataHash);
+          const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash);
+          console.log('Ethers tx sent:', tx.hash);
           const receipt = await tx.wait();
+          console.log('Ethers tx confirmed:', receipt.transactionHash || receipt.hash);
           return receipt;
         } catch (ethersErr) {
-          console.error("Both methods failed:", err, ethersErr);
+          console.error("Ethers fallback failed:", ethersErr?.message || ethersErr);
+          throw new Error(`Blockchain transaction failed: ${ethersErr?.message || ethersErr}`);
         }
       }
-      throw err;
+
+      throw new Error(`Blockchain transaction failed: ${err?.message || err}`);
     }
   };
 

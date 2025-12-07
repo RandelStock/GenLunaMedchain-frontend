@@ -96,17 +96,24 @@ export const useStockRemoval = () => {
    ✅ BLOCKCHAIN FUNCTIONS (Ethereum Smart Contract)
   ====================================================== */
   const generateRemovalHash = (removalData) => {
-    const dataString = JSON.stringify({
-      removal_id: removalData.removal_id,
-      medicine_id: removalData.medicine_id,
-      stock_id: removalData.stock_id,
-      quantity_removed: removalData.quantity_removed,
-      reason: removalData.reason,
-      date_removed: removalData.date_removed,
-      notes: removalData.notes || ''
-    });
+    try {
+      const dataString = JSON.stringify({
+        removal_id: removalData.removal_id,
+        medicine_id: removalData.medicine_id,
+        stock_id: removalData.stock_id,
+        quantity_removed: removalData.quantity_removed,
+        reason: removalData.reason,
+        date_removed: removalData.date_removed,
+        notes: removalData.notes || '',
+        // ensure uniqueness per-call
+        timestamp: Date.now()
+      });
 
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+      return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+    } catch (err) {
+      console.error('generateRemovalHash error:', err);
+      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+    }
   };
 
   const storeRemovalHash = async (removalId, dataHash) => {
@@ -115,12 +122,21 @@ export const useStockRemoval = () => {
     }
 
     // ✅ Validate inputs before sending to blockchain
-    if (!removalId || removalId === undefined) {
+    if (!removalId && removalId !== 0) {
       throw new Error("Invalid removal ID: cannot be undefined");
     }
-    
-    if (!dataHash) {
+
+    const parsedId = Number(removalId);
+    if (isNaN(parsedId) || parsedId < 0) {
+      throw new Error(`Invalid removalId: ${removalId}`);
+    }
+
+    if (!dataHash || typeof dataHash !== 'string') {
       throw new Error("Invalid data hash: cannot be empty");
+    }
+
+    if (!/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
+      throw new Error(`Invalid hash format: ${dataHash}`);
     }
 
     try {
@@ -129,7 +145,7 @@ export const useStockRemoval = () => {
       
       // Try using thirdweb contract.call first
       try {
-        const tx = await contract.call("storeRemovalHash", [removalId, dataHash]);
+        const tx = await contract.call("storeRemovalHash", [parsedId, dataHash]);
         console.log("Transaction sent:", tx);
         
         // Normalize the response to handle different thirdweb return formats
@@ -151,7 +167,7 @@ export const useStockRemoval = () => {
         if (signer) {
           const abi = ContractABI.abi;
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeRemovalHash(removalId, dataHash);
+          const tx = await contractWithSigner.storeRemovalHash(parsedId, dataHash);
           console.log("Transaction sent:", tx.hash);
           const receipt = await tx.wait();
           console.log("Transaction confirmed:", receipt.transactionHash);

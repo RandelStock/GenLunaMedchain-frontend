@@ -34,22 +34,42 @@ export const useMedicineRelease = () => {
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
     // Create hash of the release data
+    // include a timestamp to ensure uniqueness per-call
     const dataString = JSON.stringify({
       medicine_id: releaseData.medicine_id,
       stock_id: releaseData.stock_id,
       resident_name: releaseData.resident_name,
       quantity_released: releaseData.quantity_released,
       date_released: releaseData.date_released,
-      concern: releaseData.concern
+      concern: releaseData.concern,
+      timestamp: Date.now()
     });
 
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
 
     console.log('Sending transaction to blockchain...', { releaseId, dataHash });
-    const tx = await contract.storeReceiptHash(releaseId, dataHash);
-    
-    console.log('Transaction sent:', tx.hash);
-    const receipt = await tx.wait();
+
+    if (releaseId === undefined || releaseId === null) throw new Error('Invalid releaseId');
+    const parsedId = Number(releaseId);
+    if (isNaN(parsedId) || parsedId < 0) throw new Error('Invalid releaseId');
+    if (!/^0x[a-fA-F0-9]{64}$/.test(dataHash)) throw new Error('Invalid dataHash format');
+
+    let tx;
+    try {
+      tx = await contract.storeReceiptHash(parsedId, dataHash);
+      console.log('Transaction sent:', tx.hash || tx.transactionHash);
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt);
+
+      return {
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        dataHash: dataHash
+      };
+    } catch (err) {
+      console.error('storeReleaseOnBlockchain failed:', err);
+      throw err;
+    }
     
     console.log('Transaction confirmed:', receipt);
 
@@ -149,7 +169,9 @@ export const useMedicineRelease = () => {
     }
 
     // Recreate hash from data
-    const dataString = JSON.stringify({
+    // Recreate hash from data. Try both without timestamp (backwards-compatible)
+    // and with timestamp information missing (current DB may not store timestamp used when generated).
+    const baseDataString = JSON.stringify({
       medicine_id: releaseData.medicine_id,
       stock_id: releaseData.stock_id,
       resident_name: releaseData.resident_name,
@@ -158,12 +180,24 @@ export const useMedicineRelease = () => {
       concern: releaseData.concern
     });
 
-    const calculatedHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+    const calculatedHashWithoutTs = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(baseDataString));
+
+    // Attempt with a timestamp field if present in the passed releaseData
+    const calculatedHashWithTs = (() => {
+      try {
+        const withTs = JSON.stringify({ ...releaseData, timestamp: releaseData.timestamp || Date.now() });
+        return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(withTs));
+      } catch (_) {
+        return null;
+      }
+    })();
+
+    const verified = storedHash === calculatedHashWithoutTs || storedHash === calculatedHashWithTs;
 
     return {
-      verified: storedHash === calculatedHash,
+      verified,
       storedHash,
-      calculatedHash,
+      calculatedHash: calculatedHashWithTs || calculatedHashWithoutTs,
       addedBy,
       timestamp: new Date(Number(timestamp) * 1000).toISOString()
     };
