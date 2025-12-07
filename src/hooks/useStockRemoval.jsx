@@ -145,9 +145,8 @@ export const useStockRemoval = () => {
       
       // Try using thirdweb contract.call first
       try {
-        // send bytes32 as bytes
-        const hashBytes = ethers.utils.arrayify(dataHash);
-        const tx = await contract.call("storeRemovalHash", [parsedId, hashBytes]);
+        // send bytes as hex string (not Uint8Array)
+        const tx = await contract.call("storeRemovalHash", [parsedId, dataHash]);
         console.log("Transaction sent:", tx);
         
         // Normalize the response to handle different thirdweb return formats
@@ -169,7 +168,7 @@ export const useStockRemoval = () => {
         if (signer) {
           const abi = ContractABI.abi;
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeRemovalHash(parsedId, ethers.utils.arrayify(dataHash));
+          const tx = await contractWithSigner.storeRemovalHash(parsedId, dataHash);
           console.log("Transaction sent:", tx.hash);
           const receipt = await tx.wait();
           console.log("Transaction confirmed:", receipt.transactionHash);
@@ -208,8 +207,7 @@ export const useStockRemoval = () => {
     }
     
     try {
-      const newHashBytes = ethers.utils.arrayify(newDataHash);
-      const tx = await contract.call("updateRemovalHash", [removalId, newHashBytes]);
+      const tx = await contract.call("updateRemovalHash", [removalId, newDataHash]);
       
       // Normalize response
       return {
@@ -221,7 +219,7 @@ export const useStockRemoval = () => {
       if (signer) {
         const abi = ContractABI.abi;
         const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const tx = await contractWithSigner.updateRemovalHash(removalId, ethers.utils.arrayify(newDataHash));
+        const tx = await contractWithSigner.updateRemovalHash(removalId, newDataHash);
         const receipt = await tx.wait();
         
         return {
@@ -243,7 +241,7 @@ export const useStockRemoval = () => {
 
   const verifyRemovalHash = async (removalId, dataHash) => {
     if (!contract) throw new Error("Contract not connected");
-    return await contract.call("verifyRemovalHash", [removalId, ethers.utils.arrayify(dataHash)]);
+    return await contract.call("verifyRemovalHash", [removalId, dataHash]);
   };
 
   const getRemovalHash = async (removalId) => {

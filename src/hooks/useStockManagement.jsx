@@ -145,8 +145,8 @@ export const useStockManagement = () => {
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
       console.log(`Using method: ${methodName}`);
       
-      const hashBytes = ethers.utils.arrayify(dataHash);
-      const tx = await contract.call(methodName, [parsedId, hashBytes]);
+      // Pass hash as pure hex string (not arrayified)
+      const tx = await contract.call(methodName, [parsedId, dataHash]);
       console.log("Transaction sent:", tx);
       
       const normalizedTx = {
