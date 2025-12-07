@@ -18,21 +18,15 @@ export const useStockManagement = () => {
 
   // Generate hash for stock data
   const generateStockHash = (stockData) => {
-    try {
-      const dataString = JSON.stringify({
-        stock_id: stockData.stock_id,
-        medicine_id: stockData.medicine_id,
-        batch_number: stockData.batch_number,
-        quantity: stockData.quantity,
-        expiry_date: stockData.expiry_date,
-        timestamp: Date.now()
-      });
+    const dataString = JSON.stringify({
+      stock_id: stockData.stock_id,
+      medicine_id: stockData.medicine_id,
+      batch_number: stockData.batch_number,
+      quantity: stockData.quantity,
+      expiry_date: stockData.expiry_date
+    });
 
-      return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
-    } catch (err) {
-      console.error('generateStockHash error:', err);
-      return ethers.utils.hexlify(ethers.utils.randomBytes(32));
-    }
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
   };
 
   // Create stock in database
@@ -118,18 +112,6 @@ export const useStockManagement = () => {
     try {
       console.log(`Storing/updating stock hash for ID ${stockId}...`);
       console.log(`Data hash: ${dataHash}`);
-      if (!stockId && stockId !== 0) {
-        throw new Error('Invalid stockId');
-      }
-
-      const parsedId = Number(stockId);
-      if (isNaN(parsedId) || parsedId < 0) {
-        throw new Error(`Invalid stockId: ${stockId}`);
-      }
-
-      if (!dataHash || typeof dataHash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
-        throw new Error('Invalid dataHash format');
-      }
       
       // Check if stock hash already exists
       let hashExists = false;
@@ -145,25 +127,9 @@ export const useStockManagement = () => {
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
       console.log(`Using method: ${methodName}`);
       
-      // TRY ETHERS SIGNER FIRST (handles bytes32 correctly)
-      if (signer) {
-        const abi = ContractABI.abi;
-        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const tx = await contractWithSigner[methodName](parsedId, dataHash);
-        console.log("Transaction sent:", tx.hash);
-        const receipt = await tx.wait();
-
-        return {
-          hash: receipt.transactionHash,
-          receipt: receipt,
-          transactionHash: receipt.transactionHash
-        };
-      }
-
-      // Fallback to thirdweb contract.call
-      const tx = await contract.call(methodName, [parsedId, dataHash]);
-      console.log("Transaction sent (thirdweb):", tx);
-
+      const tx = await contract.call(methodName, [stockId, dataHash]);
+      console.log("Transaction sent:", tx);
+      
       const normalizedTx = {
         hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
         receipt: tx.receipt || tx,

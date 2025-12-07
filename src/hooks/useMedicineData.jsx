@@ -1,4 +1,3 @@
-// hooks/useMedicineInventory.js - FIXED VERSION
 import { useContract, useAddress, useSigner } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS } from "../config";
@@ -15,7 +14,7 @@ export function useMedicineInventory() {
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
-  // Check if user has access
+  // Check if user has access (either admin or staff with proper role)
   useEffect(() => {
     const checkUserAccess = async () => {
       if (!address || !contract) {
@@ -27,11 +26,13 @@ export function useMedicineInventory() {
       try {
         setCheckingAccess(true);
         
+        // Check multiple roles
         const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
         const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
         
         let hasRole = false;
         
+        // Check if user has admin role
         try {
           hasRole = await contract.call("hasRole", [DEFAULT_ADMIN_ROLE, address]);
           console.log("Admin role check:", hasRole);
@@ -39,6 +40,7 @@ export function useMedicineInventory() {
           console.log("Admin role check failed:", err);
         }
         
+        // If not admin, check for STAFF_ROLE (contract's onlyStaffOrAdmin)
         if (!hasRole) {
           try {
             hasRole = await contract.call("hasRole", [STAFF_ROLE, address]);
@@ -60,6 +62,7 @@ export function useMedicineInventory() {
     checkUserAccess();
   }, [address, contract]);
 
+  // Fetch medicines on mount
   useEffect(() => {
     getMedicines();
   }, []);
@@ -82,152 +85,46 @@ export function useMedicineInventory() {
     return ContractABI.abi || null;
   };
 
-  // FIXED: Generate hash with CONSISTENT timestamp
   const generateMedicineHash = (medicineData) => {
-    try {
-      if (medicineData && typeof medicineData === 'object') {
-        // CRITICAL FIX: Use provided timestamp or create one that will be saved
-        const timestamp = medicineData.timestamp || Date.now();
-        
-        const dataString = JSON.stringify({
-          name: medicineData.name,
-          batchNumber: medicineData.batchNumber,
-          quantity: medicineData.quantity,
-          expirationDate: medicineData.expirationDate,
-          location: medicineData.location,
-          timestamp: timestamp, // Use the same timestamp
-        });
+    const dataString = JSON.stringify({
+      name: medicineData.name,
+      batchNumber: medicineData.batchNumber,
+      quantity: medicineData.quantity,
+      expirationDate: medicineData.expirationDate,
+      location: medicineData.location,
+      timestamp: medicineData.timestamp || Date.now(),
+    });
 
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
-        
-        // Return both hash and timestamp so they can be stored together
-        return { hash, timestamp };
-      }
-
-      // Fallback: random 32-byte hex value
-      const randomHash = ethers.utils.hexlify(ethers.utils.randomBytes(32));
-      return { hash: randomHash, timestamp: Date.now() };
-    } catch (err) {
-      console.error('Error generating medicine hash:', err);
-      const randomHash = ethers.utils.hexlify(ethers.utils.randomBytes(32));
-      return { hash: randomHash, timestamp: Date.now() };
-    }
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
   };
 
-  // FIXED: Store medicine hash with better error handling
   const storeMedicineHash = async (medicineId, dataHash) => {
     if (!contract || !address) {
       throw new Error("Wallet not connected or contract not loaded");
     }
 
     if (!hasAccess) {
-      throw new Error("Access denied. You need STAFF or ADMIN role to perform this action.");
-    }
-
-    // Validate inputs
-    console.log('Blockchain payload:', { 
-      medicineId, 
-      dataHash, 
-      typeofId: typeof medicineId, 
-      hashLength: dataHash?.length,
-      hashFormat: /^0x[a-fA-F0-9]{64}$/.test(dataHash)
-    });
-
-    if (!medicineId && medicineId !== 0) {
-      throw new Error('Invalid blockchain payload: Missing medicineId');
-    }
-
-    const parsedId = Number(medicineId);
-    if (isNaN(parsedId) || parsedId < 0) {
-      throw new Error(`Invalid medicineId: ${medicineId}`);
-    }
-
-    if (!dataHash || typeof dataHash !== 'string') {
-      throw new Error('Invalid blockchain payload: Missing or invalid hash');
-    }
-
-    if (!/^0x[a-fA-F0-9]{64}$/.test(dataHash)) {
-      throw new Error(`Invalid hash format: ${dataHash}. Expected 0x followed by 64 hex characters.`);
+      throw new Error("Access denied. You need MEDICINE_MANAGER or ADMIN role to perform this action.");
     }
 
     try {
-      // Re-check roles
-      const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
-      const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
-      
-      const isAdmin = await contract.call("hasRole", [DEFAULT_ADMIN_ROLE, address]).catch(() => false);
-      const isStaff = await contract.call("hasRole", [STAFF_ROLE, address]).catch(() => false);
-      
-      if (!isAdmin && !isStaff) {
-        throw new Error('Wallet does not have STAFF or ADMIN role on-chain');
-      }
-
-      // Check if medicine hash already exists
-      try {
-        const existing = await contract.call("getMedicineHash", [parsedId]);
-        const exists = existing?.[3];
-        if (exists) {
-          throw new Error(`Medicine ID ${parsedId} already has a stored hash on-chain. Use a different medicine ID or delete the existing hash first.`);
-        }
-      } catch (existErr) {
-        // Only throw if it's a revert, not a "doesn't exist" error
-        if (existErr.message && existErr.message.includes('revert') && !existErr.message.includes('does not exist')) {
-          throw existErr;
-        }
-      }
-
-      // NEW: Estimate gas first to catch reverts early
+      const tx = await contract.call("storeMedicineHash", [medicineId, dataHash]);
+      console.log("Hash stored on blockchain:", tx);
+      return tx;
+    } catch (err) {
+      console.error("Failed to store hash:", err);
       if (signer) {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          
-          // Estimate gas to catch potential reverts
-          console.log('Estimating gas for storeMedicineHash...');
-          const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
-          console.log('Gas estimate:', gasEstimate.toString());
-          
-          // Send transaction with extra gas buffer
-          const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
-            gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
-          });
-          
-          console.log('Ethers storeMedicineHash tx sent:', tx.hash);
+          const tx = await contractWithSigner.storeMedicineHash(medicineId, dataHash);
           const receipt = await tx.wait();
-          console.log('Ethers storeMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
-          
           return receipt;
         } catch (ethersErr) {
-          console.error("Ethers storeMedicineHash failed:", ethersErr);
-          
-          // Parse common error messages
-          let errorMsg = ethersErr?.message || ethersErr;
-          
-          if (errorMsg.includes('user rejected')) {
-            throw new Error('Transaction rejected by user');
-          } else if (errorMsg.includes('insufficient funds')) {
-            throw new Error('Insufficient funds for gas');
-          } else if (errorMsg.includes('execution reverted')) {
-            // Try to extract revert reason
-            const match = errorMsg.match(/reason="([^"]+)"/);
-            const reason = match ? match[1] : 'Contract execution reverted';
-            throw new Error(`Contract error: ${reason}`);
-          } else if (errorMsg.includes('nonce')) {
-            throw new Error('Nonce error. Please reset your wallet or try again.');
-          }
-          
-          throw new Error(`Blockchain transaction failed: ${errorMsg}`);
+          console.error("Both methods failed:", err, ethersErr);
         }
       }
-
-      // Fallback to ThirdWeb
-      const tx = await contract.call("storeMedicineHash", [parsedId, dataHash]);
-      console.log("Hash stored on blockchain (thirdweb fallback):", tx);
-      return tx;
-      
-    } catch (err) {
-      console.error("storeMedicineHash error:", err);
-      throw err; // Re-throw the error with its original message
+      throw err;
     }
   };
 
@@ -237,26 +134,34 @@ export function useMedicineInventory() {
     }
 
     if (!hasAccess) {
-      throw new Error("Access denied. You need STAFF or ADMIN role to perform this action.");
+      throw new Error("Access denied. You need MEDICINE_MANAGER or ADMIN role to perform this action.");
     }
 
     try {
-      if (signer) {
-        const abi = getABI();
-        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const tx = await contractWithSigner.updateMedicineHash(medicineId, newDataHash);
-        console.log('Ethers updateMedicineHash tx sent:', tx.hash);
-        const receipt = await tx.wait();
-        console.log('Ethers updateMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
-        return receipt;
-      }
+      const tx = await contract.call("updateMedicineHash", [
+        medicineId,
+        newDataHash
+      ]);
 
-      const tx = await contract.call("updateMedicineHash", [medicineId, newDataHash]);
-      console.log("Hash updated (thirdweb fallback):", tx);
+      console.log("Hash updated:", tx);
       return tx;
 
     } catch (err) {
-      throw new Error(`Update failed: ${err?.message || err}`);
+      console.error("Update failed:", err);
+      
+      if (signer) {
+        try {
+          const abi = getABI();
+          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+          const tx = await contractWithSigner.updateMedicineHash(medicineId, newDataHash);
+          const receipt = await tx.wait();
+          return receipt;
+        } catch (ethersErr) {
+          console.error("Both update methods failed:", err, ethersErr);
+        }
+      }
+      
+      throw err;
     }
   };
 
@@ -266,22 +171,12 @@ export function useMedicineInventory() {
     }
 
     if (!hasAccess) {
-      throw new Error("Access denied. You need STAFF or ADMIN role to perform this action.");
+      throw new Error("Access denied. You need MEDICINE_MANAGER or ADMIN role to perform this action.");
     }
 
     try {
-      if (signer) {
-        const abi = getABI();
-        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const tx = await contractWithSigner.deleteMedicineHash(medicineId);
-        console.log('Ethers deleteMedicineHash tx sent:', tx.hash);
-        const receipt = await tx.wait();
-        console.log('Ethers deleteMedicineHash confirmed:', receipt.transactionHash || receipt.hash);
-        return receipt;
-      }
-
       const tx = await contract.call("deleteMedicineHash", [medicineId]);
-      console.log("Hash deleted (thirdweb fallback):", tx);
+      console.log("Hash deleted:", tx);
       return tx;
     } catch (err) {
       console.error("Failed to delete hash:", err);
@@ -295,14 +190,10 @@ export function useMedicineInventory() {
     }
 
     try {
-      if (signer) {
-        const abi = getABI();
-        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const isValid = await contractWithSigner.verifyMedicineHash(medicineId, dataHash);
-        return isValid;
-      }
-
-      const isValid = await contract.call("verifyMedicineHash", [medicineId, dataHash]);
+      const isValid = await contract.call("verifyMedicineHash", [
+        medicineId,
+        dataHash
+      ]);
       return isValid;
     } catch (err) {
       console.error("Verification failed:", err);
@@ -327,7 +218,89 @@ export function useMedicineInventory() {
     }
   };
 
-  // ... rest of receipt functions remain the same ...
+  const storeReceiptHash = async (receiptId, dataHash) => {
+    if (!contract || !address) {
+      throw new Error("Wallet not connected or contract not loaded");
+    }
+
+    try {
+      const tx = await contract.call("storeReceiptHash", [
+        receiptId,
+        dataHash
+      ]);
+
+      console.log("Receipt hash stored:", tx);
+      return tx;
+
+    } catch (err) {
+      console.error("Failed to store receipt hash:", err);
+      
+      if (signer) {
+        try {
+          const abi = getABI();
+          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+          const tx = await contractWithSigner.storeReceiptHash(receiptId, dataHash);
+          const receipt = await tx.wait();
+          return receipt;
+        } catch (ethersErr) {
+          console.error("Both methods failed:", err, ethersErr);
+        }
+      }
+      
+      throw err;
+    }
+  };
+
+  const updateReceiptHash = async (receiptId, newDataHash) => {
+    if (!contract) {
+      throw new Error("Contract not connected");
+    }
+
+    try {
+      const tx = await contract.call("updateReceiptHash", [
+        receiptId,
+        newDataHash
+      ]);
+
+      console.log("Receipt hash updated:", tx);
+      return tx;
+    } catch (err) {
+      console.error("Failed to update receipt hash:", err);
+      throw err;
+    }
+  };
+
+  const deleteReceiptHash = async (receiptId) => {
+    if (!contract) {
+      throw new Error("Contract not connected");
+    }
+
+    try {
+      const tx = await contract.call("deleteReceiptHash", [receiptId]);
+      console.log("Receipt hash deleted:", tx);
+      return tx;
+    } catch (err) {
+      console.error("Failed to delete receipt hash:", err);
+      throw err;
+    }
+  };
+
+  const verifyReceiptHash = async (receiptId, dataHash) => {
+    if (!contract) {
+      throw new Error("Contract not connected");
+    }
+
+    try {
+      const isValid = await contract.call("verifyReceiptHash", [
+        receiptId,
+        dataHash
+      ]);
+      return isValid;
+    } catch (err) {
+      console.error("Verification failed:", err);
+      return false;
+    }
+  };
 
   const getMedicineCount = async () => {
     if (!contract) return 0;
@@ -356,6 +329,7 @@ export function useMedicineInventory() {
     loading,
     getMedicines,
     
+    // Hash operations
     generateMedicineHash,
     storeMedicineHash,
     updateMedicineHash,
@@ -363,12 +337,21 @@ export function useMedicineInventory() {
     verifyMedicineHash,
     getMedicineHash,
     
+    // Receipt hash operations
+    storeReceiptHash,
+    updateReceiptHash,
+    deleteReceiptHash,
+    verifyReceiptHash,
+    
+    // Counts
     getMedicineCount,
     getReceiptCount,
     
+    // Access control
     hasAccess,
     checkingAccess,
     
+    // Status
     contractLoaded: !isLoading && !!contract,
     abiLoaded: !!getABI(),
   };
