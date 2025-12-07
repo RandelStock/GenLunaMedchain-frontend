@@ -247,17 +247,25 @@ export default function AddMedicineForm() {
       const { medicine, stock } = dbResponse.data;
 
       const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
+      const createdTimestamp = Date.now(); // Generate timestamp ONCE
+
       const hashData = {
         name: medicineData.medicine_name,
         batchNumber: medicineData.batch_number,
         quantity: medicineData.quantity,
         expirationDate: expiryTimestamp,
         location: medicineData.storage_location,
-        timestamp: Date.now()
+        timestamp: createdTimestamp // Use the fixed timestamp
       };
 
       if (ENABLE_BLOCKCHAIN_FOR_MEDICINE) {
-        const dataHash = generateMedicineHash(hashData);
+        // CRITICAL FIX: generateMedicineHash returns { hash, timestamp }
+        const hashResult = generateMedicineHash(hashData);
+        const dataHash = hashResult.hash || hashResult; // Support both formats
+        
+        console.log("Generated hash:", dataHash);
+        console.log("Hash format valid:", /^0x[a-fA-F0-9]{64}$/.test(dataHash));
+        
         const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
         const txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
 
