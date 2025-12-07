@@ -142,7 +142,38 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("storeMedicineHash", [parsedId, dataHash]);
+      // Re-check on-chain roles before attempting the transaction
+      try {
+        const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+        const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
+        const isAdmin = await contract.call("hasRole", [DEFAULT_ADMIN_ROLE, address]).catch(() => false);
+        const isStaff = await contract.call("hasRole", [STAFF_ROLE, address]).catch(() => false);
+        if (!isAdmin && !isStaff) {
+          throw new Error('Wallet does not have STAFF or ADMIN role on-chain');
+        }
+      } catch (roleErr) {
+        console.warn('Role check failed or insufficient role:', roleErr.message || roleErr);
+        throw roleErr;
+      }
+
+      // Check if the medicineId already has a stored hash to avoid re-using IDs
+      try {
+        const existing = await contract.call("getMedicineHash", [parsedId]);
+        const exists = existing?.[3];
+        if (exists) {
+          throw new Error(`Medicine ID ${parsedId} already has a stored hash on-chain. Use a fresh/unused medicine ID.`);
+        }
+      } catch (existErr) {
+        // If the call itself fails, surface the error
+        if (existErr.message && existErr.message.includes('revert')) {
+          throw existErr;
+        }
+        // Otherwise continue (some providers return errors for non-existent entries)
+      }
+
+      // Use bytes32 array for the hash when calling the contract
+      const hashBytes = ethers.utils.arrayify(dataHash);
+      const tx = await contract.call("storeMedicineHash", [parsedId, hashBytes]);
       console.log("Hash stored on blockchain (thirdweb):", tx);
       return tx;
     } catch (err) {
@@ -152,7 +183,7 @@ export function useMedicineInventory() {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash);
+          const tx = await contractWithSigner.storeMedicineHash(parsedId, ethers.utils.arrayify(dataHash));
           console.log('Ethers tx sent:', tx.hash);
           const receipt = await tx.wait();
           console.log('Ethers tx confirmed:', receipt.transactionHash || receipt.hash);
@@ -177,10 +208,8 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("updateMedicineHash", [
-        medicineId,
-        newDataHash
-      ]);
+      const newHashBytes = ethers.utils.arrayify(newDataHash);
+      const tx = await contract.call("updateMedicineHash", [medicineId, newHashBytes]);
 
       console.log("Hash updated:", tx);
       return tx;
@@ -192,7 +221,7 @@ export function useMedicineInventory() {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.updateMedicineHash(medicineId, newDataHash);
+          const tx = await contractWithSigner.updateMedicineHash(medicineId, ethers.utils.arrayify(newDataHash));
           const receipt = await tx.wait();
           return receipt;
         } catch (ethersErr) {
@@ -229,10 +258,7 @@ export function useMedicineInventory() {
     }
 
     try {
-      const isValid = await contract.call("verifyMedicineHash", [
-        medicineId,
-        dataHash
-      ]);
+      const isValid = await contract.call("verifyMedicineHash", [medicineId, ethers.utils.arrayify(dataHash)]);
       return isValid;
     } catch (err) {
       console.error("Verification failed:", err);
@@ -263,10 +289,8 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("storeReceiptHash", [
-        receiptId,
-        dataHash
-      ]);
+      const hashBytes = ethers.utils.arrayify(dataHash);
+      const tx = await contract.call("storeReceiptHash", [receiptId, hashBytes]);
 
       console.log("Receipt hash stored:", tx);
       return tx;
@@ -278,7 +302,7 @@ export function useMedicineInventory() {
         try {
           const abi = getABI();
           const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeReceiptHash(receiptId, dataHash);
+          const tx = await contractWithSigner.storeReceiptHash(receiptId, ethers.utils.arrayify(dataHash));
           const receipt = await tx.wait();
           return receipt;
         } catch (ethersErr) {
@@ -296,10 +320,8 @@ export function useMedicineInventory() {
     }
 
     try {
-      const tx = await contract.call("updateReceiptHash", [
-        receiptId,
-        newDataHash
-      ]);
+      const hashBytes = ethers.utils.arrayify(newDataHash);
+      const tx = await contract.call("updateReceiptHash", [receiptId, hashBytes]);
 
       console.log("Receipt hash updated:", tx);
       return tx;
@@ -330,10 +352,7 @@ export function useMedicineInventory() {
     }
 
     try {
-      const isValid = await contract.call("verifyReceiptHash", [
-        receiptId,
-        dataHash
-      ]);
+      const isValid = await contract.call("verifyReceiptHash", [receiptId, ethers.utils.arrayify(dataHash)]);
       return isValid;
     } catch (err) {
       console.error("Verification failed:", err);

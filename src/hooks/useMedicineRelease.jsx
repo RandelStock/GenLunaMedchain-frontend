@@ -56,7 +56,7 @@ export const useMedicineRelease = () => {
 
     let tx;
     try {
-      tx = await contract.storeReceiptHash(parsedId, dataHash);
+      tx = await contract.storeReceiptHash(parsedId, ethers.utils.arrayify(dataHash));
       console.log('Transaction sent:', tx.hash || tx.transactionHash);
       const receipt = await tx.wait();
       console.log('Transaction confirmed:', receipt);
@@ -113,8 +113,8 @@ export const useMedicineRelease = () => {
     }
 
     const tx = exists
-      ? await contract.updateReceiptHash(releaseId, dataHash)
-      : await contract.storeReceiptHash(releaseId, dataHash);
+      ? await contract.updateReceiptHash(releaseId, ethers.utils.arrayify(dataHash))
+      : await contract.storeReceiptHash(releaseId, ethers.utils.arrayify(dataHash));
 
     const receipt = await tx.wait();
     return {
