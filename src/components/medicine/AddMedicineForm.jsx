@@ -321,67 +321,32 @@ export default function AddMedicineForm() {
       } else {
         // Blockchain disabled
         setSuccess(
-          `Medicine "${medicineData.medicine_name}" (Batch: ${medicineData.batch_number}) successfully added!\n` +
-          `Database ID: ${medicine.medicine_id}\n` +
-          `Blockchain: disabled`
+          `✅ Medicine "${medicineData.medicine_name}" successfully added!\n\n` +
+          `📦 Batch: ${medicineData.batch_number}\n` +
+          `🆔 Database ID: ${medicine.medicine_id}\n` +
+          `⛓️ Blockchain: disabled`
         );
       }
 
       e.target.reset();
 
-
-      const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
-      const hashData = {
-        name: medicineData.medicine_name,
-        batchNumber: medicineData.batch_number,
-        quantity: medicineData.quantity,
-        expirationDate: expiryTimestamp,
-        location: medicineData.storage_location,
-        timestamp: Date.now()
-      };
-
-      if (ENABLE_BLOCKCHAIN_FOR_MEDICINE) {
-        const dataHash = generateMedicineHash(hashData);
-        const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
-        const txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
-
-        await api.patch(`/medicines/${medicine.medicine_id}`, {
-          blockchain_hash: dataHash,
-          blockchain_tx_hash: txHash,
-          transaction_hash: txHash
-        });
-
-        await api.patch(`/stocks/${stock.stock_id}`, {
-          blockchain_hash: dataHash,
-          blockchain_tx_hash: txHash
-        });
+      } catch (err) {
+        console.error("Error adding medicine:", err);
+        
+        if (err.message?.includes("AccessControl") || err.message?.includes("Access denied")) {
+          setError("Access Control Error: You don't have permission to perform this action. Please contact your administrator.");
+        } else if (err.message?.includes("already exists")) {
+          setError("This batch number already exists. Please use a unique batch number.");
+        } else if (err.message?.includes("user rejected")) {
+          setError("Transaction was cancelled by user.");
+        } else if (err.response?.data?.error) {
+          setError(err.response.data.error);
+        } else {
+          setError(`Failed to add medicine: ${err.message || 'Unknown error'}`);
+        }
+      } finally {
+        setLoading(false);
       }
-
-      setSuccess(
-        `Medicine "${medicineData.medicine_name}" (Batch: ${medicineData.batch_number}) successfully added!\n` +
-        `Database ID: ${medicine.medicine_id}\n` +
-        `${ENABLE_BLOCKCHAIN_FOR_MEDICINE ? 'Blockchain: enabled' : 'Blockchain: skipped (non-money)'}`
-      );
-      
-      e.target.reset();
-
-    } catch (err) {
-      console.error("Error adding medicine:", err);
-      
-      if (err.message?.includes("AccessControl") || err.message?.includes("Access denied")) {
-        setError("Access Control Error: You don't have permission to perform this action. Please contact your administrator.");
-      } else if (err.message?.includes("already exists")) {
-        setError("This batch number already exists. Please use a unique batch number.");
-      } else if (err.message?.includes("user rejected")) {
-        setError("Transaction was cancelled by user.");
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else {
-        setError(`Failed to add medicine: ${err.message || 'Unknown error'}`);
-      }
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (checkingAccess || !contractLoaded) {
@@ -730,6 +695,24 @@ export default function AddMedicineForm() {
               ) : (
                 <span>Add Medicine</span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const abi = getABI();
+                const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+                
+                const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+                const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
+                
+                const admin = await contractWithSigner.hasRole(DEFAULT_ADMIN_ROLE, address);
+                const staff = await contractWithSigner.hasRole(STAFF_ROLE, address);
+                
+                alert(`Admin: ${admin}\nStaff: ${staff}\n\nAddress: ${address}`);
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded"
+            >
+              🔍 Check My Roles
             </button>
           </div>
         </form>

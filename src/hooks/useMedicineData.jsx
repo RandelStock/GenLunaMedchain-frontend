@@ -126,9 +126,12 @@ export function useMedicineInventory() {
       throw new Error(`Invalid hash format: ${dataHash}`);
     }
 
-    console.log('Storing medicine hash:', { medicineId: parsedId, dataHash });
+    console.log('🔍 Pre-flight checks:');
+    console.log('  Medicine ID:', parsedId);
+    console.log('  Data Hash:', dataHash);
+    console.log('  Wallet Address:', address);
+    console.log('  Has Access (frontend):', hasAccess);
 
-    // CRITICAL: Use ethers ONLY (skip ThirdWeb entirely for bytes32)
     if (!signer) {
       throw new Error("Signer not available. Please ensure MetaMask is connected.");
     }
@@ -137,36 +140,71 @@ export function useMedicineInventory() {
       const abi = getABI();
       const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
       
+      // ✅ ADD THIS: Verify roles on the actual contract
+      console.log('🔐 Verifying on-chain roles...');
+      const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+      const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
+      
+      const hasAdminRole = await contractWithSigner.hasRole(DEFAULT_ADMIN_ROLE, address);
+      const hasStaffRole = await contractWithSigner.hasRole(STAFF_ROLE, address);
+      
+      console.log('  Admin Role:', hasAdminRole);
+      console.log('  Staff Role:', hasStaffRole);
+      
+      if (!hasAdminRole && !hasStaffRole) {
+        throw new Error(
+          `❌ NO ROLES ON CONTRACT!\n` +
+          `Your wallet (${address}) does not have ADMIN or STAFF role on the deployed contract.\n` +
+          `Please ask the contract owner to grant you access using:\n` +
+          `contract.grantStaffRole("${address}")`
+        );
+      }
+      
       // Check if hash already exists
       try {
         const existing = await contractWithSigner.getMedicineHash(parsedId);
+        console.log('  Existing hash check:', existing);
         if (existing[3]) { // exists = true
           throw new Error(`Medicine ID ${parsedId} already exists on blockchain`);
         }
       } catch (checkErr) {
         // Ignore "does not exist" errors
         if (!checkErr.message?.includes('does not exist')) {
-          console.warn('Hash check warning:', checkErr.message);
+          console.warn('⚠️ Hash check warning:', checkErr.message);
         }
       }
 
       // Estimate gas first
-      console.log('Estimating gas...');
-      const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
-      console.log('Gas estimate:', gasEstimate.toString());
-
-      // Send transaction
-      const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
-        gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
-      });
+      console.log('⛽ Estimating gas...');
+      try {
+        const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
+        console.log('  Gas estimate:', gasEstimate.toString());
+        
+        // Send transaction
+        console.log('📤 Sending transaction...');
+        const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
+          gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
+        });
+        
+        console.log('⏳ Transaction sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed:', receipt.transactionHash);
+        
+        return receipt;
+        
+      } catch (gasErr) {
+        console.error('❌ Gas estimation failed:', gasErr);
+        
+        // Try to get revert reason
+        if (gasErr.error?.message) {
+          console.error('   Revert reason:', gasErr.error.message);
+        }
+        
+        throw gasErr;
+      }
       
-      console.log('Transaction sent:', tx.hash);
-      const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt.transactionHash);
-      
-      return receipt;
     } catch (err) {
-      console.error("storeMedicineHash failed:", err);
+      console.error("❌ storeMedicineHash failed:", err);
       
       // Better error messages
       let errorMsg = err?.message || err;
@@ -179,6 +217,8 @@ export function useMedicineInventory() {
         throw new Error('Insufficient funds for gas fees');
       } else if (errorMsg.includes('nonce')) {
         throw new Error('Nonce error. Please reset MetaMask or wait a moment.');
+      } else if (errorMsg.includes('NO ROLES ON CONTRACT')) {
+        throw err; // Preserve our custom error
       }
       
       throw new Error(`Blockchain transaction failed: ${errorMsg}`);
