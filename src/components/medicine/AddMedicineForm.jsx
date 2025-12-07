@@ -142,6 +142,7 @@ export default function AddMedicineForm() {
   const { 
     storeMedicineHash, 
     generateMedicineHash,
+    getMedicineHash,
     contractLoaded,
     hasAccess,
     checkingAccess
@@ -246,25 +247,87 @@ export default function AddMedicineForm() {
       const dbResponse = await api.post("/medicines", medicineData);
       const { medicine, stock } = dbResponse.data;
 
-      // ADD THIS DEBUG CHECK:
-      console.log("Checking blockchain for ID:", medicine.medicine_id);
-      const existingHash = await getMedicineHash(medicine.medicine_id);
-      console.log("Existing blockchain entry:", existingHash);
+      if (ENABLE_BLOCKCHAIN_FOR_MEDICINE) {
+        try {
+          // Check if exists on blockchain
+          console.log("Checking blockchain for ID:", medicine.medicine_id);
+          const existingHash = await getMedicineHash(medicine.medicine_id);
+          console.log("Existing blockchain entry:", existingHash);
 
-      if (existingHash && existingHash.exists) {
-        setError(
-          `⚠️ Medicine ID ${medicine.medicine_id} already exists on blockchain!\n` +
-          `This means your database and blockchain are out of sync.\n\n` +
-          `Added by: ${existingHash.addedBy}\n` +
-          `Hash: ${existingHash.dataHash}\n\n` +
-          `You need to either:\n` +
-          `1. Delete the old blockchain entry first\n` +
-          `2. Use a different medicine ID\n` +
-          `3. Clean up test data on blockchain`
+          if (existingHash && existingHash.exists) {
+            // Delete the medicine we just created since blockchain failed
+            await api.delete(`/medicines/${medicine.medicine_id}`);
+            
+            setError(
+              `⚠️ Medicine ID ${medicine.medicine_id} already exists on blockchain!\n` +
+              `Database entry was rolled back.\n\n` +
+              `Added by: ${existingHash.addedBy}\n` +
+              `Hash: ${existingHash.dataHash}\n\n` +
+              `You need to clean up test data on blockchain first.`
+            );
+            setLoading(false);
+            return;
+          }
+
+          // Generate and store hash
+          const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
+          const hashData = {
+            name: medicineData.medicine_name,
+            batchNumber: medicineData.batch_number,
+            quantity: medicineData.quantity,
+            expirationDate: expiryTimestamp,
+            location: medicineData.storage_location,
+            timestamp: Date.now()
+          };
+
+          const dataHash = generateMedicineHash(hashData);
+          const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
+          const txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
+
+          // Update database with blockchain info
+          await api.patch(`/medicines/${medicine.medicine_id}`, {
+            blockchain_hash: dataHash,
+            blockchain_tx_hash: txHash,
+            transaction_hash: txHash
+          });
+
+          await api.patch(`/stocks/${stock.stock_id}`, {
+            blockchain_hash: dataHash,
+            blockchain_tx_hash: txHash
+          });
+
+          setSuccess(
+            `✅ Medicine "${medicineData.medicine_name}" successfully added!\n\n` +
+            `📦 Batch: ${medicineData.batch_number}\n` +
+            `🆔 Database ID: ${medicine.medicine_id}\n` +
+            `⛓️ Blockchain TX: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+          );
+
+        } catch (blockchainErr) {
+          console.error("Blockchain operation failed:", blockchainErr);
+          
+          // Delete the medicine we just created since blockchain failed
+          await api.delete(`/medicines/${medicine.medicine_id}`);
+          
+          setError(
+            `⚠️ Medicine was created in database but blockchain storage failed.\n` +
+            `Database entry has been rolled back.\n\n` +
+            `Error: ${blockchainErr.message}\n\n` +
+            `Please try again or contact support.`
+          );
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Blockchain disabled
+        setSuccess(
+          `Medicine "${medicineData.medicine_name}" (Batch: ${medicineData.batch_number}) successfully added!\n` +
+          `Database ID: ${medicine.medicine_id}\n` +
+          `Blockchain: disabled`
         );
-        setLoading(false);
-        return;
       }
+
+      e.target.reset();
 
 
       const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
