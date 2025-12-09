@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload, FaEye } from 'react-icons/fa';
 import { useContract } from "@thirdweb-dev/react";
 import api from '../../api.js';
@@ -9,7 +9,6 @@ const CONTRACT_ADDRESS = "0xb00597076d75C504DEcb69c55B146f83819e61C1";
 export default function BlockchainHistory() {
   const { contract } = useContract(CONTRACT_ADDRESS, ContractABI.abi);
   const [blockchainData, setBlockchainData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState(null);
@@ -21,18 +20,39 @@ export default function BlockchainHistory() {
   const [recordData, setRecordData] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
 
-  // 🔥 CHANGE 1: Added stock_transactions to stats
   const [stats, setStats] = useState({
     total: 0,
     medicines: 0,
     stocks: 0,
-    stock_transactions: 0, // ← NEW
+    stock_transactions: 0,
     receipts: 0,
     removals: 0,
   });
 
-  // 🔥 CHANGE 2: Updated fetchBlockchainData to handle stock_transactions count
-  const fetchBlockchainData = async () => {
+  // 🚀 OPTIMIZATION 1: Memoize filtered data to avoid recalculation on every render
+  const filteredData = useMemo(() => {
+    let filtered = [...blockchainData];
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter(item => item.type === filterType);
+    }
+
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.hash?.toLowerCase().includes(searchLower) ||
+        item.recordId?.toString().includes(searchLower) ||
+        item.type?.toLowerCase().includes(searchLower) ||
+        item.addedBy?.toLowerCase().includes(searchLower) ||
+        item.addedByName?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return filtered;
+  }, [searchTerm, filterType, blockchainData]);
+
+  // 🚀 OPTIMIZATION 2: Use useCallback to prevent function recreation
+  const fetchBlockchainData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -42,12 +62,11 @@ export default function BlockchainHistory() {
       const counts = data?.counts || {};
       
       setBlockchainData(hashes);
-      setFilteredData(hashes);
       setStats({
         total: counts.total || 0,
         medicines: counts.medicines || 0,
         stocks: counts.stocks || 0,
-        stock_transactions: counts.stock_transactions || 0, // ← NEW
+        stock_transactions: counts.stock_transactions || 0,
         receipts: counts.receipts || 0,
         removals: counts.removals || 0
       });
@@ -60,7 +79,7 @@ export default function BlockchainHistory() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const scanBlockchainForMissing = async () => {
     if (!contract) {
@@ -125,9 +144,17 @@ export default function BlockchainHistory() {
         
         const updatedData = [...blockchainData, ...missingRecords];
         setBlockchainData(updatedData);
-        setFilteredData(updatedData);
         
-        calculateStats(updatedData);
+        // Recalculate stats
+        const newStats = {
+          total: updatedData.length,
+          medicines: updatedData.filter(item => item.type === 'medicine').length,
+          stocks: updatedData.filter(item => item.type === 'stock').length,
+          stock_transactions: updatedData.filter(item => item.type === 'stock_transaction').length,
+          receipts: updatedData.filter(item => item.type === 'receipt').length,
+          removals: updatedData.filter(item => item.type === 'removal').length
+        };
+        setStats(newStats);
         
         alert(`🎉 Found ${missingRecords.length} records on blockchain that weren't in the history!\n\nRecords found: ${missingRecords.map(r => `#${r.recordId}`).join(', ')}`);
       } else {
@@ -143,92 +170,56 @@ export default function BlockchainHistory() {
     }
   };
 
-  // 🔥 CHANGE 3: Updated fetchRecordData to handle stock_transaction
-  const fetchRecordData = async (item) => {
+  // 🚀 OPTIMIZATION 3: Use useCallback for fetchRecordData
+  const fetchRecordData = useCallback(async (item) => {
     setLoadingData(true);
     setRecordData(null);
     
     try {
       let endpoint = '';
-      let dataKey = '';
       
       switch (item.type) {
         case 'medicine':
           endpoint = `/medicines/${item.recordId}`;
-          dataKey = 'medicine';
           break;
         case 'stock':
           endpoint = `/stock/${item.recordId}`;
-          dataKey = 'stock';
           break;
-        case 'stock_transaction': // ← NEW
+        case 'stock_transaction':
           endpoint = `/stock-transactions/${item.recordId}`;
-          dataKey = 'transaction';
           break;
         case 'receipt':
           endpoint = `/receipts/${item.recordId}`;
-          dataKey = 'receipt';
           break;
         case 'removal':
           endpoint = `/removals/${item.recordId}`;
-          dataKey = 'removal';
           break;
         default:
           throw new Error('Unknown record type');
       }
       
       const { data } = await api.get(endpoint);
-      setRecordData({ type: item.type, data: data.data || data, key: dataKey });
+      setRecordData({ type: item.type, data: data.data || data });
     } catch (err) {
       console.error('Error fetching record data:', err);
       setRecordData({ error: 'Failed to load record data. The record may have been deleted.' });
     } finally {
       setLoadingData(false);
     }
-  };
-
-  const openDetails = (item) => {
-    setSelected(item);
-    fetchRecordData(item);
-  };
-
-  useEffect(() => {
-    fetchBlockchainData();
   }, []);
 
+  const openDetails = useCallback((item) => {
+    setSelected(item);
+    fetchRecordData(item);
+  }, [fetchRecordData]);
+
+  // 🚀 OPTIMIZATION 4: Load data once on mount
   useEffect(() => {
-    let filtered = [...blockchainData];
+    fetchBlockchainData();
+  }, [fetchBlockchainData]);
 
-    if (filterType !== 'all') {
-      filtered = filtered.filter(item => item.type === filterType);
-    }
-
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.hash?.toLowerCase().includes(searchLower) ||
-        item.recordId?.toString().includes(searchLower) ||
-        item.type?.toLowerCase().includes(searchLower) ||
-        item.addedBy?.toLowerCase().includes(searchLower) ||
-        item.addedByName?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    setFilteredData(filtered);
-  }, [searchTerm, filterType, blockchainData]);
-
-  const calculateStats = (data) => {
-    setStats({
-      total: data.length,
-      medicines: data.filter(item => item.type === 'medicine').length,
-      stocks: data.filter(item => item.type === 'stock').length,
-      stock_transactions: data.filter(item => item.type === 'stock_transaction').length, // ← NEW
-      receipts: data.filter(item => item.type === 'receipt').length,
-      removals: data.filter(item => item.type === 'removal').length
-    });
-  };
-
-  const formatTimestamp = (timestamp) => {
+  // 🚀 OPTIMIZATION 5: Memoize helper functions
+  const formatTimestamp = useCallback((timestamp) => {
     return new Date(timestamp * 1000).toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -236,39 +227,37 @@ export default function BlockchainHistory() {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
 
-  const formatAddress = (address) => {
+  const formatAddress = useCallback((address) => {
     if (!address || address === 'Unknown') return 'N/A';
     if (address.length < 10) return address;
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+  }, []);
 
-  // 🔥 CHANGE 4: Added stock_transaction color
-  const getTypeColor = (type) => {
+  const getTypeColor = useCallback((type) => {
     const colors = {
       'medicine': 'bg-blue-50 text-blue-700 border-blue-200',
       'stock': 'bg-purple-50 text-purple-700 border-purple-200',
-      'stock_transaction': 'bg-indigo-50 text-indigo-700 border-indigo-200', // ← NEW
+      'stock_transaction': 'bg-indigo-50 text-indigo-700 border-indigo-200',
       'receipt': 'bg-emerald-50 text-emerald-700 border-emerald-200',
       'removal': 'bg-red-50 text-red-700 border-red-200'
     };
     return colors[type] || 'bg-gray-50 text-gray-700 border-gray-200';
-  };
+  }, []);
 
-  // 🔥 CHANGE 5: Added stock_transaction icon
-  const getTypeIcon = (type) => {
+  const getTypeIcon = useCallback((type) => {
     const icons = {
       'medicine': '💊',
       'stock': '📦',
-      'stock_transaction': '🔄', // ← NEW
+      'stock_transaction': '🔄',
       'receipt': '📋',
       'removal': '🗑️'
     };
     return icons[type] || '📄';
-  };
+  }, []);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     const csvContent = [
       ['Type', 'Record ID', 'Data Hash', 'Added By', 'Added By Name', 'Timestamp', 'Status', 'TX Hash', 'Found By Scan'],
       ...filteredData.map(item => [
@@ -291,9 +280,9 @@ export default function BlockchainHistory() {
     a.download = `blockchain-hashes-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-  };
+  }, [filteredData, formatAddress, formatTimestamp]);
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = useCallback(async () => {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -315,10 +304,9 @@ export default function BlockchainHistory() {
     });
     
     doc.save(`blockchain-hashes-${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  }, [filteredData, formatAddress, formatTimestamp]);
 
-  // 🔥 CHANGE 6: Added stock_transaction rendering case
-  const renderRecordData = () => {
+  const renderRecordData = useCallback(() => {
     if (loadingData) {
       return (
         <div className="py-8 text-center">
@@ -411,7 +399,6 @@ export default function BlockchainHistory() {
           </div>
         );
 
-      // 🔥 NEW CASE: stock_transaction
       case 'stock_transaction':
         return (
           <div className="mt-4 border-t border-gray-200 pt-4">
@@ -544,7 +531,7 @@ export default function BlockchainHistory() {
       default:
         return null;
     }
-  };
+  }, [loadingData, recordData]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -607,7 +594,7 @@ export default function BlockchainHistory() {
             </div>
           </div>
 
-          {/* 🔥 CHANGE 7: Stats Cards - Added stock_transactions card */}
+          {/* Stats Cards */}
           <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
@@ -615,24 +602,23 @@ export default function BlockchainHistory() {
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-blue-600">{stats.medicines}</div>
-              <div className="text-xs text-gray-600 mt-0.5">Medicines</div>
+              <div className="text-xs text-gray-600 mt-0.5">Added Medicine </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            {/* <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-purple-600">{stats.stocks}</div>
               <div className="text-xs text-gray-600 mt-0.5">Stocks</div>
-            </div>
-            {/* ← NEW CARD */}
+            </div> */}
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-indigo-600">{stats.stock_transactions}</div>
-              <div className="text-xs text-gray-600 mt-0.5">Transactions</div>
+              <div className="text-xs text-gray-600 mt-0.5">Added Medicine Stock</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-emerald-600">{stats.receipts}</div>
-              <div className="text-xs text-gray-600 mt-0.5">Receipts</div>
+              <div className="text-xs text-gray-600 mt-0.5">Medicine Release</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-red-600">{stats.removals}</div>
-              <div className="text-xs text-gray-600 mt-0.5">Removals</div>
+              <div className="text-xs text-gray-600 mt-0.5">Removed Medicine Stock</div>
             </div>
           </div>
 
@@ -665,7 +651,7 @@ export default function BlockchainHistory() {
             </p>
           </div>
 
-          {/* 🔥 CHANGE 8: Filters - Added stock_transaction option */}
+          {/* Filters */}
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -686,7 +672,7 @@ export default function BlockchainHistory() {
               <option value="all">All Types</option>
               <option value="medicine">Medicine</option>
               <option value="stock">Stock</option>
-              <option value="stock_transaction">Stock Transaction</option> {/* ← NEW */}
+              <option value="stock_transaction">Stock Transaction</option>
               <option value="receipt">Receipt</option>
               <option value="removal">Removal</option>
             </select>
@@ -846,7 +832,7 @@ export default function BlockchainHistory() {
               <h2 className="text-lg font-semibold text-gray-900">Hash Details</h2>
               <button
                 onClick={() => setSelected(null)}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 text-2xl leading-none"
               >
                 ×
               </button>
