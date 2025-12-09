@@ -4,7 +4,7 @@ import { useAddress } from '@thirdweb-dev/react';
 import API_BASE_URL from '../config';
 
 const AllAuditLogs = () => {
-  const address = useAddress(); // Get connected wallet address
+  const address = useAddress();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -14,7 +14,7 @@ const AllAuditLogs = () => {
   const [showStats, setShowStats] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null); // Store current user profile
+  const [currentUser, setCurrentUser] = useState(null);
   const [filters, setFilters] = useState({
     table: 'all',
     action: 'all',
@@ -28,9 +28,8 @@ const AllAuditLogs = () => {
     loadLogs();
     loadStats();
     loadBarangays();
-  }, [page, filters]);
+  }, [page, filters.table, filters.action, filters.month]);
 
-  // Fetch current user profile based on connected wallet
   useEffect(() => {
     const fetchCurrentUser = async () => {
       if (address) {
@@ -64,7 +63,7 @@ const AllAuditLogs = () => {
         const uniqueBarangays = [...new Set(
           medicinesData
             .map(med => med.barangay)
-            .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU')
+            .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU' && brgy.toUpperCase() !== 'MUNICIPAL')
         )].sort();
         
         setBarangays(uniqueBarangays);
@@ -135,11 +134,25 @@ const AllAuditLogs = () => {
         'DELETE': 'Deleted Medicine'
       },
       'stocks': {
-        'INSERT': 'Added Stock',
-        'CREATE': 'Added Stock',
-        'UPDATE': 'Updated Stock',
-        'PATCH': 'Updated Stock',
-        'DELETE': 'Deleted Stock'
+        'INSERT': 'Added Medicine Stock',
+        'CREATE': 'Added Medicine Stock',
+        'UPDATE': 'Updated Medicine Stock',
+        'PATCH': 'Updated Medicine Stock',
+        'DELETE': 'Deleted Medicine Stock'
+      },
+      'medicine_stocks': {
+        'INSERT': 'Added Medicine Stock',
+        'CREATE': 'Added Medicine Stock',
+        'UPDATE': 'Updated Medicine Stock',
+        'PATCH': 'Updated Medicine Stock',
+        'DELETE': 'Deleted Medicine Stock'
+      },
+      'stock_transactions': {
+        'INSERT': 'New Medicine',
+        'CREATE': 'New Medicine',
+        'UPDATE': 'Updated Medicine',
+        'PATCH': 'Updated Medicine',
+        'DELETE': 'Deleted Medicine'
       },
       'stock_removals': {
         'INSERT': 'Removed Stock',
@@ -207,35 +220,33 @@ const AllAuditLogs = () => {
     const tableMap = {
       'medicines': 'Medicines',
       'stocks': 'Medicine Stocks',
+      'medicine_stocks': 'Medicine Stocks',
       'stock_removals': 'Stock Removals',
       'receipts': 'Medicine Releases',
       'residents': 'Residents',
       'consultations': 'Consultations',
       'users': 'Users',
-      'stock_transactions': 'Stock Transactions'
+      'stock_transactions': 'Medicines'
     };
     return tableMap[tableName] || tableName;
   };
 
   const getUserDisplayName = (log) => {
-    // If log has user info, use it
     if (log.changed_by_user?.full_name) {
       return log.changed_by_user.full_name;
     }
     
-    // If wallet matches current user's wallet, show current user name
     if (log.changed_by_wallet && address && 
         log.changed_by_wallet.toLowerCase() === address.toLowerCase() && 
         currentUser?.full_name) {
       return currentUser.full_name;
     }
     
-    // Otherwise show wallet address or Unknown
     if (log.changed_by_wallet) {
       return formatAddress(log.changed_by_wallet);
     }
     
-    return 'Unknown User';
+    return 'System';
   };
 
   const formatAddress = (address) => {
@@ -275,7 +286,8 @@ const AllAuditLogs = () => {
       const matchesSearch = (
         (log.table_name || '').toLowerCase().includes(q) ||
         (log.action || '').toLowerCase().includes(q) ||
-        (log.changed_by_user?.full_name || '').toLowerCase().includes(q)
+        (log.changed_by_user?.full_name || '').toLowerCase().includes(q) ||
+        (log.changed_by_wallet || '').toLowerCase().includes(q)
       );
       if (!matchesSearch) return false;
     }
@@ -302,9 +314,7 @@ const AllAuditLogs = () => {
         getActionLabel(log.action, log.table_name),
         getUserDisplayName(log),
         log.changed_by_wallet || 'N/A',
-        log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
-          ? 'RHU/Municipal' 
-          : (log.derivedBarangay || 'RHU/Municipal')
+        log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal')
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -343,9 +353,7 @@ const AllAuditLogs = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-      const scope = log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
-        ? 'RHU/Municipal' 
-        : (log.derivedBarangay || 'RHU/Municipal');
+      const scope = log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal');
       const line = `${date} | ${getTableDisplayName(log.table_name)}#${log.record_id || 'N/A'} | ${getActionLabel(log.action, log.table_name)} | ${getUserDisplayName(log)} | ${scope}`;
       doc.text(line.substring(0, 110), 14, y);
       y += 6;
@@ -373,7 +381,7 @@ const AllAuditLogs = () => {
                 <>
                   <div className="h-6 w-px bg-gray-300"></div>
                   <span className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-900 border border-blue-300">
-                    {filters.barangay}
+                    {filters.barangay === 'RHU' ? 'RHU/Municipal' : filters.barangay}
                   </span>
                 </>
               )}
@@ -487,7 +495,7 @@ const AllAuditLogs = () => {
             </div>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Actions</div>
-              <div className="space-y-1">
+              <div className="space-y-1 max-h-32 overflow-y-auto">
                 {Object.entries(stats.byAction || {}).map(([action, count]) => (
                   <div key={action} className="flex justify-between text-xs">
                     <span className="text-gray-600">{action}</span>
@@ -498,10 +506,10 @@ const AllAuditLogs = () => {
             </div>
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tables</div>
-              <div className="space-y-1">
+              <div className="space-y-1 max-h-32 overflow-y-auto">
                 {Object.entries(stats.byTable || {}).map(([table, count]) => (
                   <div key={table} className="flex justify-between text-xs">
-                    <span className="text-gray-600">{table.replace('_', ' ')}</span>
+                    <span className="text-gray-600">{getTableDisplayName(table)}</span>
                     <span className="font-semibold text-gray-900">{count}</span>
                   </div>
                 ))}
@@ -567,9 +575,7 @@ const AllAuditLogs = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">
-                            {log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
-                              ? 'RHU/Municipal' 
-                              : (log.derivedBarangay || 'RHU/Municipal')}
+                            {log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal')}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
@@ -667,9 +673,7 @@ const AllAuditLogs = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Barangay:</span>
                       <span className="font-medium text-gray-900">
-                        {selectedLog.derivedBarangay === 'RHU' || selectedLog.derivedBarangay === 'MUNICIPAL' 
-                          ? 'RHU/Municipal' 
-                          : (selectedLog.derivedBarangay || 'RHU/Municipal')}
+                        {selectedLog.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (selectedLog.derivedBarangay || 'RHU/Municipal')}
                       </span>
                     </div>
                     <div className="flex justify-between">
