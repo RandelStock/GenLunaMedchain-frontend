@@ -95,7 +95,7 @@ const Sidebar = () => {
           { path: "/consultations/calendar", icon: FaCalendarAlt, label: "Consultation Calendar" },
           { path: "/consultations/statistics", icon: FaChartLine, label: "Consultaion Statistics" },
           // { path: "/audit-logs", icon: FaHistory, label: "Audit Trail" },
-          { path: "/audit-logs/all", icon: FaHistory, label: "All Audit Logs" },
+          { path: "/audit-logs/all", icon: FaHistory, label: "Audit Logs" },
           { path: "/profile", icon: FaUser, label: "Profile" },
         ],
       };

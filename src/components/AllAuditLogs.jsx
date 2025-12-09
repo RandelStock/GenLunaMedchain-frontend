@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FaHistory, FaFilter, FaDownload, FaChartBar, FaEye, FaEyeSlash, FaSearch, FaTimes } from 'react-icons/fa';
+import { useAddress } from '@thirdweb-dev/react';
 import API_BASE_URL from '../config';
 
 const AllAuditLogs = () => {
+  const address = useAddress(); // Get connected wallet address
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -12,6 +14,7 @@ const AllAuditLogs = () => {
   const [showStats, setShowStats] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null); // Store current user profile
   const [filters, setFilters] = useState({
     table: 'all',
     action: 'all',
@@ -27,6 +30,27 @@ const AllAuditLogs = () => {
     loadBarangays();
   }, [page, filters]);
 
+  // Fetch current user profile based on connected wallet
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (address) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/users/me`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setCurrentUser(data?.user || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch current user:', e);
+          setCurrentUser(null);
+        }
+      }
+    };
+    fetchCurrentUser();
+  }, [address]);
+
   const loadBarangays = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/medicines`, {
@@ -37,7 +61,6 @@ const AllAuditLogs = () => {
         const data = await response.json();
         const medicinesData = data.data || [];
         
-        // Extract unique barangays from medicines, excluding RHU
         const uniqueBarangays = [...new Set(
           medicinesData
             .map(med => med.barangay)
@@ -102,6 +125,64 @@ const AllAuditLogs = () => {
     }
   };
 
+  const getActionLabel = (action, tableName) => {
+    const actionMap = {
+      'medicines': {
+        'INSERT': 'New Medicine',
+        'CREATE': 'New Medicine',
+        'UPDATE': 'Updated Medicine',
+        'PATCH': 'Updated Medicine',
+        'DELETE': 'Deleted Medicine'
+      },
+      'stocks': {
+        'INSERT': 'Added Stock',
+        'CREATE': 'Added Stock',
+        'UPDATE': 'Updated Stock',
+        'PATCH': 'Updated Stock',
+        'DELETE': 'Deleted Stock'
+      },
+      'stock_removals': {
+        'INSERT': 'Removed Stock',
+        'CREATE': 'Removed Stock',
+        'UPDATE': 'Updated Removal',
+        'PATCH': 'Updated Removal',
+        'DELETE': 'Deleted Removal'
+      },
+      'receipts': {
+        'INSERT': 'Medicine Released',
+        'CREATE': 'Medicine Released',
+        'UPDATE': 'Updated Release',
+        'PATCH': 'Updated Release',
+        'DELETE': 'Deleted Release'
+      },
+      'residents': {
+        'INSERT': 'Added Resident',
+        'CREATE': 'Added Resident',
+        'UPDATE': 'Updated Resident',
+        'PATCH': 'Updated Resident',
+        'DELETE': 'Removed Resident'
+      },
+      'consultations': {
+        'INSERT': 'New Consultation',
+        'CREATE': 'New Consultation',
+        'UPDATE': 'Updated Consultation',
+        'PATCH': 'Updated Consultation',
+        'DELETE': 'Cancelled Consultation'
+      },
+      'users': {
+        'INSERT': 'Added User',
+        'CREATE': 'Added User',
+        'UPDATE': 'Updated User',
+        'PATCH': 'Updated User',
+        'DELETE': 'Removed User',
+        'GRANT_ROLE': 'Granted Role',
+        'REVOKE_ROLE': 'Revoked Role'
+      }
+    };
+
+    return actionMap[tableName]?.[action] || action;
+  };
+
   const getActionColor = (action) => {
     switch (action) {
       case 'CREATE':
@@ -120,6 +201,41 @@ const AllAuditLogs = () => {
       default:
         return 'bg-gray-50 text-gray-700 border-gray-200';
     }
+  };
+
+  const getTableDisplayName = (tableName) => {
+    const tableMap = {
+      'medicines': 'Medicines',
+      'stocks': 'Medicine Stocks',
+      'stock_removals': 'Stock Removals',
+      'receipts': 'Medicine Releases',
+      'residents': 'Residents',
+      'consultations': 'Consultations',
+      'users': 'Users',
+      'stock_transactions': 'Stock Transactions'
+    };
+    return tableMap[tableName] || tableName;
+  };
+
+  const getUserDisplayName = (log) => {
+    // If log has user info, use it
+    if (log.changed_by_user?.full_name) {
+      return log.changed_by_user.full_name;
+    }
+    
+    // If wallet matches current user's wallet, show current user name
+    if (log.changed_by_wallet && address && 
+        log.changed_by_wallet.toLowerCase() === address.toLowerCase() && 
+        currentUser?.full_name) {
+      return currentUser.full_name;
+    }
+    
+    // Otherwise show wallet address or Unknown
+    if (log.changed_by_wallet) {
+      return formatAddress(log.changed_by_wallet);
+    }
+    
+    return 'Unknown User';
   };
 
   const formatAddress = (address) => {
@@ -153,9 +269,7 @@ const AllAuditLogs = () => {
     setShowDetails(false);
   };
 
-  // Filter logs by search and barangay
   const filteredLogs = logs.filter(log => {
-    // Search filter
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const matchesSearch = (
@@ -166,7 +280,6 @@ const AllAuditLogs = () => {
       if (!matchesSearch) return false;
     }
 
-    // Barangay filter
     if (filters.barangay !== 'all') {
       const logBarangay = log.derivedBarangay || 'RHU';
       if (filters.barangay === 'RHU') {
@@ -184,12 +297,14 @@ const AllAuditLogs = () => {
       ['Date', 'Table', 'Record ID', 'Action', 'Changed By', 'Wallet', 'Scope/Barangay'],
       ...filteredLogs.map(log => [
         new Date(log.changed_at).toLocaleString(),
-        log.table_name,
+        getTableDisplayName(log.table_name),
         log.record_id || 'N/A',
-        log.action,
-        log.changed_by_user?.full_name || 'System',
+        getActionLabel(log.action, log.table_name),
+        getUserDisplayName(log),
         log.changed_by_wallet || 'N/A',
-        log.derivedBarangay || 'RHU'
+        log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
+          ? 'RHU/Municipal' 
+          : (log.derivedBarangay || 'RHU/Municipal')
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -211,7 +326,7 @@ const AllAuditLogs = () => {
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
     if (filters.barangay !== 'all') {
-      doc.text(`Barangay: ${filters.barangay}`, 14, 34);
+      doc.text(`Barangay: ${filters.barangay === 'RHU' ? 'RHU/Municipal Health Center' : filters.barangay}`, 14, 34);
       doc.text(`Total Records: ${filteredLogs.length}`, 14, 40);
     } else {
       doc.text(`Total Records: ${filteredLogs.length}`, 14, 34);
@@ -228,7 +343,10 @@ const AllAuditLogs = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-      const line = `${date} | ${log.table_name}#${log.record_id || 'N/A'} | ${log.action} | ${log.changed_by_user?.full_name || 'System'} | ${log.derivedBarangay || 'RHU'}`;
+      const scope = log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
+        ? 'RHU/Municipal' 
+        : (log.derivedBarangay || 'RHU/Municipal');
+      const line = `${date} | ${getTableDisplayName(log.table_name)}#${log.record_id || 'N/A'} | ${getActionLabel(log.action, log.table_name)} | ${getUserDisplayName(log)} | ${scope}`;
       doc.text(line.substring(0, 110), 14, y);
       y += 6;
       if (y > 280) { doc.addPage(); y = 20; }
@@ -308,7 +426,7 @@ const AllAuditLogs = () => {
               style={{ color: '#111827' }}
             >
               <option value="all" style={{ color: '#111827' }}>All Barangays</option>
-              <option value="RHU" style={{ color: '#111827' }}>RHU</option>
+              <option value="RHU" style={{ color: '#111827' }}>RHU/Municipal Health Center</option>
               {barangays.map(brgy => (
                 <option key={brgy} value={brgy} style={{ color: '#111827' }}>{brgy}</option>
               ))}
@@ -322,11 +440,12 @@ const AllAuditLogs = () => {
             >
               <option value="all" style={{ color: '#111827' }}>All Tables</option>
               <option value="medicines" style={{ color: '#111827' }}>Medicines</option>
-              <option value="receipts" style={{ color: '#111827' }}>Receipts</option>
-              <option value="stocks" style={{ color: '#111827' }}>Stocks</option>
+              <option value="receipts" style={{ color: '#111827' }}>Medicine Releases</option>
+              <option value="stocks" style={{ color: '#111827' }}>Medicine Stocks</option>
               <option value="residents" style={{ color: '#111827' }}>Residents</option>
               <option value="stock_removals" style={{ color: '#111827' }}>Stock Removals</option>
               <option value="consultations" style={{ color: '#111827' }}>Consultations</option>
+              <option value="users" style={{ color: '#111827' }}>Users</option>
             </select>
 
             <select
@@ -336,14 +455,14 @@ const AllAuditLogs = () => {
               style={{ color: '#111827' }}
             >
               <option value="all" style={{ color: '#111827' }}>All Actions</option>
-              <option value="CREATE" style={{ color: '#111827' }}>Create</option>
-              <option value="INSERT" style={{ color: '#111827' }}>Insert</option>
-              <option value="UPDATE" style={{ color: '#111827' }}>Update</option>
-              <option value="PATCH" style={{ color: '#111827' }}>Patch</option>
-              <option value="DELETE" style={{ color: '#111827' }}>Delete</option>
-              <option value="STORE" style={{ color: '#111827' }}>Store</option>
-              <option value="GRANT_ROLE" style={{ color: '#111827' }}>Grant Role</option>
-              <option value="REVOKE_ROLE" style={{ color: '#111827' }}>Revoke Role</option>
+              <option value="CREATE" style={{ color: '#111827' }}>New/Added</option>
+              <option value="UPDATE" style={{ color: '#111827' }}>Updated</option>
+              <option value="DELETE" style={{ color: '#111827' }}>Deleted/Removed</option>
+              <option value="INSERT" style={{ color: '#111827' }}>Inserted</option>
+              <option value="PATCH" style={{ color: '#111827' }}>Patched</option>
+              <option value="STORE" style={{ color: '#111827' }}>Stored</option>
+              <option value="GRANT_ROLE" style={{ color: '#111827' }}>Granted Role</option>
+              <option value="REVOKE_ROLE" style={{ color: '#111827' }}>Revoked Role</option>
             </select>
 
             <input
@@ -424,25 +543,33 @@ const AllAuditLogs = () => {
                           {new Date(log.changed_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {log.table_name}
+                          {getTableDisplayName(log.table_name)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                           #{log.record_id || 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(log.action)}`}>
-                            {log.action}
+                            {getActionLabel(log.action, log.table_name)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           <div className="flex flex-col">
-                            <span>{log.changed_by_user?.full_name || 'System'}</span>
-                            <span className="text-xs text-gray-500 font-mono">{formatAddress(log.changed_by_wallet)}</span>
+                            <span className="font-medium">
+                              {getUserDisplayName(log)}
+                            </span>
+                            {log.changed_by_wallet && (
+                              <span className="text-xs text-gray-500 font-mono">
+                                {formatAddress(log.changed_by_wallet)}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">
-                            {log.derivedBarangay || 'RHU'}
+                            {log.derivedBarangay === 'RHU' || log.derivedBarangay === 'MUNICIPAL' 
+                              ? 'RHU/Municipal' 
+                              : (log.derivedBarangay || 'RHU/Municipal')}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
@@ -517,7 +644,7 @@ const AllAuditLogs = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Table:</span>
-                      <span className="font-medium text-gray-900">{selectedLog.table_name}</span>
+                      <span className="font-medium text-gray-900">{getTableDisplayName(selectedLog.table_name)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Record ID:</span>
@@ -526,12 +653,12 @@ const AllAuditLogs = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Action:</span>
                       <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(selectedLog.action)}`}>
-                        {selectedLog.action}
+                        {getActionLabel(selectedLog.action, selectedLog.table_name)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Changed By:</span>
-                      <span className="font-medium text-gray-900">{selectedLog.changed_by_user?.full_name || 'System'}</span>
+                      <span className="font-medium text-gray-900">{getUserDisplayName(selectedLog)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Role:</span>
@@ -539,7 +666,11 @@ const AllAuditLogs = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Barangay:</span>
-                      <span className="font-medium text-gray-900">{selectedLog.derivedBarangay || 'RHU'}</span>
+                      <span className="font-medium text-gray-900">
+                        {selectedLog.derivedBarangay === 'RHU' || selectedLog.derivedBarangay === 'MUNICIPAL' 
+                          ? 'RHU/Municipal' 
+                          : (selectedLog.derivedBarangay || 'RHU/Municipal')}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Wallet:</span>
