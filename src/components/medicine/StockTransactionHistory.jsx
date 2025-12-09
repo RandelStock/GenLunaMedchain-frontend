@@ -94,16 +94,8 @@ export default function StockTransactionHistory() {
   };
 
   const getBlockchainExplorerUrl = (txHash) => {
-    // You can modify this based on your network
-    // For Ethereum Mainnet
-    // return `https://etherscan.io/tx/${txHash}`;
-    
-    // For Sepolia Testnet
-    return `https://sepolia.etherscan.io/tx/${txHash}`;
-    
-    // For other networks, adjust accordingly
-    // Polygon: `https://polygonscan.com/tx/${txHash}`
-    // BSC: `https://bscscan.com/tx/${txHash}`
+    return `https://amoy.polygonscan.com/tx/${txHash}`;
+
   };
 
   const getTransactionIcon = (type) => {

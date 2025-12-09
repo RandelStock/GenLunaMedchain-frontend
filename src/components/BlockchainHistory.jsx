@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload } from 'react-icons/fa';
+import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload, FaEye } from 'react-icons/fa';
 import { useContract } from "@thirdweb-dev/react";
 import api from '../../api.js';
 import ContractABI from '../abi/ContractABI.json';
 
-// Import your contract details
 const CONTRACT_ADDRESS = "0xb00597076d75C504DEcb69c55B146f83819e61C1"; 
 
 export default function BlockchainHistory() {
@@ -18,16 +17,21 @@ export default function BlockchainHistory() {
   const [filterType, setFilterType] = useState('all');
   const [verificationStatus, setVerificationStatus] = useState({});
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+  const [selected, setSelected] = useState(null);
+  const [recordData, setRecordData] = useState(null);
+  const [loadingData, setLoadingData] = useState(false);
 
+  // 🔥 CHANGE 1: Added stock_transactions to stats
   const [stats, setStats] = useState({
     total: 0,
     medicines: 0,
     stocks: 0,
+    stock_transactions: 0, // ← NEW
     receipts: 0,
-    removals: 0
+    removals: 0,
   });
 
-  // Fetch blockchain hashes from database
+  // 🔥 CHANGE 2: Updated fetchBlockchainData to handle stock_transactions count
   const fetchBlockchainData = async () => {
     setLoading(true);
     setError(null);
@@ -43,6 +47,7 @@ export default function BlockchainHistory() {
         total: counts.total || 0,
         medicines: counts.medicines || 0,
         stocks: counts.stocks || 0,
+        stock_transactions: counts.stock_transactions || 0, // ← NEW
         receipts: counts.receipts || 0,
         removals: counts.removals || 0
       });
@@ -57,7 +62,6 @@ export default function BlockchainHistory() {
     }
   };
 
-  // ✅ NEW: Scan blockchain for missing records
   const scanBlockchainForMissing = async () => {
     if (!contract) {
       alert("Contract not loaded. Please refresh the page.");
@@ -69,11 +73,10 @@ export default function BlockchainHistory() {
       setScanProgress({ current: 0, total: 0 });
       console.log("🔍 Scanning blockchain for missing records...");
       
-      // Get medicines from database to determine scan range
       const dbResponse = await api.get('/medicines');
       const medicines = dbResponse.data.data || [];
       const maxId = Math.max(...medicines.map(m => m.medicine_id), 0);
-      const scanLimit = Math.max(maxId + 50, 100); // Scan beyond max ID
+      const scanLimit = Math.max(maxId + 50, 100);
       
       setScanProgress({ current: 0, total: scanLimit });
       
@@ -86,13 +89,13 @@ export default function BlockchainHistory() {
         setScanProgress({ current: i, total: scanLimit });
         
         if (existingIds.has(i)) {
-          continue; // Skip already known records
+          continue;
         }
         
         try {
           const hashData = await contract.call("getMedicineHash", [i]);
           
-          if (hashData[3]) { // exists = true on blockchain
+          if (hashData[3]) {
             const medicine = medicines.find(m => m.medicine_id === i);
             
             missingRecords.push({
@@ -105,13 +108,12 @@ export default function BlockchainHistory() {
               exists: true,
               txHash: medicine?.blockchain_tx_hash || null,
               inDatabase: !!medicine,
-              foundByScan: true // ✅ Flag to highlight it was found by scan
+              foundByScan: true
             });
             
             console.log(`✅ Found missing record: Medicine #${i}`);
           }
         } catch (err) {
-          // Ignore "does not exist" errors
           if (!err.message?.includes('does not exist')) {
             console.warn(`Error checking medicine ${i}:`, err);
           }
@@ -121,12 +123,10 @@ export default function BlockchainHistory() {
       if (missingRecords.length > 0) {
         console.log(`✅ Found ${missingRecords.length} missing records!`);
         
-        // Add missing records to the list
         const updatedData = [...blockchainData, ...missingRecords];
         setBlockchainData(updatedData);
         setFilteredData(updatedData);
         
-        // Recalculate stats
         calculateStats(updatedData);
         
         alert(`🎉 Found ${missingRecords.length} records on blockchain that weren't in the history!\n\nRecords found: ${missingRecords.map(r => `#${r.recordId}`).join(', ')}`);
@@ -143,11 +143,59 @@ export default function BlockchainHistory() {
     }
   };
 
+  // 🔥 CHANGE 3: Updated fetchRecordData to handle stock_transaction
+  const fetchRecordData = async (item) => {
+    setLoadingData(true);
+    setRecordData(null);
+    
+    try {
+      let endpoint = '';
+      let dataKey = '';
+      
+      switch (item.type) {
+        case 'medicine':
+          endpoint = `/medicines/${item.recordId}`;
+          dataKey = 'medicine';
+          break;
+        case 'stock':
+          endpoint = `/stock/${item.recordId}`;
+          dataKey = 'stock';
+          break;
+        case 'stock_transaction': // ← NEW
+          endpoint = `/stock-transactions/${item.recordId}`;
+          dataKey = 'transaction';
+          break;
+        case 'receipt':
+          endpoint = `/receipts/${item.recordId}`;
+          dataKey = 'receipt';
+          break;
+        case 'removal':
+          endpoint = `/removals/${item.recordId}`;
+          dataKey = 'removal';
+          break;
+        default:
+          throw new Error('Unknown record type');
+      }
+      
+      const { data } = await api.get(endpoint);
+      setRecordData({ type: item.type, data: data.data || data, key: dataKey });
+    } catch (err) {
+      console.error('Error fetching record data:', err);
+      setRecordData({ error: 'Failed to load record data. The record may have been deleted.' });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const openDetails = (item) => {
+    setSelected(item);
+    fetchRecordData(item);
+  };
+
   useEffect(() => {
     fetchBlockchainData();
   }, []);
 
-  // Apply filters
   useEffect(() => {
     let filtered = [...blockchainData];
 
@@ -174,14 +222,10 @@ export default function BlockchainHistory() {
       total: data.length,
       medicines: data.filter(item => item.type === 'medicine').length,
       stocks: data.filter(item => item.type === 'stock').length,
+      stock_transactions: data.filter(item => item.type === 'stock_transaction').length, // ← NEW
       receipts: data.filter(item => item.type === 'receipt').length,
       removals: data.filter(item => item.type === 'removal').length
     });
-  };
-
-  const [selected, setSelected] = useState(null);
-  const openDetails = (item) => {
-    setSelected(item);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -200,20 +244,24 @@ export default function BlockchainHistory() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  // 🔥 CHANGE 4: Added stock_transaction color
   const getTypeColor = (type) => {
     const colors = {
       'medicine': 'bg-blue-50 text-blue-700 border-blue-200',
       'stock': 'bg-purple-50 text-purple-700 border-purple-200',
+      'stock_transaction': 'bg-indigo-50 text-indigo-700 border-indigo-200', // ← NEW
       'receipt': 'bg-emerald-50 text-emerald-700 border-emerald-200',
       'removal': 'bg-red-50 text-red-700 border-red-200'
     };
     return colors[type] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
+  // 🔥 CHANGE 5: Added stock_transaction icon
   const getTypeIcon = (type) => {
     const icons = {
       'medicine': '💊',
       'stock': '📦',
+      'stock_transaction': '🔄', // ← NEW
       'receipt': '📋',
       'removal': '🗑️'
     };
@@ -269,6 +317,235 @@ export default function BlockchainHistory() {
     doc.save(`blockchain-hashes-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  // 🔥 CHANGE 6: Added stock_transaction rendering case
+  const renderRecordData = () => {
+    if (loadingData) {
+      return (
+        <div className="py-8 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600 mb-3"></div>
+          <p className="text-sm text-gray-600">Loading record data...</p>
+        </div>
+      );
+    }
+
+    if (recordData?.error) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+          <p className="text-sm text-red-800">{recordData.error}</p>
+        </div>
+      );
+    }
+
+    if (!recordData?.data) {
+      return null;
+    }
+
+    const data = recordData.data;
+
+    switch (recordData.type) {
+      case 'medicine':
+        return (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              💊 Medicine Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Medicine Name:</span>
+                <p className="font-medium text-gray-900">{data.medicine_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Generic Name:</span>
+                <p className="font-medium text-gray-900">{data.generic_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Dosage Form:</span>
+                <p className="font-medium text-gray-900">{data.dosage_form || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Strength:</span>
+                <p className="font-medium text-gray-900">{data.strength || 'N/A'}</p>
+              </div>
+              {data.description && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Description:</span>
+                  <p className="font-medium text-gray-900">{data.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'stock':
+        return (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              📦 Stock Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Medicine:</span>
+                <p className="font-medium text-gray-900">{data.medicine?.medicine_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Batch Number:</span>
+                <p className="font-medium text-gray-900">{data.batch_number || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Quantity:</span>
+                <p className="font-medium text-gray-900">{data.quantity || 0}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Expiry Date:</span>
+                <p className="font-medium text-gray-900">
+                  {data.expiry_date ? new Date(data.expiry_date).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              {data.supplier && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Supplier:</span>
+                  <p className="font-medium text-gray-900">{data.supplier}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      // 🔥 NEW CASE: stock_transaction
+      case 'stock_transaction':
+        return (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              🔄 Stock Transaction Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Medicine:</span>
+                <p className="font-medium text-gray-900">{data.stock?.medicine?.medicine_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Transaction Type:</span>
+                <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                  data.transaction_type === 'ADDITION' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {data.transaction_type}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">Quantity Changed:</span>
+                <p className={`font-medium ${
+                  data.transaction_type === 'ADDITION' ? 'text-green-700' : 'text-red-700'
+                }`}>
+                  {data.transaction_type === 'ADDITION' ? '+' : '-'}{data.quantity_changed || 0}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Before → After:</span>
+                <p className="font-medium text-gray-900">
+                  {data.quantity_before} → {data.quantity_after}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Transaction Date:</span>
+                <p className="font-medium text-gray-900">
+                  {data.transaction_date ? new Date(data.transaction_date).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Batch Number:</span>
+                <p className="font-medium text-gray-900">{data.stock?.batch_number || 'N/A'}</p>
+              </div>
+              {data.notes && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Notes:</span>
+                  <p className="font-medium text-gray-900">{data.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'receipt':
+        return (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              📋 Receipt Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Medicine:</span>
+                <p className="font-medium text-gray-900">{data.stock?.medicine?.medicine_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Quantity Received:</span>
+                <p className="font-medium text-gray-900">{data.quantity_received || 0}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Receipt Date:</span>
+                <p className="font-medium text-gray-900">
+                  {data.receipt_date ? new Date(data.receipt_date).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Source:</span>
+                <p className="font-medium text-gray-900">{data.source || 'N/A'}</p>
+              </div>
+              {data.notes && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Notes:</span>
+                  <p className="font-medium text-gray-900">{data.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'removal':
+        return (
+          <div className="mt-4 border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              🗑️ Removal Information
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Medicine:</span>
+                <p className="font-medium text-gray-900">{data.medicine?.medicine_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Reason:</span>
+                <p className="font-medium text-gray-900">{data.reason || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Quantity Removed:</span>
+                <p className="font-medium text-red-700">-{data.quantity_removed || 0}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Date Removed:</span>
+                <p className="font-medium text-gray-900">
+                  {data.date_removed ? new Date(data.date_removed).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Batch Number:</span>
+                <p className="font-medium text-gray-900">{data.stock?.batch_number || 'N/A'}</p>
+              </div>
+              {data.notes && (
+                <div className="col-span-2">
+                  <span className="text-gray-600">Notes:</span>
+                  <p className="font-medium text-gray-900">{data.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Bar */}
@@ -294,7 +571,6 @@ export default function BlockchainHistory() {
                 Refresh
               </button>
               
-              {/* ✅ NEW: Scan Blockchain Button */}
               <button
                 onClick={scanBlockchainForMissing}
                 disabled={loading || scanning || !contract}
@@ -331,8 +607,8 @@ export default function BlockchainHistory() {
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* 🔥 CHANGE 7: Stats Cards - Added stock_transactions card */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-3">
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
               <div className="text-xs text-gray-600 mt-0.5">Total Hashes</div>
@@ -345,6 +621,11 @@ export default function BlockchainHistory() {
               <div className="text-2xl font-bold text-purple-600">{stats.stocks}</div>
               <div className="text-xs text-gray-600 mt-0.5">Stocks</div>
             </div>
+            {/* ← NEW CARD */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="text-2xl font-bold text-indigo-600">{stats.stock_transactions}</div>
+              <div className="text-xs text-gray-600 mt-0.5">Transactions</div>
+            </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="text-2xl font-bold text-emerald-600">{stats.receipts}</div>
               <div className="text-xs text-gray-600 mt-0.5">Receipts</div>
@@ -355,7 +636,7 @@ export default function BlockchainHistory() {
             </div>
           </div>
 
-          {/* ✅ NEW: Warning Banner */}
+          {/* Warning Banner */}
           <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -379,17 +660,12 @@ export default function BlockchainHistory() {
             <p className="text-xs text-blue-900 leading-relaxed">
               A <strong>hash</strong> is a unique cryptographic fingerprint of your data. When you create or update 
               a medicine, stock, receipt, or removal record, the system generates a hash (using SHA-256) of all 
-              the record's data and stores it on the Polygon Amoy blockchain. This makes the data:
+              the record's data and stores it on the Polygon Amoy blockchain. Click <strong>"View"</strong> to see 
+              the actual data behind each hash!
             </p>
-            <ul className="list-disc list-inside text-xs text-blue-900 mt-2 space-y-1">
-              <li><strong>Tamper-proof:</strong> Any change to the original data will produce a different hash</li>
-              <li><strong>Verifiable:</strong> You can verify data integrity by comparing hashes</li>
-              <li><strong>Immutable:</strong> Once on the blockchain, it cannot be altered</li>
-              <li><strong>Transparent:</strong> Anyone can verify the data hasn't been tampered with</li>
-            </ul>
           </div>
 
-          {/* Filters */}
+          {/* 🔥 CHANGE 8: Filters - Added stock_transaction option */}
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -410,6 +686,7 @@ export default function BlockchainHistory() {
               <option value="all">All Types</option>
               <option value="medicine">Medicine</option>
               <option value="stock">Stock</option>
+              <option value="stock_transaction">Stock Transaction</option> {/* ← NEW */}
               <option value="receipt">Receipt</option>
               <option value="removal">Removal</option>
             </select>
@@ -419,14 +696,12 @@ export default function BlockchainHistory() {
 
       {/* Main Content */}
       <div className="px-6 py-4">
-        {/* Error Message */}
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
             <strong>Error:</strong> {error}
           </div>
         )}
 
-        {/* Loading State */}
         {loading ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600 mb-4"></div>
@@ -457,27 +732,13 @@ export default function BlockchainHistory() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Record ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Data Hash
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Added By
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Timestamp
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Record ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Hash</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Added By</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -545,9 +806,9 @@ export default function BlockchainHistory() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => openDetails(item)}
-                            className="text-indigo-600 hover:text-indigo-800 font-medium"
+                            className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
                           >
-                            View
+                            <FaEye /> View
                           </button>
 
                           {verificationStatus[`${item.type}-${item.recordId}`] !== undefined && (
@@ -572,31 +833,112 @@ export default function BlockchainHistory() {
                   ))}
                 </tbody>
               </table>
-
             </div>
-              {selected && (
-                  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <div className="bg-white p-6 rounded-lg shadow-lg w-[480px]">
-                      <h2 className="text-lg font-semibold">Hash Details</h2>
-
-                      <p className="mt-2 text-sm"><strong>Record ID:</strong> {selected.recordId}</p>
-                      <p className="mt-1 text-sm"><strong>Type:</strong> {selected.type}</p>
-                      <p className="mt-1 text-sm"><strong>Full Hash:</strong> {selected.hash}</p>
-                      <p className="mt-1 text-sm"><strong>Added By:</strong> {selected.addedBy}</p>
-                      <p className="mt-1 text-sm"><strong>Timestamp:</strong> {formatTimestamp(selected.timestamp)}</p>
-
-                      <button
-                        onClick={() => setSelected(null)}
-                        className="mt-4 px-3 py-1.5 bg-gray-700 text-white rounded"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                )}
           </div>
         )}
       </div>
+
+      {/* Details Modal */}
+      {selected && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Hash Details</h2>
+              <button
+                onClick={() => setSelected(null)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Basic Hash Information */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Record Type</label>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md border ${getTypeColor(selected.type)}`}>
+                      {getTypeIcon(selected.type)} {selected.type}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Record ID</label>
+                    <p className="mt-1 text-sm font-mono text-gray-900">{selected.recordId}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</label>
+                    <p className="mt-1 text-sm text-gray-900">{formatTimestamp(selected.timestamp)}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Data Hash</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="text-xs font-mono text-gray-900 bg-gray-50 p-2 rounded break-all flex-1">
+                      {selected.hash}
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selected.hash);
+                        alert('Hash copied to clipboard!');
+                      }}
+                      className="px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Added By</label>
+                  <p className="mt-1 text-xs font-mono text-gray-900 bg-gray-50 p-2 rounded break-all">
+                    {selected.addedBy}
+                  </p>
+                  {selected.addedByName && selected.addedByName !== 'Unknown' && (
+                    <p className="mt-1 text-sm text-gray-600">{selected.addedByName}</p>
+                  )}
+                </div>
+
+                {selected.txHash && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Hash</label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <p className="text-xs font-mono text-gray-900 bg-gray-50 p-2 rounded break-all flex-1">
+                        {selected.txHash}
+                      </p>
+                      <a
+                        href={`https://amoy.polygonscan.com/tx/${selected.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 flex items-center gap-1"
+                      >
+                        <FaExternalLinkAlt className="w-3 h-3" />
+                        View
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Record Data */}
+              {renderRecordData()}
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setSelected(null)}
+                className="w-full px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
