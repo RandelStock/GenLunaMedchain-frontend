@@ -465,7 +465,7 @@ export default function AddMedicineForm() {
             </svg>
             <div className="ml-3">
               <h3 className="text-lg font-semibold text-black">Access Denied</h3>
-              <p className="text-black mt-2">You don't have permission to add medicines to the inventory.</p>
+              <p className="text-black mt-2">You don't have permission to add medicines to the inventory!</p>
               <p className="text-black mt-2 text-sm">Please contact your system administrator to grant you blockchain access (STAFF role).</p>
               <p className="text-black mt-3 text-xs font-mono">Your wallet: {address.slice(0, 10)}...{address.slice(-8)}</p>
               <p className="text-black mt-2 text-xs">Current role: {userRole || 'None'}</p>
