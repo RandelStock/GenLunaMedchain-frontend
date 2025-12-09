@@ -197,6 +197,8 @@ export default function AddMedicineForm() {
     }
   }, [success]);
 
+  const canAddMedicine = hasAccess || userRole === 'Admin' || userRole === 'MUNICIPAL_STAFF' || userRole === 'STAFF';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -205,13 +207,14 @@ export default function AddMedicineForm() {
       return;
     }
 
-    if (!contractLoaded) {
+    // Only require contract if user has blockchain access
+    if (hasAccess && !contractLoaded) {
       setError("Contract not loaded. Please refresh and try again.");
       return;
     }
 
-    if (!hasAccess) {
-      setError("Access denied. You don't have permission to add medicines. Please contact your administrator to grant you the STAFF role.");
+    if (!canAddMedicine) {
+      setError("Access denied. You don't have permission to add medicines. Please contact your administrator.");
       return;
     }
 
@@ -452,7 +455,7 @@ export default function AddMedicineForm() {
     );
   }
 
-  if (!hasAccess) {
+  if (!canAddMedicine) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-red-50 border border-red-200 rounded-lg p-6">
@@ -463,8 +466,10 @@ export default function AddMedicineForm() {
             <div className="ml-3">
               <h3 className="text-lg font-semibold text-black">Access Denied</h3>
               <p className="text-black mt-2">You don't have permission to add medicines to the inventory.</p>
-              <p className="text-black mt-2 text-sm">Please contact your system administrator to grant you the STAFF role.</p>
+              <p className="text-black mt-2 text-sm">Please contact your system administrator to grant you blockchain access (STAFF role).</p>
               <p className="text-black mt-3 text-xs font-mono">Your wallet: {address.slice(0, 10)}...{address.slice(-8)}</p>
+              <p className="text-black mt-2 text-xs">Current role: {userRole || 'None'}</p>
+              <p className="text-black mt-2 text-xs">Blockchain access: {hasAccess ? '✅ Yes' : '❌ No'}</p>
             </div>
           </div>
           <button
