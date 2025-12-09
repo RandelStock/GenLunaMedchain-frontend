@@ -32,8 +32,12 @@ export default function StockTransactionHistory() {
       setLoading(true);
       setError('');
       
-      const { data } = await api.get(`/stock-transactions`);
-      setTransactions(Array.isArray(data) ? data : []);
+      // FIX: Access data.data since backend wraps response
+      const response = await api.get(`/stock-transactions`);
+      console.log('API Response:', response.data);
+      
+      const transactionsData = response.data.data || response.data || [];
+      setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       setError(`Failed to load transaction history: ${err.message}`);
@@ -95,7 +99,6 @@ export default function StockTransactionHistory() {
 
   const getBlockchainExplorerUrl = (txHash) => {
     return `https://amoy.polygonscan.com/tx/${txHash}`;
-
   };
 
   const getTransactionIcon = (type) => {
@@ -513,14 +516,6 @@ export default function StockTransactionHistory() {
                         {selectedTransaction.blockchain_tx_hash}
                       </p>
                     </div>
-                    {selectedTransaction.blockchain_hash && (
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Data Hash</label>
-                        <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-3 rounded">
-                          {selectedTransaction.blockchain_hash}
-                        </p>
-                      </div>
-                    )}
                     <a
                       href={getBlockchainExplorerUrl(selectedTransaction.blockchain_tx_hash)}
                       target="_blank"
