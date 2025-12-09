@@ -4,103 +4,48 @@ import { useMedicineInventory } from "../../hooks/useMedicineData";
 import api from "../../../api.js";
 import { useRole } from "../auth/RoleProvider";
 
-
 // Enable blockchain for medicine additions
 const ENABLE_BLOCKCHAIN_FOR_MEDICINE = true;
 
 // Dropdown options
 const MEDICINE_TYPES = [
-  'Tablet',
-  'Capsule',
-  'Syrup',
-  'Injection',
-  'Suspension',
-  'Ointment',
-  'Cream',
-  'Drops',
-  'Powder',
-  'Solution'
+  'Tablet', 'Capsule', 'Syrup', 'Injection', 'Suspension',
+  'Ointment', 'Cream', 'Drops', 'Powder', 'Solution'
 ];
 
 const DOSAGE_FORMS = [
-  '500mg',
-  '250mg',
-  '100mg',
-  '50mg',
-  '10ml',
-  '5ml',
-  '1mg',
-  '2mg',
-  '5mg',
-  '10mg',
-  '20mg',
-  '100ml',
-  '200ml'
+  '500mg', '250mg', '100mg', '50mg', '10ml', '5ml',
+  '1mg', '2mg', '5mg', '10mg', '20mg', '100ml', '200ml'
 ];
 
 const STRENGTHS = [
-  'Low',
-  'Medium',
-  'High',
-  '100mg',
-  '200mg',
-  '250mg',
-  '500mg',
-  '1g',
-  '2g'
+  'Low', 'Medium', 'High', '100mg', '200mg',
+  '250mg', '500mg', '1g', '2g'
 ];
 
 const MANUFACTURERS = [
-  'Unilab',
-  'Biogesic',
-  'Pfizer',
-  'GSK (GlaxoSmithKline)',
-  'Novartis',
-  'Astra Zeneca',
-  'Johnson & Johnson',
-  'Merck',
-  'Sanofi',
-  'Abbott',
-  'Roche',
-  'Bayer',
-  'Generic Pharma'
+  'Unilab', 'Biogesic', 'Pfizer', 'GSK (GlaxoSmithKline)',
+  'Novartis', 'Astra Zeneca', 'Johnson & Johnson', 'Merck',
+  'Sanofi', 'Abbott', 'Roche', 'Bayer', 'Generic Pharma'
 ];
 
 const CATEGORIES = [
-  'Antibiotic',
-  'Analgesic',
-  'Antipyretic',
-  'Anti-inflammatory',
-  'Antihypertensive',
-  'Antidiabetic',
-  'Antihistamine',
-  'Antacid',
-  'Vitamin',
-  'Supplement',
-  'Antiseptic',
-  'Antiparasitic'
+  'Antibiotic', 'Analgesic', 'Antipyretic', 'Anti-inflammatory',
+  'Antihypertensive', 'Antidiabetic', 'Antihistamine', 'Antacid',
+  'Vitamin', 'Supplement', 'Antiseptic', 'Antiparasitic'
 ];
 
 const STORAGE_REQUIREMENTS = [
-  'Store in cool, dry place',
-  'Refrigerate (2-8°C)',
-  'Room temperature (15-30°C)',
-  'Protect from light',
-  'Keep away from moisture',
-  'Store below 25°C',
-  'Do not freeze'
+  'Store in cool, dry place', 'Refrigerate (2-8°C)',
+  'Room temperature (15-30°C)', 'Protect from light',
+  'Keep away from moisture', 'Store below 25°C', 'Do not freeze'
 ];
 
 const SUPPLIERS = [
-  'Good Shepherd Pharmacy',
-  'B.R. Galang Drugstore',
-  'Sam\'s Pharmacy & Grocery',
-  'Peninsula Pharmacy (branch)',
-  'Valuemed Generics',
-  'Medicament Pharma and Medical Supplies Distribution',
-  'Carlos Superdrug',
-  'South Star Drug',
-  'Mercury Drug'
+  'Good Shepherd Pharmacy', 'B.R. Galang Drugstore',
+  'Sam\'s Pharmacy & Grocery', 'Peninsula Pharmacy (branch)',
+  'Valuemed Generics', 'Medicament Pharma and Medical Supplies Distribution',
+  'Carlos Superdrug', 'South Star Drug', 'Mercury Drug'
 ];
 
 const STORAGE_LOCATIONS = [
@@ -135,11 +80,14 @@ const STORAGE_LOCATIONS = [
 ];
 
 export default function AddMedicineForm() {
-  const { userRole, userProfile } = useRole?.() || {};
+  // FIXED: Get both userRole and isLoading from RoleProvider
+  const { userRole, userProfile, isLoading: roleLoading } = useRole?.() || {};
+  
   const [medicines, setMedicines] = useState([]);
   const [stocks, setStocks] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const address = useAddress();
+  
   const { 
     storeMedicineHash, 
     generateMedicineHash,
@@ -153,15 +101,20 @@ export default function AddMedicineForm() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // Enhanced logging for debugging
   useEffect(() => {
-    console.log("AddMedicineForm State:", {
+    console.log("🔍 AddMedicineForm Access Check:", {
       address,
+      userRole,
+      userProfile,
       contractLoaded,
       hasAccess,
-      checkingAccess
+      checkingAccess,
+      roleLoading
     });
-  }, [address, contractLoaded, hasAccess, checkingAccess]);
+  }, [address, userRole, userProfile, contractLoaded, hasAccess, checkingAccess, roleLoading]);
 
+  // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -180,6 +133,7 @@ export default function AddMedicineForm() {
     fetchData();
   }, []);
 
+  // Refresh data after success
   useEffect(() => {
     if (success) {
       setTimeout(async () => {
@@ -197,7 +151,22 @@ export default function AddMedicineForm() {
     }
   }, [success]);
 
-  const canAddMedicine = hasAccess || userRole === 'Admin' || userRole === 'MUNICIPAL_STAFF' || userRole === 'STAFF';
+  // FIXED: Check database role first (primary authority)
+  const canAddMedicine = userRole === 'ADMIN' || 
+                         userRole === 'MUNICIPAL_STAFF' || 
+                         userRole === 'STAFF';
+
+  // Enhanced access check logging
+  useEffect(() => {
+    console.log("✅ Access Control Status:", {
+      canAddMedicine,
+      reason: canAddMedicine 
+        ? `Database role '${userRole}' has permission` 
+        : `Database role '${userRole}' lacks permission`,
+      blockchainAccess: hasAccess,
+      note: "Database role is primary authority"
+    });
+  }, [canAddMedicine, userRole, hasAccess]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -207,14 +176,27 @@ export default function AddMedicineForm() {
       return;
     }
 
-    // Only require contract if user has blockchain access
-    if (hasAccess && !contractLoaded) {
+    if (!contractLoaded) {
       setError("Contract not loaded. Please refresh and try again.");
       return;
     }
 
+    // Database role check (primary)
     if (!canAddMedicine) {
-      setError("Access denied. You don't have permission to add medicines. Please contact your administrator.");
+      setError("Access denied. You need STAFF or ADMIN role to perform this action.");
+      return;
+    }
+
+    // Blockchain role check (only if blockchain feature is enabled)
+    if (ENABLE_BLOCKCHAIN_FOR_MEDICINE && !hasAccess) {
+      setError(
+        "⚠️ Blockchain Access Required\n\n" +
+        "Your database role is: " + userRole + " ✅\n" +
+        "But you don't have blockchain permissions.\n\n" +
+        "Your wallet: " + address + "\n\n" +
+        "Please contact your administrator to grant blockchain access using:\n" +
+        "contract.grantStaffRole(\"" + address + "\")"
+      );
       return;
     }
 
@@ -243,7 +225,7 @@ export default function AddMedicineForm() {
         expiry_date: formData.get("expiry_date"),
         storage_location: formData.get("storage_location") || "Main Storage",
         wallet_address: address,
-        barangay: (userRole === 'Admin' || userRole === 'MUNICIPAL_STAFF')
+        barangay: (userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF')
           ? 'MUNICIPAL'
           : (userProfile?.barangay || userProfile?.assigned_barangay || null)
       };
@@ -253,13 +235,11 @@ export default function AddMedicineForm() {
 
       if (ENABLE_BLOCKCHAIN_FOR_MEDICINE) {
         try {
-          // Check if exists on blockchain
           console.log("Checking blockchain for ID:", medicine.medicine_id);
           const existingHash = await getMedicineHash(medicine.medicine_id);
           console.log("Existing blockchain entry:", existingHash);
 
           if (existingHash && existingHash.exists) {
-            // Delete the medicine we just created since blockchain failed
             await api.delete(`/medicines/${medicine.medicine_id}`);
             
             setError(
@@ -286,7 +266,6 @@ export default function AddMedicineForm() {
 
           const dataHash = generateMedicineHash(hashData);
           
-          // 🚀 NEW: Enhanced transaction with automatic retry
           const maxRetries = 3;
           let txHash = null;
           let lastError = null;
@@ -295,33 +274,29 @@ export default function AddMedicineForm() {
             try {
               console.log(`📤 Blockchain Attempt ${attempt}/${maxRetries}...`);
               
-              // Add delay between retries
               if (attempt > 1) {
                 console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
                 setError(`Network issue detected. Retrying transaction (${attempt}/${maxRetries})...`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
               }
               
-              // Send transaction with explicit gas limit
               const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
               txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
               
               if (txHash) {
                 console.log('✅ Transaction successful:', txHash);
-                break; // Success! Exit retry loop
+                break;
               }
               
             } catch (txError) {
               lastError = txError;
               console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
               
-              // Check if user cancelled (don't retry)
               if (txError.message?.includes('user rejected') || 
                   txError.message?.includes('User denied')) {
                 throw new Error('Transaction cancelled by user');
               }
               
-              // Check if it's a transient error that we should retry
               const isTransientError = 
                 txError.message?.includes('Internal JSON-RPC error') ||
                 txError.message?.includes('timeout') ||
@@ -329,26 +304,20 @@ export default function AddMedicineForm() {
                 txError.message?.includes('nonce') ||
                 txError.message?.includes('gas');
               
-              // If not transient and first attempt, throw immediately
               if (!isTransientError && attempt === 1) {
                 throw txError;
               }
               
-              // If last attempt, throw the error
               if (attempt === maxRetries) {
                 throw lastError || txError;
               }
-              
-              // Continue to next retry
             }
           }
           
-          // If we got here without a txHash, something went wrong
           if (!txHash) {
             throw lastError || new Error('Transaction failed after multiple attempts');
           }
 
-          // Update database with blockchain info
           await api.patch(`/medicines/${medicine.medicine_id}`, {
             blockchain_hash: dataHash,
             blockchain_tx_hash: txHash,
@@ -370,10 +339,8 @@ export default function AddMedicineForm() {
         } catch (blockchainErr) {
           console.error("Blockchain operation failed:", blockchainErr);
           
-          // Delete the medicine we just created since blockchain failed
           await api.delete(`/medicines/${medicine.medicine_id}`);
           
-          // Provide user-friendly error messages
           let errorMessage = 'Medicine was created in database but blockchain storage failed.\nDatabase entry has been rolled back.\n\n';
           
           if (blockchainErr.message?.includes('user rejected') || 
@@ -394,7 +361,6 @@ export default function AddMedicineForm() {
           return;
         }
       } else {
-        // Blockchain disabled
         setSuccess(
           `✅ Medicine "${medicineData.medicine_name}" successfully added!\n\n` +
           `📦 Batch: ${medicineData.batch_number}\n` +
@@ -424,14 +390,17 @@ export default function AddMedicineForm() {
     }
   };
 
-  if (checkingAccess || !contractLoaded) {
+  // LOADING STATES
+  if (checkingAccess || roleLoading || !contractLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-lg text-black">
-              {!contractLoaded ? "Loading contract..." : "Verifying permissions..."}
+              {roleLoading ? "Loading user role..." : 
+               !contractLoaded ? "Loading contract..." : 
+               "Verifying permissions..."}
             </p>
           </div>
         </div>
@@ -465,11 +434,26 @@ export default function AddMedicineForm() {
             </svg>
             <div className="ml-3">
               <h3 className="text-lg font-semibold text-black">Access Denied</h3>
-              <p className="text-black mt-2">You don't have permission to add medicines to the inventory!</p>
-              <p className="text-black mt-2 text-sm">Please contact your system administrator to grant you blockchain access (STAFF role).</p>
-              <p className="text-black mt-3 text-xs font-mono">Your wallet: {address.slice(0, 10)}...{address.slice(-8)}</p>
-              <p className="text-black mt-2 text-xs">Current role: {userRole || 'None'}</p>
-              <p className="text-black mt-2 text-xs">Blockchain access: {hasAccess ? '✅ Yes' : '❌ No'}</p>
+              <p className="text-black mt-2">You don't have permission to add medicines to the inventory.</p>
+              <div className="mt-4 space-y-2 text-sm">
+                <p className="text-black">
+                  <span className="font-semibold">Database Role:</span> {userRole || 'None'}
+                  {userRole === 'STAFF' || userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF' ? 
+                    ' ✅' : ' ❌ (Need STAFF or ADMIN)'}
+                </p>
+                <p className="text-black">
+                  <span className="font-semibold">Blockchain Access:</span> 
+                  {hasAccess ? ' ✅ Granted' : ' ❌ Not granted'}
+                </p>
+                <p className="text-black">
+                  <span className="font-semibold">Wallet:</span> {address.slice(0, 10)}...{address.slice(-8)}
+                </p>
+              </div>
+              <p className="text-black mt-4 text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
+                💡 <strong>Note:</strong> Contact your system administrator to:
+                <br />1. Update your database role to STAFF or ADMIN
+                <br />2. Grant blockchain access using contract.grantStaffRole()
+              </p>
             </div>
           </div>
           <button
@@ -483,6 +467,7 @@ export default function AddMedicineForm() {
     );
   }
 
+  // MAIN FORM RENDER
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-6">
