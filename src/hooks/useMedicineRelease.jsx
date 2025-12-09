@@ -18,8 +18,9 @@ export const useMedicineRelease = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ==================== BLOCKCHAIN FUNCTIONS ====================
+  // ==================== BLOCKCHAIN FUNCTIONS WITH RETRY LOGIC ====================
   
+  // 🚀 ENHANCED: storeReleaseOnBlockchain with retry logic
   const storeReleaseOnBlockchain = async (releaseId, releaseData) => {
     if (releaseId === undefined || releaseId === null) {
       throw new Error('Invalid release id for blockchain sync');
@@ -45,21 +46,78 @@ export const useMedicineRelease = () => {
 
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
 
-    console.log('Sending transaction to blockchain...', { releaseId, dataHash });
-    const tx = await contract.storeReceiptHash(releaseId, dataHash);
-    
-    console.log('Transaction sent:', tx.hash);
-    const receipt = await tx.wait();
-    
-    console.log('Transaction confirmed:', receipt);
+    console.log('🔍 Storing receipt on blockchain:', { releaseId, dataHash });
 
-    return {
-      transactionHash: receipt.transactionHash,
-      blockNumber: receipt.blockNumber,
-      dataHash: dataHash
-    };
+    // 🚀 RETRY LOGIC
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Sending receipt transaction...`);
+        
+        // Add delay between retries
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        // Estimate gas first
+        const gasEstimate = await contract.estimateGas.storeReceiptHash(releaseId, dataHash);
+        console.log('  Gas estimate:', gasEstimate.toString());
+
+        // Send transaction with gas buffer
+        const tx = await contract.storeReceiptHash(releaseId, dataHash, {
+          gasLimit: Math.floor(gasEstimate.toNumber() * 1.3) // 30% buffer
+        });
+        
+        console.log('⏳ Transaction sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed:', receipt.transactionHash);
+
+        return {
+          transactionHash: receipt.transactionHash,
+          blockNumber: receipt.blockNumber,
+          dataHash: dataHash
+        };
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        // Check if user cancelled (don't retry)
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        // Check if it's a transient error
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce') ||
+          txError.code === -32603;
+        
+        // If not transient and first attempt, don't retry
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        // If last attempt, throw
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        // Continue to next retry
+      }
+    }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
+  // 🚀 ENHANCED: updateReleaseOnBlockchain with retry logic
   const updateReleaseOnBlockchain = async (releaseId, releaseData) => {
     if (releaseId === undefined || releaseId === null) {
       throw new Error('Invalid release id for blockchain sync');
@@ -83,6 +141,7 @@ export const useMedicineRelease = () => {
     });
 
     const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
+    
     // Check if receipt exists; if not, store instead of update
     let exists = false;
     try {
@@ -92,18 +151,66 @@ export const useMedicineRelease = () => {
       exists = false;
     }
 
-    const tx = exists
-      ? await contract.updateReceiptHash(releaseId, dataHash)
-      : await contract.storeReceiptHash(releaseId, dataHash);
+    console.log(`🔍 ${exists ? 'Updating' : 'Storing'} receipt on blockchain:`, { releaseId, dataHash });
 
-    const receipt = await tx.wait();
-    return {
-      transactionHash: receipt.transactionHash,
-      dataHash,
-      operation: exists ? 'updated' : 'stored'
-    };
+    // 🚀 RETRY LOGIC
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Sending transaction...`);
+        
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        const tx = exists
+          ? await contract.updateReceiptHash(releaseId, dataHash, { gasLimit: 200000 })
+          : await contract.storeReceiptHash(releaseId, dataHash, { gasLimit: 200000 });
+
+        console.log('⏳ Transaction sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed:', receipt.transactionHash);
+
+        return {
+          transactionHash: receipt.transactionHash,
+          dataHash,
+          operation: exists ? 'updated' : 'stored'
+        };
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce') ||
+          txError.code === -32603;
+        
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
+  // 🚀 ENHANCED: deleteReleaseOnBlockchain with retry logic
   const deleteReleaseOnBlockchain = async (releaseId) => {
     if (releaseId === undefined || releaseId === null) {
       throw new Error('Invalid release id for blockchain delete');
@@ -116,6 +223,7 @@ export const useMedicineRelease = () => {
     await provider.send("eth_requestAccounts", []);
     const signer = provider.getSigner();
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    
     // Check existence to avoid revert
     let exists = false;
     try {
@@ -129,9 +237,57 @@ export const useMedicineRelease = () => {
       return { skipped: true, reason: 'receipt_not_found' };
     }
 
-    const tx = await contract.deleteReceiptHash(releaseId);
-    const receipt = await tx.wait();
-    return { transactionHash: receipt.transactionHash, deleted: true };
+    console.log('🔍 Deleting receipt from blockchain:', { releaseId });
+
+    // 🚀 RETRY LOGIC
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Deleting receipt...`);
+        
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        const tx = await contract.deleteReceiptHash(releaseId, { gasLimit: 200000 });
+        console.log('⏳ Transaction sent:', tx.hash);
+        
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed:', receipt.transactionHash);
+        
+        return { transactionHash: receipt.transactionHash, deleted: true };
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce') ||
+          txError.code === -32603;
+        
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
   const verifyReleaseOnBlockchain = async (releaseId, releaseData) => {
@@ -210,7 +366,7 @@ export const useMedicineRelease = () => {
     }
   };
 
-  // Create new medicine release WITH blockchain sync (only for money ops)
+  // Create new medicine release WITH blockchain sync
   const createRelease = async (releaseData) => {
     try {
       setLoading(true);
@@ -219,7 +375,7 @@ export const useMedicineRelease = () => {
       // Get wallet address through MetaMask confirmation
       const walletAddress = await confirmWithMetaMask();
 
-      // Create release in database using the shared API client
+      // Create release in database
       const response = await api.post('/releases', releaseData, {
         headers: {
           'x-wallet-address': walletAddress
@@ -239,8 +395,9 @@ export const useMedicineRelease = () => {
         const stockResp = await api.get(`/stocks/${release.stock_id}`);
         const stock = stockResp.data?.data || stockResp.data?.stock || stockResp.data;
         const unitCost = parseFloat(stock?.unit_cost || 0);
+        
         if (unitCost > 0) {
-          // Store on-chain to create a receipt record
+          // Store on-chain with retry logic
           blockchainResult = await storeReleaseOnBlockchain(release.release_id, {
             medicine_id: release.medicine_id,
             stock_id: release.stock_id,
@@ -259,7 +416,23 @@ export const useMedicineRelease = () => {
           });
         }
       } catch (chainErr) {
-        console.warn('Blockchain sync failed on create:', chainErr);
+        console.error('Blockchain sync failed on create:', chainErr);
+        
+        // Provide user-friendly error message
+        let errorMsg = chainErr.message || 'Unknown blockchain error';
+        if (chainErr.message?.includes('cancelled by user')) {
+          errorMsg = 'Transaction cancelled by user';
+        } else if (chainErr.message?.includes('Internal JSON-RPC error')) {
+          errorMsg = 'Network congestion - blockchain sync failed but release was saved to database';
+        }
+        
+        return {
+          success: true,
+          release,
+          blockchain: null,
+          blockchainError: errorMsg,
+          message: 'Release created but blockchain sync failed'
+        };
       }
 
       return {
@@ -294,13 +467,12 @@ export const useMedicineRelease = () => {
     }
   };
 
-  // Update existing release (no blockchain re-sync)
+  // Update existing release with retry logic
   const updateRelease = async (releaseId, updateData) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Get wallet address through MetaMask confirmation
       const walletAddress = await confirmWithMetaMask();
        
       // Update in the backend first
@@ -312,10 +484,11 @@ export const useMedicineRelease = () => {
 
       const updated = response.data?.data || response.data;
 
-      // Try sync on-chain with existence check (update or store)
+      // Try sync on-chain with retry logic
       let blockchainResult = null;
       try {
         blockchainResult = await updateReleaseOnBlockchain(releaseId, updateData);
+        
         // Patch blockchain info back to backend
         await api.patch(`/releases/${releaseId}`, {
           blockchain_hash: blockchainResult?.dataHash || null,
@@ -357,6 +530,7 @@ export const useMedicineRelease = () => {
         },
         body: JSON.stringify(blockchainData)
       });
+      
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to update release blockchain info');
@@ -368,16 +542,15 @@ export const useMedicineRelease = () => {
     }
   };
 
-  // Delete release - SIMPLIFIED (no duplicate blockchain store)
+  // Delete release with retry logic
   const deleteRelease = async (releaseId) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Get wallet address through MetaMask confirmation
       const walletAddress = await confirmWithMetaMask();
 
-      // First attempt on-chain delete (gracefully skip if not found)
+      // First attempt on-chain delete with retry logic
       let blockchain = null;
       try {
         blockchain = await deleteReleaseOnBlockchain(releaseId);

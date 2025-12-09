@@ -39,14 +39,11 @@ export const useStockRemoval = () => {
       const { data: json } = await api.post(`/removals`, removalData);
       console.log('Create removal response:', json);
       
-      // ✅ FIX: Extract the actual removal from the response
-      // Backend returns: { success: true, data: removal, message: "..." }
       const savedRemoval = json.data || json;
       
       console.log('Extracted removal:', savedRemoval);
       console.log('Removal ID:', savedRemoval.removal_id);
       
-      // Validate that we have a removal_id
       if (!savedRemoval.removal_id) {
         throw new Error('No removal_id returned from server');
       }
@@ -66,7 +63,6 @@ export const useStockRemoval = () => {
       const { data: json } = await api.patch(`/removals/${removalId}/blockchain`, blockchainData);
       const updated = json.data || json;
       
-      // Update local state
       setRemovals((prev) =>
         prev.map((r) => (r.removal_id === removalId ? updated : r))
       );
@@ -74,7 +70,6 @@ export const useStockRemoval = () => {
       return updated;
     } catch (err) {
       console.error("Failed to update blockchain info:", err);
-      // Don't throw - blockchain is already confirmed, this is just metadata
     }
   };
 
@@ -93,7 +88,7 @@ export const useStockRemoval = () => {
   };
 
   /* ======================================================
-   ✅ BLOCKCHAIN FUNCTIONS (Ethereum Smart Contract)
+   ✅ BLOCKCHAIN FUNCTIONS WITH RETRY LOGIC
   ====================================================== */
   const generateRemovalHash = (removalData) => {
     const dataString = JSON.stringify({
@@ -109,12 +104,13 @@ export const useStockRemoval = () => {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(dataString));
   };
 
+  // 🚀 ENHANCED: storeRemovalHash with automatic retry logic
   const storeRemovalHash = async (removalId, dataHash) => {
     if (!contract || !address) {
       throw new Error("Wallet not connected or contract not loaded");
     }
 
-    // ✅ Validate inputs before sending to blockchain
+    // Validate inputs
     if (!removalId || removalId === undefined) {
       throw new Error("Invalid removal ID: cannot be undefined");
     }
@@ -123,103 +119,253 @@ export const useStockRemoval = () => {
       throw new Error("Invalid data hash: cannot be empty");
     }
 
-    try {
-      console.log(`Storing removal hash for ID ${removalId}...`);
-      console.log(`Data hash: ${dataHash}`);
-      
-      // Try using thirdweb contract.call first
+    console.log('🔍 Pre-flight checks:');
+    console.log('  Removal ID:', removalId);
+    console.log('  Data Hash:', dataHash);
+    console.log('  Wallet Address:', address);
+
+    // 🚀 RETRY LOGIC - Attempt transaction up to 3 times
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const tx = await contract.call("storeRemovalHash", [removalId, dataHash]);
-        console.log("Transaction sent:", tx);
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Sending removal transaction...`);
         
-        // Normalize the response to handle different thirdweb return formats
-        const normalizedTx = {
-          hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
-          receipt: tx.receipt || tx,
-          transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
-        };
-
-        if (!normalizedTx.hash) {
-          throw new Error("No transaction hash found in thirdweb response");
+        // Add delay between retries
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        return normalizedTx;
-      } catch (err) {
-        console.log("Thirdweb call failed, trying direct ethers...", err.message);
-        
-        // Fallback to direct ethers contract
-        if (signer) {
-          const abi = ContractABI.abi;
-          const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-          const tx = await contractWithSigner.storeRemovalHash(removalId, dataHash);
-          console.log("Transaction sent:", tx.hash);
-          const receipt = await tx.wait();
-          console.log("Transaction confirmed:", receipt.transactionHash);
+        // Try using thirdweb contract.call first
+        try {
+          console.log('⛽ Estimating gas with thirdweb...');
+          const tx = await contract.call("storeRemovalHash", [removalId, dataHash]);
+          console.log("Transaction sent:", tx);
           
-          return {
-            hash: receipt.transactionHash,
-            receipt: receipt,
-            transactionHash: receipt.transactionHash
+          // Normalize the response
+          const normalizedTx = {
+            hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
+            receipt: tx.receipt || tx,
+            transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
           };
+
+          if (!normalizedTx.hash) {
+            throw new Error("No transaction hash found in thirdweb response");
+          }
+
+          console.log('✅ Transaction confirmed:', normalizedTx.hash);
+          return normalizedTx; // Success! Exit retry loop
+
+        } catch (thirdwebErr) {
+          console.log("Thirdweb call failed, trying direct ethers...", thirdwebErr.message);
+          
+          // Fallback to direct ethers contract
+          if (signer) {
+            const abi = ContractABI.abi;
+            const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+            
+            // Estimate gas
+            console.log('⛽ Estimating gas with ethers...');
+            const gasEstimate = await contractWithSigner.estimateGas.storeRemovalHash(removalId, dataHash);
+            console.log('  Gas estimate:', gasEstimate.toString());
+            
+            // Send transaction with gas buffer
+            const tx = await contractWithSigner.storeRemovalHash(removalId, dataHash, {
+              gasLimit: Math.floor(gasEstimate.toNumber() * 1.3) // 30% buffer
+            });
+            
+            console.log("⏳ Transaction sent:", tx.hash);
+            const receipt = await tx.wait();
+            console.log("✅ Transaction confirmed:", receipt.transactionHash);
+            
+            return {
+              hash: receipt.transactionHash,
+              receipt: receipt,
+              transactionHash: receipt.transactionHash
+            };
+          }
+          throw thirdwebErr;
         }
-        throw err;
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        // Check if user cancelled (don't retry)
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        // Check if it's a transient error we should retry
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce too low') ||
+          txError.message?.includes('replacement transaction underpriced') ||
+          txError.code === -32603; // Internal JSON-RPC error code
+        
+        // If not transient and first attempt, don't retry
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        // If last attempt, throw the error
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        // Continue to next retry
       }
-    } catch (err) {
-      console.error("Error storing removal hash:", err);
-      
-      // Provide user-friendly error messages
-      if (err.message.includes("user rejected")) {
-        throw new Error("Transaction was rejected in MetaMask");
-      } else if (err.message.includes("insufficient funds")) {
-        throw new Error("Insufficient funds for gas fees");
-      } else if (err.message.includes("already exists")) {
-        throw new Error("This removal has already been recorded on the blockchain");
-      } else if (err.message.includes("caller must have staff or admin role")) {
-        throw new Error("Your wallet does not have permission to record removals. Please contact an administrator.");
-      } else if (err.message.includes("Invalid removal ID")) {
-        throw new Error("Invalid removal ID - database save may have failed");
-      }
-      
-      throw err;
     }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
+  // 🚀 ENHANCED: updateRemovalHash with retry logic
   const updateRemovalHash = async (removalId, newDataHash) => {
     if (!contract || !address) {
       throw new Error("Contract or wallet not connected");
     }
-    
-    try {
-      const tx = await contract.call("updateRemovalHash", [removalId, newDataHash]);
-      
-      // Normalize response
-      return {
-        hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
-        receipt: tx.receipt || tx,
-        transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
-      };
-    } catch (err) {
-      if (signer) {
-        const abi = ContractABI.abi;
-        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-        const tx = await contractWithSigner.updateRemovalHash(removalId, newDataHash);
-        const receipt = await tx.wait();
+
+    console.log('🔍 Updating removal hash:', { removalId, newDataHash });
+
+    // 🚀 RETRY LOGIC
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Updating removal hash...`);
         
-        return {
-          hash: receipt.transactionHash,
-          receipt: receipt,
-          transactionHash: receipt.transactionHash
-        };
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        try {
+          const tx = await contract.call("updateRemovalHash", [removalId, newDataHash]);
+          
+          const normalizedTx = {
+            hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
+            receipt: tx.receipt || tx,
+            transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
+          };
+
+          console.log('✅ Transaction confirmed:', normalizedTx.hash);
+          return normalizedTx;
+
+        } catch (thirdwebErr) {
+          console.log("Thirdweb failed, trying ethers...", thirdwebErr.message);
+          
+          if (signer) {
+            const abi = ContractABI.abi;
+            const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+            
+            const gasEstimate = await contractWithSigner.estimateGas.updateRemovalHash(removalId, newDataHash);
+            const tx = await contractWithSigner.updateRemovalHash(removalId, newDataHash, {
+              gasLimit: Math.floor(gasEstimate.toNumber() * 1.3)
+            });
+            
+            const receipt = await tx.wait();
+            console.log('✅ Transaction confirmed:', receipt.transactionHash);
+            
+            return {
+              hash: receipt.transactionHash,
+              receipt: receipt,
+              transactionHash: receipt.transactionHash
+            };
+          }
+          throw thirdwebErr;
+        }
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce') ||
+          txError.code === -32603;
+        
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
       }
-      throw err;
     }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
+  // 🚀 ENHANCED: deleteRemovalHash with retry logic
   const deleteRemovalHash = async (removalId) => {
     if (!contract || !address) {
       throw new Error("Contract or wallet not connected");
     }
-    return await contract.call("deleteRemovalHash", [removalId]);
+
+    console.log('🔍 Deleting removal hash:', { removalId });
+
+    // 🚀 RETRY LOGIC
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${maxRetries}: Deleting removal hash...`);
+        
+        if (attempt > 1) {
+          console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        const tx = await contract.call("deleteRemovalHash", [removalId]);
+        console.log('✅ Removal hash deleted successfully');
+        return tx;
+
+      } catch (txError) {
+        lastError = txError;
+        console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+        
+        if (txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.code === 4001) {
+          throw new Error('Transaction cancelled by user');
+        }
+        
+        const isTransientError = 
+          txError.message?.includes('Internal JSON-RPC error') ||
+          txError.message?.includes('timeout') ||
+          txError.message?.includes('network') ||
+          txError.message?.includes('nonce') ||
+          txError.code === -32603;
+        
+        if (!isTransientError && attempt === 1) {
+          throw txError;
+        }
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || new Error('Transaction failed after retries');
   };
 
   const verifyRemovalHash = async (removalId, dataHash) => {
@@ -254,7 +400,7 @@ export const useStockRemoval = () => {
   };
 
   /* ======================================================
-   ✅ COMBINED FUNCTION: Create Removal + Store on Blockchain
+   ✅ COMBINED FUNCTION: Create Removal + Store on Blockchain WITH RETRY
   ====================================================== */
   const createRemovalWithBlockchain = async (removalData) => {
     try {
@@ -271,26 +417,46 @@ export const useStockRemoval = () => {
       const dataHash = generateRemovalHash(savedRemoval);
       console.log("Hash generated:", dataHash);
 
-      // Step 3: Store on blockchain
-      console.log("Step 3: Storing on blockchain...");
-      const tx = await storeRemovalHash(savedRemoval.removal_id, dataHash);
-      console.log("Blockchain transaction successful!");
+      // Step 3: Store on blockchain with retry logic
+      console.log("Step 3: Storing on blockchain with retry logic...");
+      let tx = null;
+      let blockchainError = null;
+
+      try {
+        tx = await storeRemovalHash(savedRemoval.removal_id, dataHash);
+        console.log("✅ Blockchain transaction successful!");
+      } catch (chainErr) {
+        blockchainError = chainErr.message;
+        console.error("❌ Blockchain transaction failed:", blockchainError);
+        
+        // Provide user-friendly error message
+        if (chainErr.message?.includes('cancelled by user')) {
+          throw new Error('Transaction cancelled by user. Removal saved to database but not on blockchain.');
+        } else if (chainErr.message?.includes('Internal JSON-RPC error')) {
+          throw new Error('Network congestion detected. Removal saved to database but blockchain sync failed. Please try syncing manually later.');
+        }
+        throw new Error(`Removal saved but blockchain sync failed: ${chainErr.message}`);
+      }
 
       // Step 4: Update database with blockchain info
-      const txHash = tx.hash || tx.transactionHash;
-      if (txHash) {
-        console.log("Step 4: Updating database with blockchain info...");
-        await updateRemovalBlockchainInfo(savedRemoval.removal_id, {
-          blockchain_hash: dataHash,
-          blockchain_tx_hash: txHash,
-          removed_by_wallet: address.toLowerCase(),
-        });
+      if (tx) {
+        const txHash = tx.hash || tx.transactionHash;
+        if (txHash) {
+          console.log("Step 4: Updating database with blockchain info...");
+          await updateRemovalBlockchainInfo(savedRemoval.removal_id, {
+            blockchain_hash: dataHash,
+            blockchain_tx_hash: txHash,
+            removed_by_wallet: address.toLowerCase(),
+          });
+        }
       }
 
       return {
         removal: savedRemoval,
         transaction: tx,
         dataHash,
+        success: true,
+        message: tx ? 'Removal created and synced on blockchain' : 'Removal created (blockchain sync failed)'
       };
     } catch (err) {
       setError(err.message);
@@ -313,7 +479,7 @@ export const useStockRemoval = () => {
     deleteRemoval,
     updateRemovalBlockchainInfo,
 
-    // Blockchain
+    // Blockchain with retry logic
     generateRemovalHash,
     storeRemovalHash,
     updateRemovalHash,

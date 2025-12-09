@@ -4,6 +4,7 @@ import { useMedicineInventory } from "../../hooks/useMedicineData";
 import api from "../../../api.js";
 import { useRole } from "../auth/RoleProvider";
 
+
 // Enable blockchain for medicine additions
 const ENABLE_BLOCKCHAIN_FOR_MEDICINE = true;
 
@@ -269,7 +270,7 @@ export default function AddMedicineForm() {
             return;
           }
 
-          // Generate and store hash
+          // Generate and store hash with RETRY LOGIC
           const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
           const hashData = {
             name: medicineData.medicine_name,
@@ -281,8 +282,68 @@ export default function AddMedicineForm() {
           };
 
           const dataHash = generateMedicineHash(hashData);
-          const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
-          const txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
+          
+          // 🚀 NEW: Enhanced transaction with automatic retry
+          const maxRetries = 3;
+          let txHash = null;
+          let lastError = null;
+          
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              console.log(`📤 Blockchain Attempt ${attempt}/${maxRetries}...`);
+              
+              // Add delay between retries
+              if (attempt > 1) {
+                console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+                setError(`Network issue detected. Retrying transaction (${attempt}/${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+              
+              // Send transaction with explicit gas limit
+              const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
+              txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
+              
+              if (txHash) {
+                console.log('✅ Transaction successful:', txHash);
+                break; // Success! Exit retry loop
+              }
+              
+            } catch (txError) {
+              lastError = txError;
+              console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+              
+              // Check if user cancelled (don't retry)
+              if (txError.message?.includes('user rejected') || 
+                  txError.message?.includes('User denied')) {
+                throw new Error('Transaction cancelled by user');
+              }
+              
+              // Check if it's a transient error that we should retry
+              const isTransientError = 
+                txError.message?.includes('Internal JSON-RPC error') ||
+                txError.message?.includes('timeout') ||
+                txError.message?.includes('network') ||
+                txError.message?.includes('nonce') ||
+                txError.message?.includes('gas');
+              
+              // If not transient and first attempt, throw immediately
+              if (!isTransientError && attempt === 1) {
+                throw txError;
+              }
+              
+              // If last attempt, throw the error
+              if (attempt === maxRetries) {
+                throw lastError || txError;
+              }
+              
+              // Continue to next retry
+            }
+          }
+          
+          // If we got here without a txHash, something went wrong
+          if (!txHash) {
+            throw lastError || new Error('Transaction failed after multiple attempts');
+          }
 
           // Update database with blockchain info
           await api.patch(`/medicines/${medicine.medicine_id}`, {
@@ -309,12 +370,23 @@ export default function AddMedicineForm() {
           // Delete the medicine we just created since blockchain failed
           await api.delete(`/medicines/${medicine.medicine_id}`);
           
-          setError(
-            `⚠️ Medicine was created in database but blockchain storage failed.\n` +
-            `Database entry has been rolled back.\n\n` +
-            `Error: ${blockchainErr.message}\n\n` +
-            `Please try again or contact support.`
-          );
+          // Provide user-friendly error messages
+          let errorMessage = 'Medicine was created in database but blockchain storage failed.\nDatabase entry has been rolled back.\n\n';
+          
+          if (blockchainErr.message?.includes('user rejected') || 
+              blockchainErr.message?.includes('User denied') ||
+              blockchainErr.message?.includes('cancelled by user')) {
+            errorMessage += 'Reason: Transaction was cancelled.\n\nPlease try again when ready.';
+          } else if (blockchainErr.message?.includes('insufficient funds')) {
+            errorMessage += 'Reason: Insufficient MATIC for gas fees.\n\nPlease add MATIC to your wallet.';
+          } else if (blockchainErr.message?.includes('Internal JSON-RPC error') ||
+                    blockchainErr.message?.includes('network')) {
+            errorMessage += 'Reason: Network congestion on Polygon Amoy testnet.\n\nThis is common on testnets. Please try again in a moment.';
+          } else {
+            errorMessage += `Error: ${blockchainErr.message}`;
+          }
+          
+          setError(errorMessage);
           setLoading(false);
           return;
         }
@@ -330,23 +402,23 @@ export default function AddMedicineForm() {
 
       e.target.reset();
 
-      } catch (err) {
-        console.error("Error adding medicine:", err);
-        
-        if (err.message?.includes("AccessControl") || err.message?.includes("Access denied")) {
-          setError("Access Control Error: You don't have permission to perform this action. Please contact your administrator.");
-        } else if (err.message?.includes("already exists")) {
-          setError("This batch number already exists. Please use a unique batch number.");
-        } else if (err.message?.includes("user rejected")) {
-          setError("Transaction was cancelled by user.");
-        } else if (err.response?.data?.error) {
-          setError(err.response.data.error);
-        } else {
-          setError(`Failed to add medicine: ${err.message || 'Unknown error'}`);
-        }
-      } finally {
-        setLoading(false);
+    } catch (err) {
+      console.error("Error adding medicine:", err);
+      
+      if (err.message?.includes("AccessControl") || err.message?.includes("Access denied")) {
+        setError("Access Control Error: You don't have permission to perform this action. Please contact your administrator.");
+      } else if (err.message?.includes("already exists")) {
+        setError("This batch number already exists. Please use a unique batch number.");
+      } else if (err.message?.includes("user rejected") || err.message?.includes("cancelled by user")) {
+        setError("Transaction was cancelled.");
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(`Failed to add medicine: ${err.message || 'Unknown error'}`);
       }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (checkingAccess || !contractLoaded) {

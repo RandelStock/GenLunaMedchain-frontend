@@ -107,6 +107,7 @@ export function useMedicineInventory() {
     }
   };
 
+  // 🚀 ENHANCED: storeMedicineHash with automatic retry logic
   const storeMedicineHash = async (medicineId, dataHash) => {
     if (!contract || !address) {
       throw new Error("Wallet not connected or contract not loaded");
@@ -140,7 +141,7 @@ export function useMedicineInventory() {
       const abi = getABI();
       const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
       
-      // ✅ ADD THIS: Verify roles on the actual contract
+      // Verify roles on the actual contract
       console.log('🔐 Verifying on-chain roles...');
       const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
       const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
@@ -174,34 +175,71 @@ export function useMedicineInventory() {
         }
       }
 
-      // Estimate gas first
-      console.log('⛽ Estimating gas...');
-      try {
-        const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
-        console.log('  Gas estimate:', gasEstimate.toString());
-        
-        // Send transaction
-        console.log('📤 Sending transaction...');
-        const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
-          gasLimit: gasEstimate.mul(120).div(100) // 20% buffer
-        });
-        
-        console.log('⏳ Transaction sent:', tx.hash);
-        const receipt = await tx.wait();
-        console.log('✅ Transaction confirmed:', receipt.transactionHash);
-        
-        return receipt;
-        
-      } catch (gasErr) {
-        console.error('❌ Gas estimation failed:', gasErr);
-        
-        // Try to get revert reason
-        if (gasErr.error?.message) {
-          console.error('   Revert reason:', gasErr.error.message);
+      // 🚀 RETRY LOGIC - Attempt transaction up to 3 times
+      const maxRetries = 3;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`📤 Attempt ${attempt}/${maxRetries}: Sending transaction...`);
+          
+          // Add delay between retries
+          if (attempt > 1) {
+            console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          // Estimate gas
+          console.log('⛽ Estimating gas...');
+          const gasEstimate = await contractWithSigner.estimateGas.storeMedicineHash(parsedId, dataHash);
+          console.log('  Gas estimate:', gasEstimate.toString());
+          
+          // Send transaction with gas buffer
+          const tx = await contractWithSigner.storeMedicineHash(parsedId, dataHash, {
+            gasLimit: Math.floor(gasEstimate.toNumber() * 1.3) // 30% buffer
+          });
+          
+          console.log('⏳ Transaction sent:', tx.hash);
+          const receipt = await tx.wait();
+          console.log('✅ Transaction confirmed:', receipt.transactionHash);
+          
+          return receipt; // Success! Exit retry loop
+          
+        } catch (txError) {
+          lastError = txError;
+          console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
+          
+          // Check if user cancelled (don't retry)
+          if (txError.message?.includes('user rejected') || 
+              txError.message?.includes('User denied') ||
+              txError.code === 4001) { // MetaMask rejection code
+            throw new Error('Transaction cancelled by user');
+          }
+          
+          // Check if it's a transient error we should retry
+          const isTransientError = 
+            txError.message?.includes('Internal JSON-RPC error') ||
+            txError.message?.includes('timeout') ||
+            txError.message?.includes('network') ||
+            txError.message?.includes('nonce too low') ||
+            txError.message?.includes('replacement transaction underpriced') ||
+            txError.code === -32603; // Internal JSON-RPC error code
+          
+          // If not transient and first attempt, don't retry
+          if (!isTransientError && attempt === 1) {
+            throw txError;
+          }
+          
+          // If last attempt, throw the error
+          if (attempt === maxRetries) {
+            throw lastError;
+          }
+          
+          // Continue to next retry
         }
-        
-        throw gasErr;
       }
+      
+      throw lastError || new Error('Transaction failed after retries');
       
     } catch (err) {
       console.error("❌ storeMedicineHash failed:", err);
@@ -211,12 +249,16 @@ export function useMedicineInventory() {
       
       if (errorMsg.includes('already exists')) {
         throw new Error(`Medicine ID ${parsedId} already exists on blockchain. Database and blockchain are out of sync.`);
-      } else if (errorMsg.includes('user rejected') || errorMsg.includes('denied')) {
-        throw new Error('Transaction was rejected by user');
+      } else if (errorMsg.includes('user rejected') || 
+                 errorMsg.includes('denied') || 
+                 errorMsg.includes('cancelled by user')) {
+        throw new Error('Transaction was cancelled by user');
       } else if (errorMsg.includes('insufficient funds')) {
-        throw new Error('Insufficient funds for gas fees');
+        throw new Error('Insufficient MATIC for gas fees');
       } else if (errorMsg.includes('nonce')) {
-        throw new Error('Nonce error. Please reset MetaMask or wait a moment.');
+        throw new Error('Network sync issue. Please try again in a moment.');
+      } else if (errorMsg.includes('Internal JSON-RPC error')) {
+        throw new Error('Network congestion on Polygon Amoy. Please try again in a moment.');
       } else if (errorMsg.includes('NO ROLES ON CONTRACT')) {
         throw err; // Preserve our custom error
       }
