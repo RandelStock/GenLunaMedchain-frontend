@@ -22,12 +22,8 @@ import {
 
 import {
   ReceiptsCard,
-  TransactionHistoryCard,
-  ConsultationCard,
-  MedicineInventoryCard
+  TransactionHistoryCard
 } from './DashboardCards';
-
-import ConsultationNotifications from '../consultation/ConsultationNotifications';
 
 const API_URL = API_BASE_URL;
 
@@ -35,85 +31,21 @@ const StaffHome = () => {
   const receiptCount = useReceiptCount();
   const { getStats, contractConnected } = useTransactionHistory();
   const [activeTab, setActiveTab] = useState('overview');
-  const [consultationStats, setConsultationStats] = useState({
-    totalConsultations: 0,
-    scheduledConsultations: 0,
-    completedConsultations: 0,
-    cancelledConsultations: 0,
-    todayConsultations: 0,
-    upcomingConsultations: 0,
-    inProgress: 0
-  });
   const [loading, setLoading] = useState(false);
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
-
-  // Fetch consultation statistics
-  useEffect(() => {
-    const fetchConsultationStats = async () => {
-      if (activeTab === 'consultations') {
-        setLoading(true);
-        try {
-          // Fetch summary stats from the backend API
-          const statsResponse = await fetch(`${API_URL}/consultations/stats/summary`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          
-          if (statsResponse.ok) {
-            const statsData = await statsResponse.json();
-            if (statsData.success) {
-              // Fetch today's consultations to count in-progress status
-              const today = new Date();
-              const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
-              const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
-              
-              const todayResponse = await fetch(
-                `${API_URL}/consultations?date_from=${startOfDay}&date_to=${endOfDay}&limit=1000`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                  }
-                }
-              );
-
-              let inProgressCount = 0;
-              if (todayResponse.ok) {
-                const todayData = await todayResponse.json();
-                const consultations = todayData.data || [];
-                inProgressCount = consultations.filter(c => c.status === 'IN_PROGRESS' || c.status === 'CONFIRMED').length;
-              }
-
-              setConsultationStats({
-                ...statsData.stats,
-                inProgress: inProgressCount
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching consultation stats:', error);
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchConsultationStats();
-  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
       <div className="p-6 max-w-[1600px] mx-auto">
         {/* Enhanced Header Section */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-1">
               Staff Dashboard
             </h1>
             <p className="text-sm text-gray-600">Welcome back! Your day-to-day operations at a glance</p>
           </div>
-          <ConsultationNotifications />
         </div>
 
         {/* Enhanced Tab Navigation */}
@@ -153,15 +85,15 @@ const StaffHome = () => {
               Residents
             </button>
             <button
-              onClick={() => setActiveTab('consultations')}
+              onClick={() => setActiveTab('schedules')}
               className={`px-6 py-4 text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
-                activeTab === 'consultations'
+                activeTab === 'schedules'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               <FaCalendarAlt className="text-base" />
-              Consultations
+              Schedules
             </button>
             <button
               onClick={() => setActiveTab('reports')}
@@ -181,11 +113,9 @@ const StaffHome = () => {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <ReceiptsCard receiptCount={receiptCount} />
               <TransactionHistoryCard transactionStats={transactionStats} />
-              <ConsultationCard />
-              <MedicineInventoryCard />
             </div>
 
             {/* Quick Actions - Enhanced */}
@@ -247,9 +177,9 @@ const StaffHome = () => {
                   className="group flex flex-col items-center p-4 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl hover:shadow-md transition-all border border-teal-200"
                 >
                   <div className="bg-teal-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaUserMd className="text-xl" />
+                    <FaCalendarAlt className="text-xl" />
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">Book Consultation</span>
+                  <span className="text-sm font-semibold text-gray-900">View Schedule</span>
                 </Link>
               </div>
             </div>
@@ -328,38 +258,32 @@ const StaffHome = () => {
                 </div>
               </div>
 
-              {/* Consultation Services */}
+              {/* Schedule Services */}
               <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="bg-purple-100 p-3 rounded-xl">
                     <FaCalendarAlt className="text-xl text-purple-600" />
                   </div>
-                  <h3 className="text-base font-bold text-gray-900">Consultation Services</h3>
+                  <h3 className="text-base font-bold text-gray-900">Schedule Services</h3>
                 </div>
                 <div className="space-y-2">
-                  <Link
-                    to="/consultation"
-                    className="block p-3 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-purple-200"
-                  >
-                    📅 Book Consultation
-                  </Link>
                   <Link
                     to="/consultations/calendar"
                     className="block p-3 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-purple-200"
                   >
-                    📆 Consultation Calendar
-                  </Link>
-                  <Link
-                    to="/consultations/statistics"
-                    className="block p-3 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-purple-200"
-                  >
-                    📊 Statistics
+                    📆 View Calendar
                   </Link>
                   <Link
                     to="/calendar"
                     className="block p-3 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-purple-200"
                   >
                     📋 Schedule Overview
+                  </Link>
+                  <Link
+                    to="/provider-management"
+                    className="block p-3 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium text-gray-900 border border-transparent hover:border-purple-200"
+                  >
+                    👨‍⚕️ View Providers
                   </Link>
                 </div>
               </div>
@@ -450,15 +374,15 @@ const StaffHome = () => {
           </div>
         )}
 
-        {/* Consultations Tab */}
-        {activeTab === 'consultations' && (
+        {/* Schedules Tab */}
+        {activeTab === 'schedules' && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Telemedicine Consultations</h2>
-              <p className="text-sm text-gray-600">Manage online consultations and appointments</p>
+              <h2 className="text-xl font-bold text-gray-900">Consultation Schedules</h2>
+              <p className="text-sm text-gray-600">View appointment schedules and calendar</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Link
                 to="/consultations/calendar"
                 className="group block p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
@@ -467,54 +391,19 @@ const StaffHome = () => {
                   <FaCalendarAlt className="text-2xl text-blue-600" />
                 </div>
                 <h3 className="text-base font-bold text-gray-900 mb-1">Consultation Calendar</h3>
-                <p className="text-sm text-gray-600">View and manage scheduled consultations</p>
+                <p className="text-sm text-gray-600">View scheduled consultations</p>
               </Link>
 
               <Link
-                to="/consultations/statistics"
+                to="/calendar"
                 className="group block p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-md transition-all border border-green-200"
               >
                 <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
                   <FaChartLine className="text-2xl text-green-600" />
                 </div>
-                <h3 className="text-base font-bold text-gray-900 mb-1">Consultation Statistics</h3>
-                <p className="text-sm text-gray-600">View analytics and reports</p>
+                <h3 className="text-base font-bold text-gray-900 mb-1">Schedule Overview</h3>
+                <p className="text-sm text-gray-600">View all schedules at a glance</p>
               </Link>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-              <h4 className="text-base font-bold text-gray-900 mb-4">Today's Overview</h4>
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">Loading statistics...</div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                    <div className="text-2xl font-bold text-blue-600 mb-1">
-                      {consultationStats.scheduledConsultations}
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium">Scheduled</div>
-                  </div>
-                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                    <div className="text-2xl font-bold text-yellow-600 mb-1">
-                      {consultationStats.inProgress}
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium">In Progress</div>
-                  </div>
-                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                    <div className="text-2xl font-bold text-green-600 mb-1">
-                      {consultationStats.completedConsultations}
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium">Completed</div>
-                  </div>
-                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                    <div className="text-2xl font-bold text-red-600 mb-1">
-                      {consultationStats.cancelledConsultations}
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium">Cancelled</div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
