@@ -183,7 +183,24 @@ export default function MedicineList() {
           stock.batch_number?.toLowerCase().includes(searchQuery.toLowerCase())
         ));
       
-      const matchesBarangay = barangayFilter === "all" || med.barangay === barangayFilter;
+      // Modified barangay filter logic for staff
+      let matchesBarangay = false;
+      
+      if (barangayFilter === "all") {
+        // If filter is "all", staff sees their barangay + MUNICIPAL
+        if (userBarangay && !dbAdmin) {
+          matchesBarangay = med.barangay === userBarangay || med.barangay === 'MUNICIPAL';
+        } else {
+          // Admin sees everything
+          matchesBarangay = true;
+        }
+      } else if (barangayFilter === "MUNICIPAL") {
+        // Show only municipal medicines
+        matchesBarangay = med.barangay === "MUNICIPAL";
+      } else {
+        // Show specific barangay
+        matchesBarangay = med.barangay === barangayFilter;
+      }
       
       const hasExpiredStock = med.medicine_stocks?.some(stock => 
         new Date(stock.expiry_date) < new Date()
@@ -744,11 +761,21 @@ export default function MedicineList() {
                 onChange={(e) => { setBarangayFilter(e.target.value); setCurrentPage(1); }}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="all">All Locations</option>
-                <option value="MUNICIPAL">Municipal</option>
-                {barangays.map((brgy) => (
-                  <option key={brgy} value={brgy}>{brgy}</option>
-                ))}
+                {userBarangay && !dbAdmin ? (
+                  <>
+                    <option value="all">{userBarangay} + Municipal</option>
+                    <option value={userBarangay}>{userBarangay}</option>
+                    <option value="MUNICIPAL">Municipal</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="all">All Locations</option>
+                    <option value="MUNICIPAL">Municipal</option>
+                    {barangays.map((brgy) => (
+                      <option key={brgy} value={brgy}>{brgy}</option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
 

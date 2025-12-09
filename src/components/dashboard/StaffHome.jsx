@@ -22,7 +22,8 @@ import {
 
 import {
   ReceiptsCard,
-  TransactionHistoryCard
+  TransactionHistoryCard,
+  AuditLogsCard
 } from './DashboardCards';
 
 const API_URL = API_BASE_URL;
@@ -113,15 +114,16 @@ const StaffHome = () => {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               <ReceiptsCard receiptCount={receiptCount} />
               <TransactionHistoryCard transactionStats={transactionStats} />
+              <AuditLogsCard />
             </div>
 
             {/* Quick Actions - Enhanced */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <h3 className="text-lg font-bold text-gray-900 mb-5">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Link
                   to="/medicines/new"
                   className="group flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
@@ -170,16 +172,6 @@ const StaffHome = () => {
                     <FaUsers className="text-xl" />
                   </div>
                   <span className="text-sm font-semibold text-gray-900">Add Resident</span>
-                </Link>
-
-                <Link
-                  to="/consultation"
-                  className="group flex flex-col items-center p-4 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl hover:shadow-md transition-all border border-teal-200"
-                >
-                  <div className="bg-teal-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaCalendarAlt className="text-xl" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">View Schedule</span>
                 </Link>
               </div>
             </div>
