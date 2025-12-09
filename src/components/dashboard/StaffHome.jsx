@@ -1,9 +1,10 @@
 // src/components/dashboard/StaffHome.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useReceiptCount } from '../receipts/ReceiptsTable';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import MedicineList from '../medicine/MedicineList';
+import API_BASE_URL from '../../config.js';
 import { 
   FaPlus, 
   FaMinus, 
@@ -18,6 +19,7 @@ import {
   FaExchangeAlt,
   FaHistory
 } from 'react-icons/fa';
+
 import {
   ReceiptsCard,
   TransactionHistoryCard,
@@ -25,24 +27,93 @@ import {
   MedicineInventoryCard
 } from './DashboardCards';
 
+import ConsultationNotifications from '../consultation/ConsultationNotifications';
+
+const API_URL = API_BASE_URL;
+
 const StaffHome = () => {
   const receiptCount = useReceiptCount();
   const { getStats, contractConnected } = useTransactionHistory();
   const [activeTab, setActiveTab] = useState('overview');
+  const [consultationStats, setConsultationStats] = useState({
+    totalConsultations: 0,
+    scheduledConsultations: 0,
+    completedConsultations: 0,
+    cancelledConsultations: 0,
+    todayConsultations: 0,
+    upcomingConsultations: 0,
+    inProgress: 0
+  });
+  const [loading, setLoading] = useState(false);
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
+
+  // Fetch consultation statistics
+  useEffect(() => {
+    const fetchConsultationStats = async () => {
+      if (activeTab === 'consultations') {
+        setLoading(true);
+        try {
+          // Fetch summary stats from the backend API
+          const statsResponse = await fetch(`${API_URL}/consultations/stats/summary`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            if (statsData.success) {
+              // Fetch today's consultations to count in-progress status
+              const today = new Date();
+              const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
+              const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
+              
+              const todayResponse = await fetch(
+                `${API_URL}/consultations?date_from=${startOfDay}&date_to=${endOfDay}&limit=1000`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  }
+                }
+              );
+
+              let inProgressCount = 0;
+              if (todayResponse.ok) {
+                const todayData = await todayResponse.json();
+                const consultations = todayData.data || [];
+                inProgressCount = consultations.filter(c => c.status === 'IN_PROGRESS' || c.status === 'CONFIRMED').length;
+              }
+
+              setConsultationStats({
+                ...statsData.stats,
+                inProgress: inProgressCount
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching consultation stats:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchConsultationStats();
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
       <div className="p-6 max-w-[1600px] mx-auto">
         {/* Enhanced Header Section */}
-        <div className="mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-1">
               Staff Dashboard
             </h1>
             <p className="text-sm text-gray-600">Welcome back! Your day-to-day operations at a glance</p>
           </div>
+          <ConsultationNotifications />
         </div>
 
         {/* Enhanced Tab Navigation */}
@@ -114,10 +185,7 @@ const StaffHome = () => {
               <ReceiptsCard receiptCount={receiptCount} />
               <TransactionHistoryCard transactionStats={transactionStats} />
               <ConsultationCard />
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center hover:shadow-md transition-shadow">
-                <div className="text-sm font-medium text-gray-600 mb-1">Blockchain Tx (recent)</div>
-                <div className="text-2xl font-bold text-gray-900">{transactionStats.total || 0}</div>
-              </div>
+              <MedicineInventoryCard />
             </div>
 
             {/* Quick Actions - Enhanced */}
@@ -417,24 +485,36 @@ const StaffHome = () => {
             {/* Quick Stats */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
               <h4 className="text-base font-bold text-gray-900 mb-4">Today's Overview</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-blue-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Scheduled</div>
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading statistics...</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                      {consultationStats.scheduledConsultations}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Scheduled</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-yellow-600 mb-1">
+                      {consultationStats.inProgress}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">In Progress</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {consultationStats.completedConsultations}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Completed</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
+                    <div className="text-2xl font-bold text-red-600 mb-1">
+                      {consultationStats.cancelledConsultations}
+                    </div>
+                    <div className="text-xs text-gray-600 font-medium">Cancelled</div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-yellow-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">In Progress</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-green-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Completed</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 text-center shadow-sm border border-gray-100">
-                  <div className="text-2xl font-bold text-red-600 mb-1">0</div>
-                  <div className="text-xs text-gray-600 font-medium">Cancelled</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
