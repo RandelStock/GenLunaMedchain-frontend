@@ -205,12 +205,30 @@ const ResidentList = ({ onEdit, onView }) => {
     }));
   };
 
+  
   const handleSaveEdit = async () => {
     if (!selectedResident) return;
     
     setSaving(true);
     try {
-      await api.put(`/residents/${selectedResident.resident_id}`, editFormData);
+      // Clean up the data before sending - convert empty strings to null for date fields
+      const cleanedData = {
+        ...editFormData,
+        pregnancy_due_date: editFormData.pregnancy_due_date || null,
+        date_of_birth: editFormData.date_of_birth || null,
+        philhealth_number: editFormData.philhealth_number || null,
+        phone: editFormData.phone || null,
+        address: editFormData.address || null,
+        middle_name: editFormData.middle_name || null,
+        other_program: editFormData.other_program || null,
+        medical_conditions: editFormData.medical_conditions || null,
+        allergies: editFormData.allergies || null,
+        emergency_contact: editFormData.emergency_contact || null,
+        emergency_phone: editFormData.emergency_phone || null,
+        barangay: editFormData.barangay || null
+      };
+      
+      await api.put(`/residents/${selectedResident.resident_id}`, cleanedData);
       alert('Resident updated successfully!');
       setShowEditModal(false);
       setSelectedResident(null);
