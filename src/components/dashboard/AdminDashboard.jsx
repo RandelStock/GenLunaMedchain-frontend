@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useAddress } from "@thirdweb-dev/react";
-import { useRole } from "../auth/RoleProvider"; // ✅ Use RoleProvider instead of blockchain
-import axios from "axios";
-import API_BASE_URL from '../../config.js';
-
+import { useAddress, useContract, useContractWrite } from "@thirdweb-dev/react";
+import API_BASE_URL, { CONTRACT_ADDRESS } from "../../config.js";
 
 export default function AdminDashboard() {
   const address = useAddress();
-  const { isAdmin, userRole } = useRole(); // ✅ Get role from RoleProvider
+  const { contract } = useContract(CONTRACT_ADDRESS);
+  const { mutateAsync: grantStaffRole } = useContractWrite(contract, "grantStaffRole");
+  const { mutateAsync: revokeStaffRole } = useContractWrite(contract, "revokeStaffRole");
+  
+  const [userRole, setUserRole] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [newStaff, setNewStaff] = useState({
     wallet_address: "",
@@ -18,18 +19,36 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const [blockchainLoading, setBlockchainLoading] = useState({});
 
   useEffect(() => {
-    if (isAdmin) {
-      loadStaffList();
+    if (address) {
+      checkUserRole();
     }
-  }, [isAdmin]);
+  }, [address]);
+
+  const checkUserRole = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/role/${address}`, {
+        headers: { 'x-wallet-address': address }
+      });
+      const data = await response.json();
+      setUserRole(data.role);
+      if (data.role === 'ADMIN') {
+        loadStaffList();
+      }
+    } catch (err) {
+      console.error("Error checking role:", err);
+      setUserRole('PATIENT');
+    }
+  };
 
   const loadStaffList = async () => {
     try {
       setLoadingStaff(true);
-      const response = await axios.get(`${API_BASE_URL}/users/by-role/STAFF`);
-      setStaffList(response.data || []);
+      const response = await fetch(`${API_BASE_URL}/users/by-role/STAFF`);
+      const data = await response.json();
+      setStaffList(data || []);
     } catch (err) {
       console.error("Error loading staff list:", err);
       setMessage({ type: 'error', text: 'Failed to load staff list' });
@@ -48,18 +67,45 @@ export default function AdminDashboard() {
       setLoading(true);
       setMessage(null);
 
-      const response = await axios.post(`${API_BASE_URL}/users`, {
-        wallet_address: newStaff.wallet_address,
-        full_name: newStaff.full_name,
-        email: newStaff.email,
-        role: "STAFF",
-        assigned_barangay: newStaff.assigned_barangay || null,
+      // Step 1: Create staff in database
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: newStaff.wallet_address,
+          full_name: newStaff.full_name,
+          email: newStaff.email,
+          role: "STAFF",
+          assigned_barangay: newStaff.assigned_barangay || null,
+        })
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create staff');
+      }
 
       setMessage({ 
         type: 'success', 
-        text: `Staff member ${newStaff.full_name} created successfully!` 
+        text: `✅ Staff member ${newStaff.full_name} created in database. Now granting blockchain access...` 
       });
+
+      // Step 2: Grant blockchain role
+      try {
+        const tx = await grantStaffRole({ args: [newStaff.wallet_address] });
+        console.log("✅ Blockchain role granted:", tx);
+        
+        setMessage({ 
+          type: 'success', 
+          text: `✅ Staff member ${newStaff.full_name} created successfully with blockchain access!` 
+        });
+      } catch (blockchainError) {
+        console.error("⚠️ Blockchain grant failed:", blockchainError);
+        setMessage({ 
+          type: 'warning', 
+          text: `⚠️ Staff created in database but blockchain access failed. Please grant manually using the "Grant Blockchain Access" button.` 
+        });
+      }
       
       // Reset form
       setNewStaff({
@@ -74,22 +120,96 @@ export default function AdminDashboard() {
 
     } catch (err) {
       console.error("Error creating staff:", err);
-      const errorMsg = err.response?.data?.error || 'Failed to create staff member';
-      setMessage({ type: 'error', text: errorMsg });
+      setMessage({ type: 'error', text: err.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteStaff = async (userId) => {
-    if (!confirm("Are you sure you want to deactivate this staff member?")) {
+  const grantBlockchainAccess = async (walletAddress, fullName) => {
+    try {
+      setBlockchainLoading(prev => ({ ...prev, [walletAddress]: true }));
+      setMessage({ type: 'info', text: `Granting blockchain access to ${fullName}...` });
+
+      const tx = await grantStaffRole({ args: [walletAddress] });
+      console.log("✅ Blockchain role granted:", tx);
+
+      setMessage({ 
+        type: 'success', 
+        text: `✅ Blockchain access granted to ${fullName}! They can now add medicines.` 
+      });
+
+      setTimeout(() => loadStaffList(), 1000);
+    } catch (err) {
+      console.error("Error granting blockchain access:", err);
+      let errorMsg = 'Failed to grant blockchain access';
+      
+      if (err.message?.includes('user rejected')) {
+        errorMsg = 'Transaction cancelled by user';
+      } else if (err.message?.includes('insufficient funds')) {
+        errorMsg = 'Insufficient MATIC for gas fees';
+      }
+      
+      setMessage({ type: 'error', text: errorMsg });
+    } finally {
+      setBlockchainLoading(prev => ({ ...prev, [walletAddress]: false }));
+    }
+  };
+
+  const revokeBlockchainAccess = async (walletAddress, fullName) => {
+    if (!confirm(`Are you sure you want to revoke blockchain access for ${fullName}?`)) {
+      return;
+    }
+
+    try {
+      setBlockchainLoading(prev => ({ ...prev, [walletAddress]: true }));
+      setMessage({ type: 'info', text: `Revoking blockchain access from ${fullName}...` });
+
+      const tx = await revokeStaffRole({ args: [walletAddress] });
+      console.log("✅ Blockchain role revoked:", tx);
+
+      setMessage({ 
+        type: 'success', 
+        text: `✅ Blockchain access revoked from ${fullName}` 
+      });
+
+      setTimeout(() => loadStaffList(), 1000);
+    } catch (err) {
+      console.error("Error revoking blockchain access:", err);
+      setMessage({ type: 'error', text: 'Failed to revoke blockchain access' });
+    } finally {
+      setBlockchainLoading(prev => ({ ...prev, [walletAddress]: false }));
+    }
+  };
+
+  const deleteStaff = async (userId, walletAddress, fullName) => {
+    if (!confirm(`Are you sure you want to deactivate ${fullName}? This will:\n- Deactivate their database account\n- Revoke their blockchain access`)) {
       return;
     }
 
     try {
       setLoading(true);
-      await axios.delete(`${API_BASE_URL}/users/${userId}`);
-      setMessage({ type: 'success', text: 'Staff member deactivated successfully' });
+      
+      // Step 1: Revoke blockchain access first
+      try {
+        await revokeStaffRole({ args: [walletAddress] });
+        console.log("✅ Blockchain access revoked");
+      } catch (bcErr) {
+        console.warn("⚠️ Blockchain revoke failed (may not have had access):", bcErr.message);
+      }
+
+      // Step 2: Deactivate in database
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete user');
+      
+      setMessage({ 
+        type: 'success', 
+        text: `✅ ${fullName} deactivated successfully` 
+      });
+      
       setTimeout(() => loadStaffList(), 1000);
     } catch (err) {
       console.error("Error deleting staff:", err);
@@ -105,6 +225,8 @@ export default function AdminDashboard() {
       return () => clearTimeout(timer);
     }
   }, [message]);
+
+  const isAdmin = userRole === 'ADMIN';
 
   if (!address) {
     return (
@@ -130,7 +252,7 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-              <p className="text-gray-600">Manage staff members and system permissions</p>
+              <p className="text-gray-600">Manage staff members and blockchain permissions</p>
             </div>
             <div className="flex items-center space-x-3">
               <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
@@ -138,7 +260,7 @@ export default function AdminDashboard() {
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
               }`}>
-                {userRole}
+                {userRole || 'Loading...'}
               </span>
               <span className="text-sm text-gray-500 font-mono">
                 {address.slice(0, 6)}...{address.slice(-4)}
@@ -148,7 +270,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Access Denied Alert */}
-        {!isAdmin && (
+        {!isAdmin && userRole && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
             <div className="flex items-start">
               <svg className="h-6 w-6 text-red-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
@@ -157,7 +279,6 @@ export default function AdminDashboard() {
               <div>
                 <h3 className="text-lg font-medium text-red-800">Access Restricted</h3>
                 <p className="text-red-700 mt-1">Only system administrators can access this dashboard.</p>
-                <p className="text-sm text-red-600 mt-1">If you believe you should have access, please contact your system administrator.</p>
               </div>
             </div>
           </div>
@@ -168,23 +289,22 @@ export default function AdminDashboard() {
           <div className={`border rounded-lg p-4 mb-6 ${
             message.type === 'error' ? 'bg-red-50 border-red-200' :
             message.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+            message.type === 'info' ? 'bg-blue-50 border-blue-200' :
             'bg-green-50 border-green-200'
           }`}>
             <div className="flex items-start">
-              <svg className={`h-5 w-5 mt-0.5 mr-3 ${
+              <svg className={`h-5 w-5 mt-0.5 mr-3 flex-shrink-0 ${
                 message.type === 'error' ? 'text-red-400' :
                 message.type === 'warning' ? 'text-yellow-400' :
+                message.type === 'info' ? 'text-blue-400' :
                 'text-green-400'
               }`} fill="currentColor" viewBox="0 0 20 20">
-                {message.type === 'error' ? (
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                ) : (
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                )}
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               <span className={`text-sm font-medium ${
                 message.type === 'error' ? 'text-red-800' :
                 message.type === 'warning' ? 'text-yellow-800' :
+                message.type === 'info' ? 'text-blue-800' :
                 'text-green-800'
               }`}>{message.text}</span>
             </div>
@@ -198,6 +318,11 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                 Create New Staff Member
               </h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  ℹ️ This will create a staff account in the database AND grant blockchain access for adding medicines.
+                </p>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,7 +333,7 @@ export default function AdminDashboard() {
                     placeholder="0x..."
                     value={newStaff.wallet_address}
                     onChange={(e) => setNewStaff({...newStaff, wallet_address: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -221,7 +346,7 @@ export default function AdminDashboard() {
                     placeholder="Juan Dela Cruz"
                     value={newStaff.full_name}
                     onChange={(e) => setNewStaff({...newStaff, full_name: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -234,7 +359,7 @@ export default function AdminDashboard() {
                     placeholder="juan@example.com"
                     value={newStaff.email}
                     onChange={(e) => setNewStaff({...newStaff, email: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -245,7 +370,7 @@ export default function AdminDashboard() {
                   <select
                     value={newStaff.assigned_barangay}
                     onChange={(e) => setNewStaff({...newStaff, assigned_barangay: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Barangays</option>
                     <option value="SAN_JOSE">San Jose</option>
@@ -257,9 +382,16 @@ export default function AdminDashboard() {
                 <button
                   onClick={createStaff}
                   disabled={loading}
-                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
-                  {loading ? "Creating..." : "Create Staff Member"}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <span>Create Staff Member (DB + Blockchain)</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -303,7 +435,7 @@ export default function AdminDashboard() {
                     <div key={staff.user_id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                             </svg>
@@ -322,13 +454,41 @@ export default function AdminDashboard() {
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => deleteStaff(staff.user_id)}
-                        disabled={loading}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:bg-gray-400"
-                      >
-                        Deactivate
-                      </button>
+                      <div className="flex flex-col space-y-2 ml-4">
+                        <button
+                          onClick={() => grantBlockchainAccess(staff.wallet_address, staff.full_name)}
+                          disabled={blockchainLoading[staff.wallet_address]}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 flex items-center justify-center space-x-1 whitespace-nowrap"
+                        >
+                          {blockchainLoading[staff.wallet_address] ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                              <span>Processing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                              <span>Grant Blockchain</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => revokeBlockchainAccess(staff.wallet_address, staff.full_name)}
+                          disabled={blockchainLoading[staff.wallet_address]}
+                          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
+                        >
+                          Revoke Blockchain
+                        </button>
+                        <button
+                          onClick={() => deleteStaff(staff.user_id, staff.wallet_address, staff.full_name)}
+                          disabled={loading}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
+                        >
+                          Deactivate All
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -343,7 +503,7 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
-        ) : (
+        ) : userRole ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
             <svg className="mx-auto h-24 w-24 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -351,7 +511,7 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Admin Access Required</h3>
             <p className="text-gray-600">You need administrator privileges to access this dashboard.</p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
