@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FaLink, FaSearch, FaSync, FaExternalLinkAlt, FaCheckCircle, FaTimesCircle, FaDownload } from 'react-icons/fa';
 import { useContract } from "@thirdweb-dev/react";
 import api from '../../api.js';
+import ContractABI from '../abi/ContractABI.json';
 
 // Import your contract details
-const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS"; // Replace with your actual contract address
-const ContractABI = {}; // Replace with your actual ABI
+const CONTRACT_ADDRESS = "0xb00597076d75C504DEcb69c55B146f83819e61C1"; 
 
 export default function BlockchainHistory() {
   const { contract } = useContract(CONTRACT_ADDRESS, ContractABI.abi);
@@ -179,20 +179,9 @@ export default function BlockchainHistory() {
     });
   };
 
-  const verifyHash = async (recordId, type, hash) => {
-    try {
-      const { data } = await api.post('/blockchain/verify', { recordId, type, hash });
-      setVerificationStatus(prev => ({
-        ...prev,
-        [`${type}-${recordId}`]: data?.verified
-      }));
-    } catch (err) {
-      console.error('Verification error:', err);
-      setVerificationStatus(prev => ({
-        ...prev,
-        [`${type}-${recordId}`]: false
-      }));
-    }
+  const [selected, setSelected] = useState(null);
+  const openDetails = (item) => {
+    setSelected(item);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -555,11 +544,12 @@ export default function BlockchainHistory() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => verifyHash(item.recordId, item.type, item.hash)}
+                            onClick={() => openDetails(item)}
                             className="text-indigo-600 hover:text-indigo-800 font-medium"
                           >
-                            Verify
+                            View
                           </button>
+
                           {verificationStatus[`${item.type}-${item.recordId}`] !== undefined && (
                             <span className={verificationStatus[`${item.type}-${item.recordId}`] ? 'text-green-600' : 'text-red-600'}>
                               {verificationStatus[`${item.type}-${item.recordId}`] ? '✓' : '✗'}
@@ -582,7 +572,28 @@ export default function BlockchainHistory() {
                   ))}
                 </tbody>
               </table>
+
             </div>
+              {selected && (
+                  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-[480px]">
+                      <h2 className="text-lg font-semibold">Hash Details</h2>
+
+                      <p className="mt-2 text-sm"><strong>Record ID:</strong> {selected.recordId}</p>
+                      <p className="mt-1 text-sm"><strong>Type:</strong> {selected.type}</p>
+                      <p className="mt-1 text-sm"><strong>Full Hash:</strong> {selected.hash}</p>
+                      <p className="mt-1 text-sm"><strong>Added By:</strong> {selected.addedBy}</p>
+                      <p className="mt-1 text-sm"><strong>Timestamp:</strong> {formatTimestamp(selected.timestamp)}</p>
+
+                      <button
+                        onClick={() => setSelected(null)}
+                        className="mt-4 px-3 py-1.5 bg-gray-700 text-white rounded"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, TrendingUp, TrendingDown, ExternalLink, Search, Filter, X } from 'lucide-react';
+import { Package, TrendingUp, TrendingDown, ExternalLink, Search, Filter, X, Eye } from 'lucide-react';
 import api from '../../../api';
 
 export default function StockTransactionHistory() {
@@ -8,6 +8,8 @@ export default function StockTransactionHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   
   // Filters
   const [filters, setFilters] = useState({
@@ -84,6 +86,24 @@ export default function StockTransactionHistory() {
       start_date: '',
       end_date: ''
     });
+  };
+
+  const handleViewDetails = (transaction) => {
+    setSelectedTransaction(transaction);
+    setShowDetailsModal(true);
+  };
+
+  const getBlockchainExplorerUrl = (txHash) => {
+    // You can modify this based on your network
+    // For Ethereum Mainnet
+    // return `https://etherscan.io/tx/${txHash}`;
+    
+    // For Sepolia Testnet
+    return `https://sepolia.etherscan.io/tx/${txHash}`;
+    
+    // For other networks, adjust accordingly
+    // Polygon: `https://polygonscan.com/tx/${txHash}`
+    // BSC: `https://bscscan.com/tx/${txHash}`
   };
 
   const getTransactionIcon = (type) => {
@@ -288,7 +308,7 @@ export default function StockTransactionHistory() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Change</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Before/After</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Performed By</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Blockchain</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -334,24 +354,27 @@ export default function StockTransactionHistory() {
                           <span className="text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        {tx.blockchain_tx_hash ? (
-                          <a
-                            href={`https://etherscan.io/tx/${tx.blockchain_tx_hash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                      <td className="px-4 py-3 text-sm text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewDetails(tx)}
+                            className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="View Details"
                           >
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                            View TX
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <div className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-medium">
-                            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-                            Pending
-                          </div>
-                        )}
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {tx.blockchain_tx_hash && (
+                            <a
+                              href={getBlockchainExplorerUrl(tx.blockchain_tx_hash)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                              title="View on Blockchain Explorer"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -361,6 +384,189 @@ export default function StockTransactionHistory() {
           </div>
         )}
       </div>
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Transaction Details</h2>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Transaction Type Badge */}
+              <div className="flex items-center gap-3">
+                {getTransactionIcon(selectedTransaction.transaction_type)}
+                <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${
+                  selectedTransaction.transaction_type === 'ADDITION' 
+                    ? 'bg-green-50 text-green-700' 
+                    : 'bg-red-50 text-red-700'
+                }`}>
+                  {selectedTransaction.transaction_type}
+                </span>
+              </div>
+
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Date</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {new Date(selectedTransaction.transaction_date).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">
+                    {selectedTransaction.transaction_id || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Medicine & Stock Info */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Medicine & Stock Information</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine Name</label>
+                    <p className="mt-1 text-sm text-gray-900 font-medium">
+                      {selectedTransaction.stock?.medicine?.medicine_name || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Number</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedTransaction.stock?.batch_number || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Generic Name</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedTransaction.stock?.medicine?.generic_name || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Dosage Form</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedTransaction.stock?.medicine?.dosage_form || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quantity Changes */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Quantity Changes</h3>
+                <div className="grid grid-cols-3 gap-6">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Before</label>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900">
+                      {selectedTransaction.quantity_before}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Change</label>
+                    <p className={`mt-1 text-2xl font-semibold ${
+                      selectedTransaction.transaction_type === 'ADDITION' ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      {selectedTransaction.transaction_type === 'ADDITION' ? '+' : '-'}
+                      {selectedTransaction.quantity_changed}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity After</label>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900">
+                      {selectedTransaction.quantity_after}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performed By */}
+              {selectedTransaction.performed_by_wallet && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Performed By</h3>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Wallet Address</label>
+                    <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-3 rounded">
+                      {selectedTransaction.performed_by_wallet}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {selectedTransaction.notes && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Notes</h3>
+                  <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded">
+                    {selectedTransaction.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Blockchain Info */}
+              {selectedTransaction.blockchain_tx_hash && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Blockchain Information</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Hash</label>
+                      <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-3 rounded">
+                        {selectedTransaction.blockchain_tx_hash}
+                      </p>
+                    </div>
+                    {selectedTransaction.blockchain_hash && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Data Hash</label>
+                        <p className="mt-1 text-xs text-gray-600 break-all font-mono bg-gray-50 p-3 rounded">
+                          {selectedTransaction.blockchain_hash}
+                        </p>
+                      </div>
+                    )}
+                    <a
+                      href={getBlockchainExplorerUrl(selectedTransaction.blockchain_tx_hash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors text-sm font-medium"
+                    >
+                      View on Blockchain Explorer
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {!selectedTransaction.blockchain_tx_hash && (
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                      <p className="text-sm text-amber-800 font-medium">
+                        This transaction is pending blockchain confirmation
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="w-full px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

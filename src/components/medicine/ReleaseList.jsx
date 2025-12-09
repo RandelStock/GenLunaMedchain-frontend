@@ -1,19 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, X, Eye, Edit2, Trash2, Calendar, Package, CheckCircle, Clock } from 'lucide-react';
+import { Search, Filter, X, Eye, Edit2, Trash2, Calendar, Package, CheckCircle, Clock, Upload } from 'lucide-react';
 import { useMedicineRelease } from '../../hooks/useMedicineRelease';
 import api from '../../../api';
 
 const ReleaseList = () => {
-  const { 
-    getReleases,
-    updateRelease,
-    deleteRelease,
-    updateReleaseOnBlockchain,
-    deleteReleaseOnBlockchain,
-    updateReleaseBlockchainInfo,
-    loading
-  } = useMedicineRelease();
-  
+  const { getReleases, updateRelease, deleteRelease, updateReleaseOnBlockchain, deleteReleaseOnBlockchain, updateReleaseBlockchainInfo, loading } = useMedicineRelease();
   const [releases, setReleases] = useState([]);
   const [filteredReleases, setFilteredReleases] = useState([]);
   const [selectedRelease, setSelectedRelease] = useState(null);
@@ -21,6 +12,7 @@ const ReleaseList = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
+  const [syncingReleaseId, setSyncingReleaseId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter states
@@ -29,7 +21,6 @@ const ReleaseList = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
   const [medicines, setMedicines] = useState([]);
 
   useEffect(() => {
@@ -91,6 +82,7 @@ const ReleaseList = () => {
     if (startDate) {
       filtered = filtered.filter(release => new Date(release.date_released) >= new Date(startDate));
     }
+
     if (endDate) {
       filtered = filtered.filter(release => new Date(release.date_released) <= new Date(endDate));
     }
@@ -151,6 +143,7 @@ const ReleaseList = () => {
           quantity_released: parseInt(editFormData.quantity_released),
           date_released: new Date(editFormData.date_released).toISOString()
         });
+
         await updateReleaseBlockchainInfo(selectedRelease.release_id, {
           blockchain_hash: chain.dataHash,
           blockchain_tx_hash: chain.transactionHash
@@ -171,12 +164,48 @@ const ReleaseList = () => {
     }
   };
 
+  const handleSyncToBlockchain = async (release) => {
+    if (!window.confirm(`Sync this release for ${release.resident_name} to blockchain?\n\nThis will require a MetaMask transaction confirmation.`)) {
+      return;
+    }
+
+    setSyncingReleaseId(release.release_id);
+
+    try {
+      // Call the blockchain sync function
+      const chain = await updateReleaseOnBlockchain(release.release_id, {
+        ...release,
+        quantity_released: parseInt(release.quantity_released),
+        date_released: new Date(release.date_released).toISOString()
+      });
+
+      // Update the database with blockchain info
+      await updateReleaseBlockchainInfo(release.release_id, {
+        blockchain_hash: chain.dataHash,
+        blockchain_tx_hash: chain.transactionHash
+      });
+
+      alert('Successfully synced to blockchain!');
+      fetchReleases(); // Refresh the list
+    } catch (error) {
+      console.error('Blockchain sync failed:', error);
+      if (error.message?.includes('User denied')) {
+        alert('Transaction was rejected in MetaMask.');
+      } else {
+        alert('Failed to sync to blockchain: ' + error.message);
+      }
+    } finally {
+      setSyncingReleaseId(null);
+    }
+  };
+
   const handleDelete = async (release) => {
     if (!window.confirm(`Are you sure you want to delete this release for ${release.resident_name}?`)) {
       return;
     }
 
     setActionLoading(true);
+
     try {
       try {
         await deleteReleaseOnBlockchain(release.release_id);
@@ -185,7 +214,6 @@ const ReleaseList = () => {
       }
 
       await deleteRelease(release.release_id);
-      
       alert('Release deleted successfully!');
       fetchReleases();
     } catch (error) {
@@ -208,7 +236,7 @@ const ReleaseList = () => {
               <h1 className="text-xl font-semibold text-gray-900">Medicine Releases</h1>
               <p className="text-sm text-gray-500 mt-0.5">Manage medicine distribution records</p>
             </div>
-            
+
             {/* Stats Compact */}
             <div className="flex items-center gap-6">
               <div className="text-center">
@@ -244,7 +272,7 @@ const ReleaseList = () => {
                 className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
+
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
@@ -287,7 +315,7 @@ const ReleaseList = () => {
                   </option>
                 ))}
               </select>
-              
+
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
@@ -297,7 +325,7 @@ const ReleaseList = () => {
                 <option value="synced">Synced</option>
                 <option value="pending">Pending</option>
               </select>
-              
+
               <input
                 type="date"
                 value={startDate}
@@ -305,7 +333,7 @@ const ReleaseList = () => {
                 className="px-3 py-2 bg-white border border-gray-300 rounded text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Start Date"
               />
-              
+
               <input
                 type="date"
                 value={endDate}
@@ -384,6 +412,20 @@ const ReleaseList = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {!release.blockchain_tx_hash && (
+                          <button
+                            onClick={() => handleSyncToBlockchain(release)}
+                            disabled={syncingReleaseId === release.release_id}
+                            className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Sync to Blockchain"
+                          >
+                            {syncingReleaseId === release.release_id ? (
+                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Upload className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleView(release)}
                           className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
