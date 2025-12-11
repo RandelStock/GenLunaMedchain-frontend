@@ -3,6 +3,42 @@ import { FaHistory, FaFilter, FaDownload, FaChartBar, FaEye, FaEyeSlash, FaSearc
 import { useAddress } from '@thirdweb-dev/react';
 import API_BASE_URL from '../config';
 
+const BARANGAYS = [
+  { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
+  { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
+  { value: 'BARANGAY_1_POBLACION', label: 'Barangay 1 (Poblacion)' },
+  { value: 'BARANGAY_2_POBLACION', label: 'Barangay 2 (Poblacion)' },
+  { value: 'BARANGAY_3_POBLACION', label: 'Barangay 3 (Poblacion)' },
+  { value: 'BARANGAY_4_POBLACION', label: 'Barangay 4 (Poblacion)' },
+  { value: 'BARANGAY_5_POBLACION', label: 'Barangay 5 (Poblacion)' },
+  { value: 'BARANGAY_6_POBLACION', label: 'Barangay 6 (Poblacion)' },
+  { value: 'BARANGAY_7_POBLACION', label: 'Barangay 7 (Poblacion)' },
+  { value: 'BARANGAY_8_POBLACION', label: 'Barangay 8 (Poblacion)' },
+  { value: 'BARANGAY_9_POBLACION', label: 'Barangay 9 (Poblacion)' },
+  { value: 'LAVIDES', label: 'Lavides' },
+  { value: 'MAGSAYSAY', label: 'Magsaysay' },
+  { value: 'MALAYA', label: 'Malaya' },
+  { value: 'NIEVA', label: 'Nieva' },
+  { value: 'RECTO', label: 'Recto' },
+  { value: 'SAN_IGNACIO_IBABA', label: 'San Ignacio Ibaba' },
+  { value: 'SAN_IGNACIO_ILAYA', label: 'San Ignacio Ilaya' },
+  { value: 'SAN_ISIDRO_IBABA', label: 'San Isidro Ibaba' },
+  { value: 'SAN_ISIDRO_ILAYA', label: 'San Isidro Ilaya' },
+  { value: 'SAN_JOSE', label: 'San Jose' },
+  { value: 'SAN_NICOLAS', label: 'San Nicolas' },
+  { value: 'SAN_VICENTE', label: 'San Vicente' },
+  { value: 'SANTA_MARIA_IBABA', label: 'Santa Maria Ibaba' },
+  { value: 'SANTA_MARIA_ILAYA', label: 'Santa Maria Ilaya' },
+  { value: 'SUMILANG', label: 'Sumilang' },
+  { value: 'VILLARICA', label: 'Villarica' }
+];
+
+const getBarangayLabel = (value) => {
+  if (!value || value === 'RHU' || value.toUpperCase() === 'RHU') return 'RHU/Municipal';
+  const found = BARANGAYS.find(b => b.value === value);
+  return found ? found.label : value;
+};
+
 const AllAuditLogs = () => {
   const address = useAddress();
   const [logs, setLogs] = useState([]);
@@ -21,37 +57,11 @@ const AllAuditLogs = () => {
     search: '',
     barangay: 'all'
   });
-  const [barangays, setBarangays] = useState([]);
 
   useEffect(() => {
     loadLogs();
     loadStats();
-    loadBarangays();
   }, [page, filters.table, filters.action, filters.month]);
-
-  const loadBarangays = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/medicines`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const medicinesData = data.data || [];
-        
-        const uniqueBarangays = [...new Set(
-          medicinesData
-            .map(med => med.barangay)
-            .filter(brgy => brgy && brgy.toUpperCase() !== 'RHU' && brgy.toUpperCase() !== 'MUNICIPAL')
-        )].sort();
-        
-        setBarangays(uniqueBarangays);
-      }
-    } catch (e) {
-      console.error('Failed to load barangays:', e);
-      setBarangays([]);
-    }
-  };
 
   const loadLogs = async () => {
     try {
@@ -307,7 +317,7 @@ const AllAuditLogs = () => {
         getActionLabel(log.action, log.table_name),
         getUserDisplayName(log),
         log.changed_by_wallet || 'N/A',
-        log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal')
+        getBarangayLabel(log.derivedBarangay)
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -329,7 +339,7 @@ const AllAuditLogs = () => {
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
     if (filters.barangay !== 'all') {
-      doc.text(`Barangay: ${filters.barangay === 'RHU' ? 'RHU/Municipal Health Center' : filters.barangay}`, 14, 34);
+      doc.text(`Barangay: ${getBarangayLabel(filters.barangay)}`, 14, 34);
       doc.text(`Total Records: ${filteredLogs.length}`, 14, 40);
     } else {
       doc.text(`Total Records: ${filteredLogs.length}`, 14, 34);
@@ -346,7 +356,7 @@ const AllAuditLogs = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
-      const scope = log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal');
+      const scope = getBarangayLabel(log.derivedBarangay);
       const line = `${date} | ${getTableDisplayName(log.table_name)}#${log.record_id || 'N/A'} | ${getActionLabel(log.action, log.table_name)} | ${getUserDisplayName(log)} | ${scope}`;
       doc.text(line.substring(0, 110), 14, y);
       y += 6;
@@ -356,7 +366,6 @@ const AllAuditLogs = () => {
     const barangayLabel = filters.barangay === 'all' ? 'all' : filters.barangay.toLowerCase().replace(/\s+/g, '-');
     doc.save(`audit-logs-${barangayLabel}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Bar */}
@@ -374,7 +383,7 @@ const AllAuditLogs = () => {
                 <>
                   <div className="h-6 w-px bg-gray-300"></div>
                   <span className="inline-flex items-center px-3 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-900 border border-blue-300">
-                    {filters.barangay === 'RHU' ? 'RHU/Municipal' : filters.barangay}
+                    {getBarangayLabel(filters.barangay)}
                   </span>
                 </>
               )}
@@ -428,8 +437,8 @@ const AllAuditLogs = () => {
             >
               <option value="all" style={{ color: '#111827' }}>All Barangays</option>
               <option value="RHU" style={{ color: '#111827' }}>RHU/Municipal Health Center</option>
-              {barangays.map(brgy => (
-                <option key={brgy} value={brgy} style={{ color: '#111827' }}>{brgy}</option>
+              {BARANGAYS.map(brgy => (
+                <option key={brgy.value} value={brgy.value} style={{ color: '#111827' }}>{brgy.label}</option>
               ))}
             </select>
 
@@ -568,7 +577,7 @@ const AllAuditLogs = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">
-                            {log.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (log.derivedBarangay || 'RHU/Municipal')}
+                            {getBarangayLabel(log.derivedBarangay)}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
@@ -586,134 +595,135 @@ const AllAuditLogs = () => {
               </div>
 
               {filteredLogs.length === 0 && (
-                <div className="p-12 text-center text-gray-500 text-sm">No audit logs found</div>
+                <div className="p-12 text-center text-gray-500 text-sm">
+                  No audit logs found
+                  </div>
               )}
-            </>
-          )}
+  </>
+                )}
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-gray-600">
-              Page {page} of {totalPages}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+{/* Pagination */}
+    {totalPages > 1 && (
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">
+          Page {page} of {totalPages}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
       </div>
+    )}
+  </div>
 
-      {/* Detailed View Modal */}
-      {showDetails && selectedLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
-              <button
-                onClick={closeDetails}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <FaTimes className="w-5 h-5" />
-              </button>
+  {/* Detailed View Modal */}
+  {showDetails && selectedLog && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
+          <button
+            onClick={closeDetails}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <FaTimes className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Basic Information</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Date:</span>
+                  <span className="font-medium text-gray-900">{new Date(selectedLog.changed_at).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Table:</span>
+                  <span className="font-medium text-gray-900">{getTableDisplayName(selectedLog.table_name)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Record ID:</span>
+                  <span className="font-medium text-gray-900">{selectedLog.record_id || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Action:</span>
+                  <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(selectedLog.action)}`}>
+                    {getActionLabel(selectedLog.action, selectedLog.table_name)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Changed By:</span>
+                  <span className="font-medium text-gray-900">{getUserDisplayName(selectedLog)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Role:</span>
+                  <span className="font-medium text-gray-900">{selectedLog.changed_by_user?.role || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Barangay:</span>
+                  <span className="font-medium text-gray-900">
+                    {getBarangayLabel(selectedLog.derivedBarangay)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Wallet:</span>
+                  <span className="font-mono text-xs font-medium text-gray-900">{formatAddress(selectedLog.changed_by_wallet)}</span>
+                </div>
+              </div>
             </div>
             
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Basic Information</h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Date:</span>
-                      <span className="font-medium text-gray-900">{new Date(selectedLog.changed_at).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Table:</span>
-                      <span className="font-medium text-gray-900">{getTableDisplayName(selectedLog.table_name)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Record ID:</span>
-                      <span className="font-medium text-gray-900">{selectedLog.record_id || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Action:</span>
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-md border ${getActionColor(selectedLog.action)}`}>
-                        {getActionLabel(selectedLog.action, selectedLog.table_name)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Changed By:</span>
-                      <span className="font-medium text-gray-900">{getUserDisplayName(selectedLog)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Role:</span>
-                      <span className="font-medium text-gray-900">{selectedLog.changed_by_user?.role || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Barangay:</span>
-                      <span className="font-medium text-gray-900">
-                        {selectedLog.derivedBarangay === 'RHU' ? 'RHU/Municipal' : (selectedLog.derivedBarangay || 'RHU/Municipal')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Wallet:</span>
-                      <span className="font-mono text-xs font-medium text-gray-900">{formatAddress(selectedLog.changed_by_wallet)}</span>
-                    </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Change Details</h4>
+              <div className="space-y-4">
+                {selectedLog.old_values && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-600 mb-2">Previous Values:</div>
+                    <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
+                      {safeJsonStringify(selectedLog.old_values)}
+                    </pre>
                   </div>
-                </div>
+                )}
                 
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Change Details</h4>
-                  <div className="space-y-4">
-                    {selectedLog.old_values && (
-                      <div>
-                        <div className="text-xs font-medium text-gray-600 mb-2">Previous Values:</div>
-                        <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
-                          {safeJsonStringify(selectedLog.old_values)}
-                        </pre>
-                      </div>
-                    )}
-                    
-                    {selectedLog.new_values && (
-                      <div>
-                        <div className="text-xs font-medium text-gray-600 mb-2">New Values:</div>
-                        <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
-                          {safeJsonStringify(selectedLog.new_values)}
-                        </pre>
-                      </div>
-                    )}
+                {selectedLog.new_values && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-600 mb-2">New Values:</div>
+                    <pre className="bg-gray-50 border border-gray-200 p-3 rounded text-xs overflow-x-auto text-gray-900">
+                      {safeJsonStringify(selectedLog.new_values)}
+                    </pre>
                   </div>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={closeDetails}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded hover:bg-gray-700"
-                >
-                  Close
-                </button>
+                )}
               </div>
             </div>
           </div>
+          
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={closeDetails}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded hover:bg-gray-700"
+            >
+              Close
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
-  );
+  )}
+</div>
+);
 };
 
 export default AllAuditLogs;
