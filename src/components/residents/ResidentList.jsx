@@ -43,6 +43,20 @@ const AGE_CATEGORIES = [
   { value: 'ABOVE_71_MONTHS', label: 'Above 71 Months' }
 ];
 
+const isProfileIncomplete = (resident) => {
+  const requiredFields = [
+    resident.first_name,
+    resident.last_name,
+    resident.date_of_birth,
+    resident.gender,
+    resident.barangay,
+    resident.address,
+    resident.phone
+  ];
+  
+  return requiredFields.some(field => !field || field === '');
+};
+
 const ResidentList = ({ onEdit, onView }) => {
   const [residents, setResidents] = useState([]);
   const [filters, setFilters] = useState({ 
@@ -246,6 +260,8 @@ const ResidentList = ({ onEdit, onView }) => {
   const handleRefresh = () => {
     loadResidents();
   };
+
+  
 
   const exportToCSV = () => {
     const headers = ['ID', 'Name', 'Gender', 'Age', 'Phone', 'Barangay', 'Address', '4Ps', 'PhilHealth', 'Pregnant', 'Senior', 'Birth Reg.'];
@@ -780,7 +796,7 @@ const ResidentList = ({ onEdit, onView }) => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto max-h-[calc(100vh-400px)] overflow-y-auto">
+              <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                     <tr>
@@ -863,7 +879,7 @@ const ResidentList = ({ onEdit, onView }) => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
-                            {!res.is_profile_complete && (
+                            {isProfileIncomplete(res) && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
                                 ⚠️ Incomplete
                               </span>

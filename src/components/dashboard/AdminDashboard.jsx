@@ -2,6 +2,38 @@ import React, { useState, useEffect } from "react";
 import { useAddress, useContract, useContractWrite } from "@thirdweb-dev/react";
 import API_BASE_URL, { CONTRACT_ADDRESS } from "../../config.js";
 
+// Barangay constants matching ResidentProfileModal
+const BARANGAYS = [
+  { value: '', label: 'All Barangays' },
+  { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
+  { value: 'BACONG_ILAYA', label: 'Bacong Ilaya' },
+  { value: 'BARANGAY_1_POBLACION', label: 'Barangay 1 (Poblacion)' },
+  { value: 'BARANGAY_2_POBLACION', label: 'Barangay 2 (Poblacion)' },
+  { value: 'BARANGAY_3_POBLACION', label: 'Barangay 3 (Poblacion)' },
+  { value: 'BARANGAY_4_POBLACION', label: 'Barangay 4 (Poblacion)' },
+  { value: 'BARANGAY_5_POBLACION', label: 'Barangay 5 (Poblacion)' },
+  { value: 'BARANGAY_6_POBLACION', label: 'Barangay 6 (Poblacion)' },
+  { value: 'BARANGAY_7_POBLACION', label: 'Barangay 7 (Poblacion)' },
+  { value: 'BARANGAY_8_POBLACION', label: 'Barangay 8 (Poblacion)' },
+  { value: 'BARANGAY_9_POBLACION', label: 'Barangay 9 (Poblacion)' },
+  { value: 'LAVIDES', label: 'Lavides' },
+  { value: 'MAGSAYSAY', label: 'Magsaysay' },
+  { value: 'MALAYA', label: 'Malaya' },
+  { value: 'NIEVA', label: 'Nieva' },
+  { value: 'RECTO', label: 'Recto' },
+  { value: 'SAN_IGNACIO_IBABA', label: 'San Ignacio Ibaba' },
+  { value: 'SAN_IGNACIO_ILAYA', label: 'San Ignacio Ilaya' },
+  { value: 'SAN_ISIDRO_IBABA', label: 'San Isidro Ibaba' },
+  { value: 'SAN_ISIDRO_ILAYA', label: 'San Isidro Ilaya' },
+  { value: 'SAN_JOSE', label: 'San Jose' },
+  { value: 'SAN_NICOLAS', label: 'San Nicolas' },
+  { value: 'SAN_VICENTE', label: 'San Vicente' },
+  { value: 'SANTA_MARIA_IBABA', label: 'Santa Maria Ibaba' },
+  { value: 'SANTA_MARIA_ILAYA', label: 'Santa Maria Ilaya' },
+  { value: 'SUMILANG', label: 'Sumilang' },
+  { value: 'VILLARICA', label: 'Villarica' }
+];
+
 export default function AdminDashboard() {
   const address = useAddress();
   const { contract } = useContract(CONTRACT_ADDRESS);
@@ -10,7 +42,6 @@ export default function AdminDashboard() {
   
   const [userRole, setUserRole] = useState(null);
   const [staffList, setStaffList] = useState([]);
-  const [barangayList, setBarangayList] = useState([]); // NEW: Store barangays from DB
   const [newStaff, setNewStaff] = useState({
     wallet_address: "",
     full_name: "",
@@ -21,7 +52,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [blockchainLoading, setBlockchainLoading] = useState({});
-  const [retryState, setRetryState] = useState({}); // NEW: Track retry attempts per staff
+  const [retryState, setRetryState] = useState({});
 
   useEffect(() => {
     if (address) {
@@ -38,23 +69,10 @@ export default function AdminDashboard() {
       setUserRole(data.role);
       if (data.role === 'ADMIN') {
         loadStaffList();
-        loadBarangays(); // NEW: Load barangays from database
       }
     } catch (err) {
       console.error("Error checking role:", err);
       setUserRole('PATIENT');
-    }
-  };
-
-  // NEW: Load all barangays from database
-  const loadBarangays = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/barangay-health-centers`);
-      const data = await response.json();
-      setBarangayList(data || []);
-    } catch (err) {
-      console.error("Error loading barangays:", err);
-      setMessage({ type: 'error', text: 'Failed to load barangays' });
     }
   };
 
@@ -82,7 +100,6 @@ export default function AdminDashboard() {
       setLoading(true);
       setMessage(null);
 
-      // Step 1: Create staff in database
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,7 +122,6 @@ export default function AdminDashboard() {
         text: `✅ Staff member ${newStaff.full_name} created in database. Now granting blockchain access...` 
       });
 
-      // Step 2: Grant blockchain role with retry support
       try {
         const tx = await grantStaffRole({ args: [newStaff.wallet_address] });
         console.log("✅ Blockchain role granted:", tx);
@@ -115,12 +131,10 @@ export default function AdminDashboard() {
           text: `✅ Staff member ${newStaff.full_name} created successfully with blockchain access!` 
         });
         
-        // Clear retry state on success
         setRetryState(prev => ({ ...prev, [newStaff.wallet_address]: undefined }));
       } catch (blockchainError) {
         console.error("⚠️ Blockchain grant failed:", blockchainError);
         
-        // Initialize retry state
         setRetryState(prev => ({ 
           ...prev, 
           [newStaff.wallet_address]: { attempts: 1, type: 'grant' }
@@ -132,7 +146,6 @@ export default function AdminDashboard() {
         });
       }
       
-      // Reset form
       setNewStaff({
         wallet_address: "",
         full_name: "",
@@ -140,7 +153,6 @@ export default function AdminDashboard() {
         assigned_barangay: "",
       });
       
-      // Reload staff list
       setTimeout(() => loadStaffList(), 1000);
 
     } catch (err) {
@@ -151,7 +163,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // NEW: Retry-enabled blockchain grant with attempt tracking
   const grantBlockchainAccess = async (walletAddress, fullName) => {
     const currentAttempt = (retryState[walletAddress]?.attempts || 0) + 1;
     
@@ -170,7 +181,6 @@ export default function AdminDashboard() {
         text: `✅ Blockchain access granted to ${fullName}! They can now add medicines.` 
       });
 
-      // Clear retry state on success
       setRetryState(prev => ({ ...prev, [walletAddress]: undefined }));
 
       setTimeout(() => loadStaffList(), 1000);
@@ -186,7 +196,6 @@ export default function AdminDashboard() {
         errorMsg = `❌ Blockchain error (Attempt ${currentAttempt}/3)`;
       }
       
-      // Update retry state
       setRetryState(prev => ({ 
         ...prev, 
         [walletAddress]: { attempts: currentAttempt, type: 'grant' }
@@ -238,7 +247,6 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       
-      // Step 1: Revoke blockchain access first
       try {
         await revokeStaffRole({ args: [walletAddress] });
         console.log("✅ Blockchain access revoked");
@@ -246,7 +254,6 @@ export default function AdminDashboard() {
         console.warn("⚠️ Blockchain revoke failed (may not have had access):", bcErr.message);
       }
 
-      // Step 2: Deactivate in database
       const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'DELETE'
       });
@@ -258,7 +265,6 @@ export default function AdminDashboard() {
         text: `✅ ${fullName} deactivated successfully` 
       });
       
-      // Clear retry state
       setRetryState(prev => ({ ...prev, [walletAddress]: undefined }));
       
       setTimeout(() => loadStaffList(), 1000);
@@ -279,6 +285,7 @@ export default function AdminDashboard() {
 
   const isAdmin = userRole === 'ADMIN';
 
+
   if (!address) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -298,7 +305,6 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex justify-between items-center">
             <div>
@@ -320,7 +326,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Access Denied Alert */}
         {!isAdmin && userRole && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
             <div className="flex items-start">
@@ -335,7 +340,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Alert Messages */}
         {message && (
           <div className={`border rounded-lg p-4 mb-6 ${
             message.type === 'error' ? 'bg-red-50 border-red-200' :
@@ -364,7 +368,6 @@ export default function AdminDashboard() {
 
         {isAdmin ? (
           <div className="space-y-6">
-            {/* Create Staff Member Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                 Create New Staff Member
@@ -423,15 +426,14 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewStaff({...newStaff, assigned_barangay: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">All Barangays</option>
-                    {barangayList.map((bhc) => (
-                      <option key={bhc.id} value={bhc.barangay}>
-                        {bhc.barangay.replace(/_/g, ' ')} - {bhc.center_name}
+                    {BARANGAYS.map((barangay) => (
+                      <option key={barangay.value} value={barangay.value}>
+                        {barangay.label}
                       </option>
                     ))}
                   </select>
                   <p className="text-xs text-gray-600 mt-1">
-                    {barangayList.length} barangay health centers available
+                    27 barangays available
                   </p>
                 </div>
                 
@@ -452,7 +454,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Staff Members List Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -510,7 +511,7 @@ export default function AdminDashboard() {
                               <p className="font-mono text-xs text-gray-600">{staff.wallet_address}</p>
                               {staff.assigned_barangay && (
                                 <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                  {staff.assigned_barangay.replace(/_/g, ' ')}
+                                  {BARANGAYS.find(b => b.value === staff.assigned_barangay)?.label || staff.assigned_barangay}
                                 </span>
                               )}
                             </div>
@@ -574,7 +575,6 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         
-                        {/* Retry Status Banner */}
                         {hasRetry && (
                           <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                             <div className="flex items-center text-sm text-orange-800">

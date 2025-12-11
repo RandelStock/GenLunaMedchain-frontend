@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FaCalendarAlt, FaClock, FaUserMd, FaUserNurse, FaVideo, FaPhone, FaMapMarkerAlt, FaCheck, FaTimes, FaEnvelope, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import API_BASE_URL from '../../config.js';
+import ConsultationNotifications from './ConsultationNotifications';
+import { useSearchParams } from 'react-router-dom';
+
 
 const STATUS_COLORS = {
   SCHEDULED: 'bg-blue-500',
@@ -38,10 +41,37 @@ const ConsultationCalendar = () => {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // Combined useEffect for URL params and loading consultations
   useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam && dateParam !== selectedDate) {
+      setSelectedDate(dateParam);
+      return; // Exit early, let the next render load consultations
+    }
+    
     loadConsultations();
-  }, [selectedDate]);
+  }, [selectedDate, searchParams]);
+
+  // Auto-open consultation from notification
+  useEffect(() => {
+    const consultationParam = searchParams.get('consultation');
+    
+    if (consultationParam && consultations.length > 0) {
+      const consultation = consultations.find(
+        c => c.consultation_id === parseInt(consultationParam)
+      );
+      
+      if (consultation) {
+        setSelectedConsultation(consultation);
+        setShowDetailModal(true);
+        
+        // Clear the URL parameter after opening
+        setSearchParams({});
+      }
+    }
+  }, [consultations, searchParams, setSearchParams]);
 
   const loadConsultations = async () => {
     try {
@@ -339,10 +369,15 @@ const ConsultationCalendar = () => {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Consultation Calendar</h1>
-          <p className="text-gray-600 text-sm">Manage your appointments</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">Consultation Calendar</h1>
+              <p className="text-gray-600 text-sm">Manage your appointments</p>
+            </div>
+            <ConsultationNotifications />
+          </div>
         </div>
-
+    
         {error && !showDetailModal && (
           <div className="mb-4 bg-red-50 border-l-4 border-red-500 rounded-lg p-3">
             <p className="text-red-900 font-semibold text-sm">{error}</p>

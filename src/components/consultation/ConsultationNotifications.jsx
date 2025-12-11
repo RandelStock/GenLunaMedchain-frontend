@@ -327,9 +327,10 @@ const ConsultationNotifications = () => {
                       <div className="divide-y divide-gray-200">
                         {groupedNotifications[date].map((consultation) => (
                           <Link
-                            to="/consultations/calendar"
+                            to={`/consultations/calendar?date=${consultation.scheduled_date}&consultation=${consultation.consultation_id}`}
                             key={consultation.consultation_id}
                             className="block p-4 hover:bg-blue-50 transition-colors cursor-pointer"
+                            onClick={() => setShowDropdown(false)}
                           >
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 bg-blue-100 p-2 rounded-lg">
@@ -405,6 +406,7 @@ const ConsultationNotifications = () => {
               <Link
                 to="/consultations/calendar"
                 className="block w-full text-center text-sm font-semibold text-blue-600 hover:text-blue-700 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                onClick={() => setShowDropdown(false)}
               >
                 View All Consultations →
               </Link>
