@@ -14,7 +14,6 @@ const AllAuditLogs = () => {
   const [showStats, setShowStats] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [filters, setFilters] = useState({
     table: 'all',
     action: 'all',
@@ -29,26 +28,6 @@ const AllAuditLogs = () => {
     loadStats();
     loadBarangays();
   }, [page, filters.table, filters.action, filters.month]);
-
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      if (address) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/users/me`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setCurrentUser(data?.user || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch current user:', e);
-          setCurrentUser(null);
-        }
-      }
-    };
-    fetchCurrentUser();
-  }, [address]);
 
   const loadBarangays = async () => {
     try {
@@ -249,25 +228,18 @@ const AllAuditLogs = () => {
   };
 
   const getUserDisplayName = (log) => {
-    // First priority: changed_by_user relation with full name
+    // Backend now enriches all logs with user info
     if (log.changed_by_user?.full_name) {
       return log.changed_by_user.full_name;
     }
     
-    // Second priority: wallet address match with current user
-    if (log.changed_by_wallet && address && 
-        log.changed_by_wallet.toLowerCase() === address.toLowerCase() && 
-        currentUser?.full_name) {
-      return currentUser.full_name;
-    }
-    
-    // Third priority: display wallet address if available
+    // If no user info but has wallet, show formatted wallet
     if (log.changed_by_wallet) {
       return formatAddress(log.changed_by_wallet);
     }
     
-    // Last resort: System (shouldn't happen with proper audit logging)
-    return 'System';
+    // Only if no wallet was recorded at all
+    return 'Administrator';
   };
 
   const formatAddress = (address) => {
