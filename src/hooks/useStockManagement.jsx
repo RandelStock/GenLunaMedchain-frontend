@@ -59,7 +59,7 @@ export const useStockManagement = () => {
         }
       }
 
-      // Create the stock
+      // THIS WAS MISSING - Actually create the stock
       const response = await fetch(`${API_URL}/stocks`, {
         method: "POST",
         headers: {
@@ -95,7 +95,7 @@ export const useStockManagement = () => {
     }
   };
 
-  // 🚀 ENHANCED: storeStockHash with automatic retry logic
+  // Store or update hash on blockchain
   const storeStockHash = async (stockId, dataHash) => {
     if (!contract || !address) {
       throw new Error("Wallet not connected or contract not loaded");
@@ -109,150 +109,53 @@ export const useStockManagement = () => {
       throw new Error("Invalid data hash: cannot be empty");
     }
 
-    console.log('🔍 Pre-flight checks:');
-    console.log('  Stock ID:', stockId);
-    console.log('  Data Hash:', dataHash);
-    console.log('  Wallet Address:', address);
-
     try {
+      console.log(`Storing/updating stock hash for ID ${stockId}...`);
+      console.log(`Data hash: ${dataHash}`);
+      
       // Check if stock hash already exists
       let hashExists = false;
       try {
         const existingHash = await contract.call("getStockHash", [stockId]);
         hashExists = existingHash[3]; // Fourth element is the 'exists' boolean
-        console.log(`  Stock hash exists: ${hashExists}`);
+        console.log(`Stock hash exists: ${hashExists}`);
       } catch (err) {
-        console.log('  Error checking if hash exists, assuming it does not:', err.message);
+        console.log('Error checking if hash exists, assuming it does not:', err.message);
       }
       
       // Use updateStockHash if it exists, otherwise use storeStockHash
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
-      console.log(`  Using method: ${methodName}`);
+      console.log(`Using method: ${methodName}`);
+      
+      const tx = await contract.call(methodName, [stockId, dataHash]);
+      console.log("Transaction sent:", tx);
+      
+      const normalizedTx = {
+        hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
+        receipt: tx.receipt || tx,
+        transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
+      };
 
-      // 🚀 RETRY LOGIC - Attempt transaction up to 3 times
-      const maxRetries = 3;
-      let lastError = null;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`📤 Attempt ${attempt}/${maxRetries}: Sending stock transaction...`);
-          
-          // Add delay between retries
-          if (attempt > 1) {
-            console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-
-          // Try using thirdweb contract.call first
-          try {
-            console.log('⛽ Estimating gas with thirdweb...');
-            const tx = await contract.call(methodName, [stockId, dataHash]);
-            console.log("Transaction sent:", tx);
-            
-            // Normalize the response
-            const normalizedTx = {
-              hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
-              receipt: tx.receipt || tx,
-              transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
-            };
-
-            if (!normalizedTx.hash) {
-              throw new Error("No transaction hash found in thirdweb response");
-            }
-
-            console.log('✅ Transaction confirmed:', normalizedTx.hash);
-            return normalizedTx; // Success! Exit retry loop
-
-          } catch (thirdwebErr) {
-            console.log("Thirdweb call failed, trying direct ethers...", thirdwebErr.message);
-            
-            // Fallback to direct ethers contract
-            if (signer) {
-              const abi = ContractABI.abi;
-              const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-              
-              // Estimate gas
-              console.log('⛽ Estimating gas with ethers...');
-              const gasEstimate = await contractWithSigner.estimateGas[methodName](stockId, dataHash);
-              console.log('  Gas estimate:', gasEstimate.toString());
-              
-              // Send transaction with gas buffer
-              const tx = await contractWithSigner[methodName](stockId, dataHash, {
-                gasLimit: Math.floor(gasEstimate.toNumber() * 1.3) // 30% buffer
-              });
-              
-              console.log("⏳ Transaction sent:", tx.hash);
-              const receipt = await tx.wait();
-              console.log("✅ Transaction confirmed:", receipt.transactionHash);
-              
-              return {
-                hash: receipt.transactionHash,
-                receipt: receipt,
-                transactionHash: receipt.transactionHash
-              };
-            }
-            throw thirdwebErr;
-          }
-
-        } catch (txError) {
-          lastError = txError;
-          console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
-          
-          // Check if user cancelled (don't retry)
-          if (txError.message?.includes('user rejected') || 
-              txError.message?.includes('User denied') ||
-              txError.code === 4001) {
-            throw new Error('Transaction cancelled by user');
-          }
-          
-          // Check if it's a transient error we should retry
-          const isTransientError = 
-            txError.message?.includes('Internal JSON-RPC error') ||
-            txError.message?.includes('timeout') ||
-            txError.message?.includes('network') ||
-            txError.message?.includes('nonce too low') ||
-            txError.message?.includes('replacement transaction underpriced') ||
-            txError.code === -32603; // Internal JSON-RPC error code
-          
-          // If not transient and first attempt, don't retry
-          if (!isTransientError && attempt === 1) {
-            throw txError;
-          }
-          
-          // If last attempt, throw the error
-          if (attempt === maxRetries) {
-            throw lastError;
-          }
-          
-          // Continue to next retry
-        }
+      if (!normalizedTx.hash) {
+        throw new Error("No transaction hash found in response");
       }
 
-      throw lastError || new Error('Transaction failed after retries');
+      return normalizedTx;
       
     } catch (err) {
-      console.error("❌ storeStockHash failed:", err);
+      console.error("Error storing stock hash:", err);
       
-      // Better error messages
-      let errorMsg = err?.message || err;
-      
-      if (errorMsg.includes('user rejected') || 
-          errorMsg.includes('denied') || 
-          errorMsg.includes('cancelled by user')) {
-        throw new Error('Transaction was cancelled by user');
-      } else if (errorMsg.includes('insufficient funds')) {
-        throw new Error('Insufficient MATIC for gas fees');
-      } else if (errorMsg.includes('already exists')) {
-        throw new Error('This stock has already been recorded on the blockchain. Try refreshing the page.');
-      } else if (errorMsg.includes('caller must have staff or admin role')) {
-        throw new Error('Your wallet does not have permission to add stock. Please contact an administrator.');
-      } else if (errorMsg.includes('nonce')) {
-        throw new Error('Network sync issue. Please try again in a moment.');
-      } else if (errorMsg.includes('Internal JSON-RPC error')) {
-        throw new Error('Network congestion on Polygon Amoy. Please try again in a moment.');
+      if (err.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected in MetaMask");
+      } else if (err.message.includes("insufficient funds")) {
+        throw new Error("Insufficient funds for gas fees");
+      } else if (err.message.includes("already exists")) {
+        throw new Error("This stock has already been recorded on the blockchain. Try refreshing the page.");
+      } else if (err.message.includes("caller must have staff or admin role")) {
+        throw new Error("Your wallet does not have permission to add stock. Please contact an administrator.");
       }
       
-      throw new Error(`Blockchain transaction failed: ${errorMsg}`);
+      throw err;
     }
   };
 

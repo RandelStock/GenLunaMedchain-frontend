@@ -133,6 +133,20 @@ const AllAuditLogs = () => {
         'PATCH': 'Updated Medicine',
         'DELETE': 'Deleted Medicine'
       },
+      'medicine': {
+        'INSERT': 'New Medicine',
+        'CREATE': 'New Medicine',
+        'UPDATE': 'Updated Medicine',
+        'PATCH': 'Updated Medicine',
+        'DELETE': 'Deleted Medicine'
+      },
+      'medicine_records': {
+        'INSERT': 'New Medicine',
+        'CREATE': 'New Medicine',
+        'UPDATE': 'Updated Medicine',
+        'PATCH': 'Updated Medicine',
+        'DELETE': 'Deleted Medicine'
+      },
       'stocks': {
         'INSERT': 'Added Medicine Stock',
         'CREATE': 'Added Medicine Stock',
@@ -219,10 +233,13 @@ const AllAuditLogs = () => {
   const getTableDisplayName = (tableName) => {
     const tableMap = {
       'medicines': 'Medicines',
+      'medicine': 'Medicines',
+      'medicine_records': 'Medicines',
       'stocks': 'Medicine Stocks',
       'medicine_stocks': 'Medicine Stocks',
       'stock_removals': 'Stock Removals',
       'receipts': 'Medicine Releases',
+      'medicine_releases': 'Medicine Releases',
       'residents': 'Residents',
       'consultations': 'Consultations',
       'users': 'Users',
@@ -232,20 +249,24 @@ const AllAuditLogs = () => {
   };
 
   const getUserDisplayName = (log) => {
+    // First priority: changed_by_user relation with full name
     if (log.changed_by_user?.full_name) {
       return log.changed_by_user.full_name;
     }
     
+    // Second priority: wallet address match with current user
     if (log.changed_by_wallet && address && 
         log.changed_by_wallet.toLowerCase() === address.toLowerCase() && 
         currentUser?.full_name) {
       return currentUser.full_name;
     }
     
+    // Third priority: display wallet address if available
     if (log.changed_by_wallet) {
       return formatAddress(log.changed_by_wallet);
     }
     
+    // Last resort: System (shouldn't happen with proper audit logging)
     return 'System';
   };
 
@@ -447,9 +468,9 @@ const AllAuditLogs = () => {
               style={{ color: '#111827' }}
             >
               <option value="all" style={{ color: '#111827' }}>All Tables</option>
-              <option value="medicines" style={{ color: '#111827' }}>Medicines</option>
-              <option value="receipts" style={{ color: '#111827' }}>Medicine Releases</option>
-              <option value="stocks" style={{ color: '#111827' }}>Medicine Stocks</option>
+              <option value="medicine" style={{ color: '#111827' }}>Medicines</option>
+              <option value="medicine_releases" style={{ color: '#111827' }}>Medicine Releases</option>
+              <option value="medicine_stocks" style={{ color: '#111827' }}>Medicine Stocks</option>
               <option value="residents" style={{ color: '#111827' }}>Residents</option>
               <option value="stock_removals" style={{ color: '#111827' }}>Stock Removals</option>
               <option value="consultations" style={{ color: '#111827' }}>Consultations</option>

@@ -269,11 +269,50 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
         throw new Error(errorData.message || 'Failed to save resident');
       }
 
+      // 👇 PUT IT RIGHT HERE, after successful response
       setSuccessMessage(isEditMode ? 'Resident updated successfully!' : 'Resident added successfully!');
       setShowSuccessNotification(true);
+      
+      // Clear form after successful add (not edit)
+      if (!isEditMode) {
+        setFormData({
+          first_name: '',
+          middle_name: '',
+          last_name: '',
+          date_of_birth: '',
+          gender: 'MALE',
+          barangay: '',
+          zone: '',
+          household_no: '',
+          family_no: '',
+          address: '',
+          phone: '',
+          emergency_contact: '',
+          emergency_phone: '',
+          medical_conditions: '',
+          allergies: '',
+          is_4ps_member: false,
+          is_philhealth_member: false,
+          philhealth_number: '',
+          is_pregnant: false,
+          is_senior_citizen: false,
+          is_birth_registered: false,
+          other_program: '',
+          pregnancy_due_date: '',
+          pregnancy_notes: '',
+          birth_registry_date: '',
+          birth_certificate_no: ''
+        });
+        setFormErrors({});
+        setDuplicates([]);
+        setShowDuplicateWarning(false);
+        setForceSave(false);
+      }
+      
       setTimeout(() => {
         onSuccess?.();
       }, 2000);
+      
     } catch (err) {
       setError(err.message);
       alert(`Error: ${err.message}`);

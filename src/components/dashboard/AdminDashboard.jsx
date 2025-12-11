@@ -10,6 +10,7 @@ export default function AdminDashboard() {
   
   const [userRole, setUserRole] = useState(null);
   const [staffList, setStaffList] = useState([]);
+  const [barangayList, setBarangayList] = useState([]); // NEW: Store barangays from DB
   const [newStaff, setNewStaff] = useState({
     wallet_address: "",
     full_name: "",
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [blockchainLoading, setBlockchainLoading] = useState({});
+  const [retryState, setRetryState] = useState({}); // NEW: Track retry attempts per staff
 
   useEffect(() => {
     if (address) {
@@ -36,10 +38,23 @@ export default function AdminDashboard() {
       setUserRole(data.role);
       if (data.role === 'ADMIN') {
         loadStaffList();
+        loadBarangays(); // NEW: Load barangays from database
       }
     } catch (err) {
       console.error("Error checking role:", err);
       setUserRole('PATIENT');
+    }
+  };
+
+  // NEW: Load all barangays from database
+  const loadBarangays = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/barangay-health-centers`);
+      const data = await response.json();
+      setBarangayList(data || []);
+    } catch (err) {
+      console.error("Error loading barangays:", err);
+      setMessage({ type: 'error', text: 'Failed to load barangays' });
     }
   };
 
@@ -90,7 +105,7 @@ export default function AdminDashboard() {
         text: `✅ Staff member ${newStaff.full_name} created in database. Now granting blockchain access...` 
       });
 
-      // Step 2: Grant blockchain role
+      // Step 2: Grant blockchain role with retry support
       try {
         const tx = await grantStaffRole({ args: [newStaff.wallet_address] });
         console.log("✅ Blockchain role granted:", tx);
@@ -99,11 +114,21 @@ export default function AdminDashboard() {
           type: 'success', 
           text: `✅ Staff member ${newStaff.full_name} created successfully with blockchain access!` 
         });
+        
+        // Clear retry state on success
+        setRetryState(prev => ({ ...prev, [newStaff.wallet_address]: undefined }));
       } catch (blockchainError) {
         console.error("⚠️ Blockchain grant failed:", blockchainError);
+        
+        // Initialize retry state
+        setRetryState(prev => ({ 
+          ...prev, 
+          [newStaff.wallet_address]: { attempts: 1, type: 'grant' }
+        }));
+        
         setMessage({ 
           type: 'warning', 
-          text: `⚠️ Staff created in database but blockchain access failed. Please grant manually using the "Grant Blockchain Access" button.` 
+          text: `⚠️ Staff created in database but blockchain access failed (Attempt 1/3). Use the "Retry Grant" button below.` 
         });
       }
       
@@ -126,10 +151,16 @@ export default function AdminDashboard() {
     }
   };
 
+  // NEW: Retry-enabled blockchain grant with attempt tracking
   const grantBlockchainAccess = async (walletAddress, fullName) => {
+    const currentAttempt = (retryState[walletAddress]?.attempts || 0) + 1;
+    
     try {
       setBlockchainLoading(prev => ({ ...prev, [walletAddress]: true }));
-      setMessage({ type: 'info', text: `Granting blockchain access to ${fullName}...` });
+      setMessage({ 
+        type: 'info', 
+        text: `Granting blockchain access to ${fullName}... (Attempt ${currentAttempt}/3)` 
+      });
 
       const tx = await grantStaffRole({ args: [walletAddress] });
       console.log("✅ Blockchain role granted:", tx);
@@ -139,15 +170,32 @@ export default function AdminDashboard() {
         text: `✅ Blockchain access granted to ${fullName}! They can now add medicines.` 
       });
 
+      // Clear retry state on success
+      setRetryState(prev => ({ ...prev, [walletAddress]: undefined }));
+
       setTimeout(() => loadStaffList(), 1000);
     } catch (err) {
       console.error("Error granting blockchain access:", err);
       let errorMsg = 'Failed to grant blockchain access';
       
       if (err.message?.includes('user rejected')) {
-        errorMsg = 'Transaction cancelled by user';
+        errorMsg = '❌ Transaction cancelled by user';
       } else if (err.message?.includes('insufficient funds')) {
-        errorMsg = 'Insufficient MATIC for gas fees';
+        errorMsg = '❌ Insufficient MATIC for gas fees';
+      } else {
+        errorMsg = `❌ Blockchain error (Attempt ${currentAttempt}/3)`;
+      }
+      
+      // Update retry state
+      setRetryState(prev => ({ 
+        ...prev, 
+        [walletAddress]: { attempts: currentAttempt, type: 'grant' }
+      }));
+      
+      if (currentAttempt < 3) {
+        errorMsg += ` - Click "Retry Grant" to try again`;
+      } else {
+        errorMsg += ` - Maximum attempts reached. Contact technical support.`;
       }
       
       setMessage({ type: 'error', text: errorMsg });
@@ -210,6 +258,9 @@ export default function AdminDashboard() {
         text: `✅ ${fullName} deactivated successfully` 
       });
       
+      // Clear retry state
+      setRetryState(prev => ({ ...prev, [walletAddress]: undefined }));
+      
       setTimeout(() => loadStaffList(), 1000);
     } catch (err) {
       console.error("Error deleting staff:", err);
@@ -262,7 +313,7 @@ export default function AdminDashboard() {
               }`}>
                 {userRole || 'Loading...'}
               </span>
-              <span className="text-sm text-gray-500 font-mono">
+              <span className="text-sm text-gray-600 font-mono">
                 {address.slice(0, 6)}...{address.slice(-4)}
               </span>
             </div>
@@ -373,10 +424,15 @@ export default function AdminDashboard() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Barangays</option>
-                    <option value="SAN_JOSE">San Jose</option>
-                    <option value="MALAYA">Malaya</option>
-                    <option value="SUMILANG">Sumilang</option>
+                    {barangayList.map((bhc) => (
+                      <option key={bhc.id} value={bhc.barangay}>
+                        {bhc.barangay.replace(/_/g, ' ')} - {bhc.center_name}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {barangayList.length} barangay health centers available
+                  </p>
                 </div>
                 
                 <button
@@ -401,7 +457,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Staff Members
-                  <span className="ml-2 text-sm font-normal text-gray-500">({staffList.length})</span>
+                  <span className="ml-2 text-sm font-normal text-gray-600">({staffList.length})</span>
                 </h3>
                 <button
                   onClick={loadStaffList}
@@ -431,66 +487,122 @@ export default function AdminDashboard() {
                 </div>
               ) : staffList.length > 0 ? (
                 <div className="space-y-3">
-                  {staffList.map((staff) => (
-                    <div key={staff.user_id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
+                  {staffList.map((staff) => {
+                    const retry = retryState[staff.wallet_address];
+                    const hasRetry = retry && retry.attempts > 0 && retry.attempts < 3;
+                    
+                    return (
+                      <div key={staff.user_id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{staff.full_name}</p>
+                                <p className="text-sm text-gray-600">{staff.email || 'No email'}</p>
+                              </div>
+                            </div>
+                            <div className="ml-13 space-y-1">
+                              <p className="font-mono text-xs text-gray-600">{staff.wallet_address}</p>
+                              {staff.assigned_barangay && (
+                                <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                  {staff.assigned_barangay.replace(/_/g, ' ')}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{staff.full_name}</p>
-                            <p className="text-sm text-gray-500">{staff.email || 'No email'}</p>
+                          <div className="flex flex-col space-y-2 ml-4">
+                            {hasRetry ? (
+                              <button
+                                onClick={() => grantBlockchainAccess(staff.wallet_address, staff.full_name)}
+                                disabled={blockchainLoading[staff.wallet_address]}
+                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 flex items-center justify-center space-x-1 whitespace-nowrap"
+                              >
+                                {blockchainLoading[staff.wallet_address] ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                    <span>Retrying...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span>Retry Grant ({retry.attempts}/3)</span>
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => grantBlockchainAccess(staff.wallet_address, staff.full_name)}
+                                disabled={blockchainLoading[staff.wallet_address]}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 flex items-center justify-center space-x-1 whitespace-nowrap"
+                              >
+                                {blockchainLoading[staff.wallet_address] ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                    <span>Processing...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    <span>Grant Blockchain</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => revokeBlockchainAccess(staff.wallet_address, staff.full_name)}
+                              disabled={blockchainLoading[staff.wallet_address]}
+                              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
+                            >
+                              Revoke Blockchain
+                            </button>
+                            <button
+                              onClick={() => deleteStaff(staff.user_id, staff.wallet_address, staff.full_name)}
+                              disabled={loading}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
+                            >
+                              Deactivate All
+                            </button>
                           </div>
                         </div>
-                        <div className="ml-13 space-y-1">
-                          <p className="font-mono text-xs text-gray-600">{staff.wallet_address}</p>
-                          {staff.assigned_barangay && (
-                            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                              {staff.assigned_barangay}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2 ml-4">
-                        <button
-                          onClick={() => grantBlockchainAccess(staff.wallet_address, staff.full_name)}
-                          disabled={blockchainLoading[staff.wallet_address]}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 flex items-center justify-center space-x-1 whitespace-nowrap"
-                        >
-                          {blockchainLoading[staff.wallet_address] ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                              <span>Processing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        
+                        {/* Retry Status Banner */}
+                        {hasRetry && (
+                          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-center text-sm text-orange-800">
+                              <svg className="h-4 w-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
-                              <span>Grant Blockchain</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => revokeBlockchainAccess(staff.wallet_address, staff.full_name)}
-                          disabled={blockchainLoading[staff.wallet_address]}
-                          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
-                        >
-                          Revoke Blockchain
-                        </button>
-                        <button
-                          onClick={() => deleteStaff(staff.user_id, staff.wallet_address, staff.full_name)}
-                          disabled={loading}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
-                        >
-                          Deactivate All
-                        </button>
+                              <span>
+                                Blockchain grant failed ({retry.attempts}/3 attempts). Click "Retry Grant" button above to try again.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {retry && retry.attempts >= 3 && (
+                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center text-sm text-red-800">
+                              <svg className="h-4 w-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              <span>
+                                Maximum retry attempts reached (3/3). Please contact technical support or try again later.
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">
@@ -498,7 +610,7 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <p className="text-gray-600 font-medium">No staff members found</p>
-                  <p className="text-sm text-gray-500 mt-1">Create staff members to get started</p>
+                  <p className="text-sm text-gray-600 mt-1">Create staff members to get started</p>
                 </div>
               )}
             </div>
