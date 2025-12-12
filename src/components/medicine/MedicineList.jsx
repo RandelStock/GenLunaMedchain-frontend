@@ -770,7 +770,7 @@ export default function MedicineList() {
                 ) : (
                   <>
                     <option value="all">All Locations</option>
-                    <option value="MUNICIPAL"> </option>
+                    {/* <option value="MUNICIPAL"> </option> */}
                     {barangays.map((brgy) => (
                       <option key={brgy} value={brgy}>{brgy}</option>
                     ))}
