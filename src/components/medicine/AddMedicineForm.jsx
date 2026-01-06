@@ -9,8 +9,16 @@ const ENABLE_BLOCKCHAIN_FOR_MEDICINE = true;
 
 // Dropdown options
 const MEDICINE_TYPES = [
-  'Tablet', 'Capsule', 'Syrup', 'Injection', 'Suspension',
-  'Ointment', 'Cream', 'Drops', 'Powder', 'Solution'
+  { value: 'Tablet', label: 'Tablet' },
+  { value: 'Capsule', label: 'Capsule' },
+  { value: 'Syrup', label: 'Syrup' },
+  { value: 'Injection', label: 'Injection' },
+  { value: 'Suspension', label: 'Suspension' },
+  { value: 'Ointment', label: 'Ointment' },
+  { value: 'Cream', label: 'Cream' },
+  { value: 'Drops', label: 'Drops' },
+  { value: 'Powder', label: 'Powder' },
+  { value: 'Solution', label: 'Solution' }
 ];
 
 const DOSAGE_FORMS = [
@@ -30,15 +38,28 @@ const MANUFACTURERS = [
 ];
 
 const CATEGORIES = [
-  'Antibiotic', 'Analgesic', 'Antipyretic', 'Anti-inflammatory',
-  'Antihypertensive', 'Antidiabetic', 'Antihistamine', 'Antacid',
-  'Vitamin', 'Supplement', 'Antiseptic', 'Antiparasitic'
+  { value: 'Antibiotic', label: 'Antibiotic' },
+  { value: 'Analgesic', label: 'Analgesic (Pain Relief)' },
+  { value: 'Antipyretic', label: 'Antipyretic (Fever Reducer)' },
+  { value: 'Anti-inflammatory', label: 'Anti-inflammatory' },
+  { value: 'Antihypertensive', label: 'Antihypertensive (Blood Pressure)' },
+  { value: 'Antidiabetic', label: 'Antidiabetic' },
+  { value: 'Antihistamine', label: 'Antihistamine (Allergy)' },
+  { value: 'Antacid', label: 'Antacid' },
+  { value: 'Vitamin', label: 'Vitamin' },
+  { value: 'Supplement', label: 'Supplement' },
+  { value: 'Antiseptic', label: 'Antiseptic' },
+  { value: 'Antiparasitic', label: 'Antiparasitic' }
 ];
 
 const STORAGE_REQUIREMENTS = [
-  'Store in cool, dry place', 'Refrigerate (2-8°C)',
-  'Room temperature (15-30°C)', 'Protect from light',
-  'Keep away from moisture', 'Store below 25°C', 'Do not freeze'
+  { value: 'cool_dry', label: 'Store in cool, dry place' },
+  { value: 'refrigerate', label: 'Refrigerate (2-8°C)' },
+  { value: 'room_temp', label: 'Room temperature (15-30°C)' },
+  { value: 'protect_light', label: 'Protect from light' },
+  { value: 'away_moisture', label: 'Keep away from moisture' },
+  { value: 'below_25', label: 'Store below 25°C' },
+  { value: 'no_freeze', label: 'Do not freeze' }
 ];
 
 const SUPPLIERS = [
@@ -79,8 +100,17 @@ const STORAGE_LOCATIONS = [
   { value: 'VILLARICA', label: 'Villarica' }
 ];
 
+const PACKAGING_UNITS = [
+  { value: 'piece', label: 'Per Piece', multiplier: 1 },
+  { value: 'box_10', label: 'Box of 10', multiplier: 10 },
+  { value: 'box_20', label: 'Box of 20', multiplier: 20 },
+  { value: 'box_50', label: 'Box of 50', multiplier: 50 },
+  { value: 'box_100', label: 'Box of 100', multiplier: 100 },
+  { value: 'bottle', label: 'Per Bottle', multiplier: 1 },
+  { value: 'strip_10', label: 'Strip of 10', multiplier: 10 }
+];
+
 export default function AddMedicineForm() {
-  // FIXED: Get both userRole and isLoading from RoleProvider
   const { userRole, userProfile, isLoading: roleLoading } = useRole?.() || {};
   
   const [medicines, setMedicines] = useState([]);
@@ -100,6 +130,36 @@ export default function AddMedicineForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Form state with validation
+  const [formData, setFormData] = useState({
+    medicine_name: '',
+    medicine_types: [],
+    generic_name: '',
+    dosage_form: '',
+    strength: '',
+    manufacturer: '',
+    categories: [],
+    storage_requirements: [],
+    description: '',
+    batch_number: '',
+    quantity: '',
+    packaging_unit: 'piece',
+    cost_per_unit: '',
+    supplier_name: '',
+    expiry_date: '',
+    storage_location: ''
+  });
+
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  // Get minimum date (tomorrow)
+  const getMinExpiryDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
 
   // Enhanced logging for debugging
   useEffect(() => {
@@ -151,26 +211,204 @@ export default function AddMedicineForm() {
     }
   }, [success]);
 
-  // FIXED: Check database role first (primary authority)
   const canAddMedicine = userRole === 'ADMIN' || 
                          userRole === 'MUNICIPAL_STAFF' || 
                          userRole === 'STAFF';
 
-  // Enhanced access check logging
-  useEffect(() => {
-    console.log("✅ Access Control Status:", {
-      canAddMedicine,
-      reason: canAddMedicine 
-        ? `Database role '${userRole}' has permission` 
-        : `Database role '${userRole}' lacks permission`,
-      blockchainAccess: hasAccess,
-      note: "Database role is primary authority"
+  // Validation functions
+  const validateField = (name, value) => {
+    let errorMsg = '';
+
+    switch (name) {
+      case 'medicine_name':
+        if (!value || value.trim().length === 0) {
+          errorMsg = 'Medicine name is required';
+        } else if (value.trim().length < 3) {
+          errorMsg = 'Medicine name must be at least 3 characters';
+        } else if (value.trim().length > 100) {
+          errorMsg = 'Medicine name must not exceed 100 characters';
+        }
+        break;
+
+      case 'medicine_types':
+        if (!value || value.length === 0) {
+          errorMsg = 'Please select at least one medicine type';
+        }
+        break;
+
+      case 'generic_name':
+        if (value && value.trim().length > 0 && value.trim().length < 2) {
+          errorMsg = 'Generic name must be at least 2 characters';
+        }
+        break;
+
+      case 'dosage_form':
+        if (!value) {
+          errorMsg = 'Dosage form is required';
+        }
+        break;
+
+      case 'strength':
+        if (!value) {
+          errorMsg = 'Strength is required';
+        }
+        break;
+
+      case 'manufacturer':
+        if (!value) {
+          errorMsg = 'Manufacturer is required';
+        }
+        break;
+
+      case 'categories':
+        if (!value || value.length === 0) {
+          errorMsg = 'Please select at least one category';
+        }
+        break;
+
+      case 'storage_requirements':
+        if (!value || value.length === 0) {
+          errorMsg = 'Please select at least one storage requirement';
+        }
+        break;
+
+      case 'batch_number':
+        if (!value || value.trim().length === 0) {
+          errorMsg = 'Batch number is required';
+        } else if (value.trim().length < 3) {
+          errorMsg = 'Batch number must be at least 3 characters';
+        } else if (!/^[A-Za-z0-9-_]+$/.test(value)) {
+          errorMsg = 'Batch number can only contain letters, numbers, hyphens, and underscores';
+        }
+        break;
+
+      case 'quantity':
+        const qty = parseInt(value);
+        if (!value || value === '') {
+          errorMsg = 'Quantity is required';
+        } else if (isNaN(qty) || qty < 1) {
+          errorMsg = 'Quantity must be at least 1';
+        } else if (qty > 1000000) {
+          errorMsg = 'Quantity seems unusually high. Please verify.';
+        }
+        break;
+
+      case 'cost_per_unit':
+        const cost = parseFloat(value);
+        if (!value || value === '') {
+          errorMsg = 'Cost per unit is required';
+        } else if (isNaN(cost) || cost < 0) {
+          errorMsg = 'Cost must be a positive number';
+        } else if (cost > 100000) {
+          errorMsg = 'Cost seems unusually high. Please verify.';
+        }
+        break;
+
+      case 'supplier_name':
+        if (!value) {
+          errorMsg = 'Supplier name is required';
+        }
+        break;
+
+      case 'expiry_date':
+        if (!value) {
+          errorMsg = 'Expiry date is required';
+        } else {
+          const selectedDate = new Date(value);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          if (selectedDate <= today) {
+            errorMsg = 'Expiry date must be in the future';
+          }
+          
+          const twoYearsFromNow = new Date();
+          twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 10);
+          if (selectedDate > twoYearsFromNow) {
+            errorMsg = 'Expiry date seems too far in the future (max 10 years)';
+          }
+        }
+        break;
+
+      case 'storage_location':
+        if (!value) {
+          errorMsg = 'Storage location is required';
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return errorMsg;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setFieldErrors(prev => ({ ...prev, [name]: error }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const error = validateField(name, value);
+    setFieldErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const handleCheckboxChange = (name, value) => {
+    setFormData(prev => {
+      const currentValues = prev[name] || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+      
+      return { ...prev, [name]: newValues };
     });
-  }, [canAddMedicine, userRole, hasAccess]);
+
+    if (touched[name]) {
+      const currentValues = formData[name] || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+      const error = validateField(name, newValues);
+      setFieldErrors(prev => ({ ...prev, [name]: error }));
+    }
+  };
+
+  // Calculate unit cost based on packaging
+  const calculateUnitCost = () => {
+    const packagingUnit = PACKAGING_UNITS.find(u => u.value === formData.packaging_unit);
+    const costPerUnit = parseFloat(formData.cost_per_unit) || 0;
+    
+    if (packagingUnit && costPerUnit > 0) {
+      return (costPerUnit / packagingUnit.multiplier).toFixed(2);
+    }
+    return '0.00';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate all fields
+    const errors = {};
+    Object.keys(formData).forEach(key => {
+      const error = validateField(key, formData[key]);
+      if (error) errors[key] = error;
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+      setError('Please fix all validation errors before submitting.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     if (!address) {
       setError("Please connect your wallet first.");
       return;
@@ -181,49 +419,49 @@ export default function AddMedicineForm() {
       return;
     }
 
-    // Database role check (primary)
     if (!canAddMedicine) {
       setError("Access denied. You need STAFF or ADMIN role to perform this action.");
       return;
     }
 
-    // Blockchain role check (only if blockchain feature is enabled)
     if (ENABLE_BLOCKCHAIN_FOR_MEDICINE && !hasAccess) {
       setError(
         "⚠️ Blockchain Access Required\n\n" +
         "Your database role is: " + userRole + " ✅\n" +
         "But you don't have blockchain permissions.\n\n" +
         "Your wallet: " + address + "\n\n" +
-        "Please contact your administrator to grant blockchain access using:\n" +
-        "contract.grantStaffRole(\"" + address + "\")"
+        "Please contact your administrator to grant blockchain access."
       );
       return;
     }
 
-    const formData = new FormData(e.target);
-    
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
+      const unitCost = parseFloat(calculateUnitCost());
+      
       const medicineData = {
-        medicine_name: formData.get("medicine_name"),
-        medicine_type: formData.get("medicine_type") || "General",
-        description: formData.get("description"),
-        generic_name: formData.get("generic_name"),
-        dosage_form: formData.get("dosage_form"),
-        strength: formData.get("strength"),
-        manufacturer: formData.get("manufacturer"),
-        category: formData.get("category"),
-        storage_requirements: formData.get("storage_requirements"),
-        batch_number: formData.get("batch_number"),
-        quantity: parseInt(formData.get("quantity")),
-        unit_cost: parseFloat(formData.get("unit_cost")) || 0,
-        supplier_name: formData.get("supplier_name"),
+        medicine_name: formData.medicine_name.trim(),
+        medicine_type: formData.medicine_types.join(', '),
+        description: formData.description.trim(),
+        generic_name: formData.generic_name.trim(),
+        dosage_form: formData.dosage_form,
+        strength: formData.strength,
+        manufacturer: formData.manufacturer,
+        category: formData.categories.join(', '),
+        storage_requirements: formData.storage_requirements.map(req => {
+          const found = STORAGE_REQUIREMENTS.find(r => r.value === req);
+          return found ? found.label : req;
+        }).join(', '),
+        batch_number: formData.batch_number.trim(),
+        quantity: parseInt(formData.quantity),
+        unit_cost: unitCost,
+        supplier_name: formData.supplier_name,
         date_received: new Date().toISOString(),
-        expiry_date: formData.get("expiry_date"),
-        storage_location: formData.get("storage_location") || "Main Storage",
+        expiry_date: formData.expiry_date,
+        storage_location: formData.storage_location,
         wallet_address: address,
         barangay: (userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF')
           ? 'MUNICIPAL'
@@ -237,7 +475,6 @@ export default function AddMedicineForm() {
         try {
           console.log("Checking blockchain for ID:", medicine.medicine_id);
           const existingHash = await getMedicineHash(medicine.medicine_id);
-          console.log("Existing blockchain entry:", existingHash);
 
           if (existingHash && existingHash.exists) {
             await api.delete(`/medicines/${medicine.medicine_id}`);
@@ -246,14 +483,12 @@ export default function AddMedicineForm() {
               `⚠️ Medicine ID ${medicine.medicine_id} already exists on blockchain!\n` +
               `Database entry was rolled back.\n\n` +
               `Added by: ${existingHash.addedBy}\n` +
-              `Hash: ${existingHash.dataHash}\n\n` +
-              `You need to clean up test data on blockchain first.`
+              `Hash: ${existingHash.dataHash}`
             );
             setLoading(false);
             return;
           }
 
-          // Generate and store hash with RETRY LOGIC
           const expiryTimestamp = Math.floor(new Date(medicineData.expiry_date).getTime() / 1000);
           const hashData = {
             name: medicineData.medicine_name,
@@ -275,7 +510,6 @@ export default function AddMedicineForm() {
               console.log(`📤 Blockchain Attempt ${attempt}/${maxRetries}...`);
               
               if (attempt > 1) {
-                console.log(`⏱️ Waiting 2 seconds before retry ${attempt}...`);
                 setError(`Network issue detected. Retrying transaction (${attempt}/${maxRetries})...`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
               }
@@ -300,9 +534,7 @@ export default function AddMedicineForm() {
               const isTransientError = 
                 txError.message?.includes('Internal JSON-RPC error') ||
                 txError.message?.includes('timeout') ||
-                txError.message?.includes('network') ||
-                txError.message?.includes('nonce') ||
-                txError.message?.includes('gas');
+                txError.message?.includes('network');
               
               if (!isTransientError && attempt === 1) {
                 throw txError;
@@ -333,6 +565,7 @@ export default function AddMedicineForm() {
             `✅ Medicine "${medicineData.medicine_name}" successfully added!\n\n` +
             `📦 Batch: ${medicineData.batch_number}\n` +
             `🆔 Database ID: ${medicine.medicine_id}\n` +
+            `💰 Unit Cost: ₱${unitCost}\n` +
             `⛓️ Blockchain TX: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`
           );
 
@@ -349,9 +582,6 @@ export default function AddMedicineForm() {
             errorMessage += 'Reason: Transaction was cancelled.\n\nPlease try again when ready.';
           } else if (blockchainErr.message?.includes('insufficient funds')) {
             errorMessage += 'Reason: Insufficient MATIC for gas fees.\n\nPlease add MATIC to your wallet.';
-          } else if (blockchainErr.message?.includes('Internal JSON-RPC error') ||
-                    blockchainErr.message?.includes('network')) {
-            errorMessage += 'Reason: Network congestion on Polygon Amoy testnet.\n\nThis is common on testnets. Please try again in a moment.';
           } else {
             errorMessage += `Error: ${blockchainErr.message}`;
           }
@@ -365,21 +595,40 @@ export default function AddMedicineForm() {
           `✅ Medicine "${medicineData.medicine_name}" successfully added!\n\n` +
           `📦 Batch: ${medicineData.batch_number}\n` +
           `🆔 Database ID: ${medicine.medicine_id}\n` +
+          `💰 Unit Cost: ₱${unitCost}\n` +
           `⛓️ Blockchain: disabled`
         );
       }
 
-      e.target.reset();
+      // Reset form
+      setFormData({
+        medicine_name: '',
+        medicine_types: [],
+        generic_name: '',
+        dosage_form: '',
+        strength: '',
+        manufacturer: '',
+        categories: [],
+        storage_requirements: [],
+        description: '',
+        batch_number: '',
+        quantity: '',
+        packaging_unit: 'piece',
+        cost_per_unit: '',
+        supplier_name: '',
+        expiry_date: '',
+        storage_location: ''
+      });
+      setFieldErrors({});
+      setTouched({});
 
     } catch (err) {
       console.error("Error adding medicine:", err);
       
-      if (err.message?.includes("AccessControl") || err.message?.includes("Access denied")) {
-        setError("Access Control Error: You don't have permission to perform this action. Please contact your administrator.");
+      if (err.message?.includes("AccessControl")) {
+        setError("Access Control Error: You don't have permission to perform this action.");
       } else if (err.message?.includes("already exists")) {
         setError("This batch number already exists. Please use a unique batch number.");
-      } else if (err.message?.includes("user rejected") || err.message?.includes("cancelled by user")) {
-        setError("Transaction was cancelled.");
       } else if (err.response?.data?.error) {
         setError(err.response.data.error);
       } else {
@@ -434,34 +683,9 @@ export default function AddMedicineForm() {
             </svg>
             <div className="ml-3">
               <h3 className="text-lg font-semibold text-black">Access Denied</h3>
-              <p className="text-black mt-2">You don't have permission to add medicines to the inventory.</p>
-              <div className="mt-4 space-y-2 text-sm">
-                <p className="text-black">
-                  <span className="font-semibold">Database Role:</span> {userRole || 'None'}
-                  {userRole === 'STAFF' || userRole === 'ADMIN' || userRole === 'MUNICIPAL_STAFF' ? 
-                    ' ✅' : ' ❌ (Need STAFF or ADMIN)'}
-                </p>
-                <p className="text-black">
-                  <span className="font-semibold">Blockchain Access:</span> 
-                  {hasAccess ? ' ✅ Granted' : ' ❌ Not granted'}
-                </p>
-                <p className="text-black">
-                  <span className="font-semibold">Wallet:</span> {address.slice(0, 10)}...{address.slice(-8)}
-                </p>
-              </div>
-              <p className="text-black mt-4 text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
-                💡 <strong>Note:</strong> Contact your system administrator to:
-                <br />1. Update your database role to STAFF or ADMIN
-                <br />2. Grant blockchain access using contract.grantStaffRole()
-              </p>
+              <p className="text-black mt-2">You don't have permission to add medicines.</p>
             </div>
           </div>
-          <button
-            onClick={() => window.history.back()}
-            className="mt-4 w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Go Back
-          </button>
         </div>
       </div>
     );
@@ -507,134 +731,200 @@ export default function AddMedicineForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Medicine Information Section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-black mb-6">Medicine Information</h3>
             <div className="space-y-4">
+              {/* Medicine Name */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1.5">
+                  Medicine Name <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="medicine_name" 
+                  value={formData.medicine_name}
+                  onChange={handleInputChange}
+                  onBlur={handleBlur}
+                  className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    fieldErrors.medicine_name && touched.medicine_name ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter medicine name"
+                />
+                {fieldErrors.medicine_name && touched.medicine_name && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.medicine_name}</p>
+                )}
+              </div>
+
+              {/* Medicine Types - Checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">
+                  Medicine Type <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {MEDICINE_TYPES.map(type => (
+                    <label key={type.value} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.medicine_types.includes(type.value)}
+                        onChange={() => handleCheckboxChange('medicine_types', type.value)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-black">{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {fieldErrors.medicine_types && touched.medicine_types && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.medicine_types}</p>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
-                    Medicine Name <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    name="medicine_name" 
-                    required 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    placeholder="Enter medicine name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
-                    Medicine Type <span className="text-red-500">*</span>
-                  </label>
-                  <select 
-                    name="medicine_type" 
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select type</option>
-                    {MEDICINE_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-
+                {/* Generic Name */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">Generic Name</label>
                   <input 
                     type="text" 
                     name="generic_name" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    value={formData.generic_name}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.generic_name && touched.generic_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder="Enter generic name"
                   />
+                  {fieldErrors.generic_name && touched.generic_name && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.generic_name}</p>
+                  )}
                 </div>
 
+                {/* Dosage Form */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Dosage Form <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="dosage_form"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.dosage_form}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.dosage_form && touched.dosage_form ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select dosage</option>
                     {DOSAGE_FORMS.map(form => (
                       <option key={form} value={form}>{form}</option>
                     ))}
                   </select>
+                  {fieldErrors.dosage_form && touched.dosage_form && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.dosage_form}</p>
+                  )}
                 </div>
 
+                {/* Strength */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Strength <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="strength"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.strength}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.strength && touched.strength ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select strength</option>
                     {STRENGTHS.map(strength => (
                       <option key={strength} value={strength}>{strength}</option>
                     ))}
                   </select>
+                  {fieldErrors.strength && touched.strength && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.strength}</p>
+                  )}
                 </div>
 
+                {/* Manufacturer */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Manufacturer <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="manufacturer"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.manufacturer}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.manufacturer && touched.manufacturer ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select manufacturer</option>
                     {MANUFACTURERS.map(manufacturer => (
                       <option key={manufacturer} value={manufacturer}>{manufacturer}</option>
                     ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <select 
-                    name="category"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select category</option>
-                    {CATEGORIES.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
-                    Storage Requirements <span className="text-red-500">*</span>
-                  </label>
-                  <select 
-                    name="storage_requirements"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select storage requirement</option>
-                    {STORAGE_REQUIREMENTS.map(req => (
-                      <option key={req} value={req}>{req}</option>
-                    ))}
-                  </select>
+                  {fieldErrors.manufacturer && touched.manufacturer && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.manufacturer}</p>
+                  )}
                 </div>
               </div>
 
+              {/* Categories - Checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {CATEGORIES.map(category => (
+                    <label key={category.value} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.categories.includes(category.value)}
+                        onChange={() => handleCheckboxChange('categories', category.value)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-black">{category.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {fieldErrors.categories && touched.categories && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.categories}</p>
+                )}
+              </div>
+
+              {/* Storage Requirements - Checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">
+                  Storage Requirements <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {STORAGE_REQUIREMENTS.map(req => (
+                    <label key={req.value} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.storage_requirements.includes(req.value)}
+                        onChange={() => handleCheckboxChange('storage_requirements', req.value)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-black">{req.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {fieldErrors.storage_requirements && touched.storage_requirements && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.storage_requirements}</p>
+                )}
+              </div>
+
+              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-black mb-1.5">Description</label>
                 <textarea 
                   name="description" 
+                  value={formData.description}
+                  onChange={handleInputChange}
                   rows="3"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter medicine description..."
@@ -643,10 +933,12 @@ export default function AddMedicineForm() {
             </div>
           </div>
 
+          {/* Stock Information Section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-black mb-6">Stock Information</h3>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Batch Number */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Batch Number <span className="text-red-500">*</span>
@@ -654,12 +946,20 @@ export default function AddMedicineForm() {
                   <input 
                     type="text" 
                     name="batch_number" 
-                    required 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    value={formData.batch_number}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.batch_number && touched.batch_number ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder="Enter batch number"
                   />
+                  {fieldErrors.batch_number && touched.batch_number && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.batch_number}</p>
+                  )}
                 </div>
 
+                {/* Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Quantity <span className="text-red-500">*</span>
@@ -667,41 +967,95 @@ export default function AddMedicineForm() {
                   <input 
                     type="number" 
                     name="quantity" 
-                    required 
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
                     min="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.quantity && touched.quantity ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder="Enter quantity"
                   />
+                  {fieldErrors.quantity && touched.quantity && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.quantity}</p>
+                  )}
                 </div>
 
+                {/* Packaging Unit */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">Unit Cost</label>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Packaging Unit <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    name="packaging_unit"
+                    value={formData.packaging_unit}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {PACKAGING_UNITS.map(unit => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Select how the medicine is packaged
+                  </p>
+                </div>
+
+                {/* Cost Per Unit */}
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1.5">
+                    Cost Per {PACKAGING_UNITS.find(u => u.value === formData.packaging_unit)?.label || 'Unit'} <span className="text-red-500">*</span>
+                  </label>
                   <input 
                     type="number" 
-                    name="unit_cost" 
+                    name="cost_per_unit" 
+                    value={formData.cost_per_unit}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
                     step="0.01"
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.cost_per_unit && touched.cost_per_unit ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder="0.00"
                   />
+                  {fieldErrors.cost_per_unit && touched.cost_per_unit && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.cost_per_unit}</p>
+                  )}
+                  {formData.cost_per_unit && parseFloat(formData.cost_per_unit) > 0 && (
+                    <p className="mt-1 text-xs text-green-600">
+                      💡 Unit Cost: ₱{calculateUnitCost()} per piece
+                    </p>
+                  )}
                 </div>
 
+                {/* Supplier Name */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Supplier Name <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="supplier_name"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.supplier_name}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.supplier_name && touched.supplier_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select supplier</option>
                     {SUPPLIERS.map(supplier => (
                       <option key={supplier} value={supplier}>{supplier}</option>
                     ))}
                   </select>
+                  {fieldErrors.supplier_name && touched.supplier_name && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.supplier_name}</p>
+                  )}
                 </div>
 
+                {/* Expiry Date */}
                 <div>
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Expiry Date <span className="text-red-500">*</span>
@@ -709,35 +1063,56 @@ export default function AddMedicineForm() {
                   <input 
                     type="date" 
                     name="expiry_date" 
-                    required 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    value={formData.expiry_date}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    min={getMinExpiryDate()}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.expiry_date && touched.expiry_date ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   />
+                  {fieldErrors.expiry_date && touched.expiry_date && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.expiry_date}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Must be a future date
+                  </p>
                 </div>
 
-                <div>
+                {/* Storage Location */}
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-black mb-1.5">
                     Storage Location <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="storage_location"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={formData.storage_location}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      fieldErrors.storage_location && touched.storage_location ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select location</option>
                     {STORAGE_LOCATIONS.map(location => (
                       <option key={location.value} value={location.value}>{location.label}</option>
                     ))}
                   </select>
+                  {fieldErrors.storage_location && touched.storage_location && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.storage_location}</p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Submit Buttons */}
           <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="px-6 py-2.5 border border-gray-300 rounded-md text-black font-medium hover:bg-gray-50 transition-colors"
+              disabled={loading}
+              className="px-6 py-2.5 border border-gray-300 rounded-md text-black font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
