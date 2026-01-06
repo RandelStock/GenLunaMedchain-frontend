@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Plus, Package, Calendar, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
 import { useStockManagement } from '../../hooks/useStockManagement';
 import { useAddress } from '@thirdweb-dev/react';
-import api from '../../../api';
-import API_BASE_URL from '../../config.js';
+import api from '../../../api'; // ✅ USE CONFIGURED API INSTANCE
 
-const API_URL = API_BASE_URL;
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
 
 export default function AddStockForm({ onSuccess, onCancel }) {
   const {
@@ -29,6 +30,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
   const [loadingMedicines, setLoadingMedicines] = useState(true);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [blockchainLoading, setBlockchainLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [formData, setFormData] = useState({
     quantity_to_add: '',
@@ -36,7 +38,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
   });
 
   const [formErrors, setFormErrors] = useState({});
-  const [currentStep, setCurrentStep] = useState(1); // 1: Medicine, 2: Batch, 3: Details
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
     fetchMedicines();
@@ -59,11 +61,12 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     }
   }, [selectedBatch]);
 
+  // ✅ FIXED: Use api instance instead of fetch
   const fetchMedicines = async () => {
     try {
       setLoadingMedicines(true);
-      const { data: json } = await api.get(`/medicines?is_active=true`);
-      const medicinesData = json.data || json;
+      const response = await api.get('/medicines?is_active=true');
+      const medicinesData = response.data.data || response.data;
       setMedicines(Array.isArray(medicinesData) ? medicinesData.filter(med => med.is_active) : []);
     } catch (err) {
       console.error('Error fetching medicines:', err);
@@ -73,13 +76,13 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     }
   };
 
+  // ✅ FIXED: Use api instance instead of fetch
   const fetchBatches = async (medicineId) => {
     try {
       setLoadingBatches(true);
-      const { data: json } = await api.get(`/stocks?medicine_id=${medicineId}&is_active=true`);
-      const stocksData = json.data || [];
+      const response = await api.get(`/stocks?medicine_id=${medicineId}&is_active=true`);
+      const stocksData = response.data.data || [];
       
-      // Filter active batches that have quantity > 0
       const activeBatches = Array.isArray(stocksData) 
         ? stocksData
             .filter(stock => stock.is_active && stock.quantity > 0)
@@ -88,7 +91,6 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       
       setBatches(activeBatches);
       
-      // Auto-select if only one batch available
       if (activeBatches.length === 1) {
         setSelectedBatch(activeBatches[0]);
       }
@@ -108,17 +110,15 @@ export default function AddStockForm({ onSuccess, onCancel }) {
   const handleQuantityChange = (e) => {
     const value = e.target.value;
     
-    // Allow empty string for clearing
     if (value === '') {
       setFormData(prev => ({ ...prev, quantity_to_add: '' }));
       setFormErrors(prev => ({ ...prev, quantity_to_add: undefined }));
       return;
     }
 
-    // Only allow positive integers
     const numValue = parseInt(value);
     if (isNaN(numValue) || numValue < 0) {
-      return; // Don't update if invalid
+      return;
     }
 
     if (numValue === 0) {
@@ -175,6 +175,44 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     });
     setFormErrors({});
     setCurrentStep(1);
+    setRetryCount(0);
+  };
+
+  // ✅ NEW: Retry mechanism for blockchain transactions
+  const retryBlockchainTransaction = async (transactionFn, retries = MAX_RETRIES) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        setRetryCount(i + 1);
+        console.log(`Blockchain attempt ${i + 1}/${retries}...`);
+        
+        const result = await transactionFn();
+        console.log('Blockchain transaction successful');
+        setRetryCount(0);
+        return result;
+      } catch (error) {
+        console.error(`Blockchain attempt ${i + 1} failed:`, error);
+        
+        // Check if user rejected the transaction
+        if (error.message && (
+          error.message.includes('user rejected') || 
+          error.message.includes('User denied') ||
+          error.code === 4001
+        )) {
+          console.log('User rejected transaction');
+          throw new Error('Transaction rejected by user');
+        }
+        
+        // If it's the last retry, throw the error
+        if (i === retries - 1) {
+          throw new Error(`Transaction failed after ${retries} attempts: ${error.message}`);
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, i);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -191,12 +229,10 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       return;
     }
 
-    // Get the CURRENT quantities from the database first
     const originalQuantity = selectedBatch.quantity;
     const originalRemainingQuantity = selectedBatch.remaining_quantity;
     const quantityToAdd = parseInt(formData.quantity_to_add);
 
-    // Calculate NEW quantities
     const newQuantity = originalQuantity + quantityToAdd;
     const newRemainingQuantity = originalRemainingQuantity + quantityToAdd;
 
@@ -213,26 +249,14 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       // Step 1: Update stock quantity in database
       console.log('Step 1: Updating stock quantity in database...');
       
-      const updateResponse = await fetch(`${API_URL}/stocks/${selectedBatch.stock_id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          quantity: newQuantity,
-          remaining_quantity: newRemainingQuantity,
-          date_received: formData.date_received
-        })
+      // ✅ FIXED: Use api instance instead of fetch
+      const updateResponse = await api.patch(`/stocks/${selectedBatch.stock_id}`, {
+        quantity: newQuantity,
+        remaining_quantity: newRemainingQuantity,
+        date_received: formData.date_received
       });
 
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        throw new Error(errorData.message || 'Failed to update stock');
-      }
-
-      const updateJson = await updateResponse.json();
-      const updatedStock = updateJson.stock || updateJson.data || updateJson;
+      const updatedStock = updateResponse.data.stock || updateResponse.data.data || updateResponse.data;
       console.log('Stock updated in database:', updatedStock);
 
       // Verify the update was correct
@@ -254,12 +278,18 @@ export default function AddStockForm({ onSuccess, onCancel }) {
 
       console.log('Generated hash:', dataHash);
 
-      // Step 3: Store hash on blockchain (only if cost > 0)
+      // Step 3: Store hash on blockchain with retry mechanism
       const unitCost = parseFloat(selectedBatch.unit_cost || updatedStock.unit_cost || 0);
       let tx = null;
+      
       if (unitCost > 0) {
-        console.log('Step 3: Storing hash on blockchain...');
-        tx = await storeStockHash(updatedStock.stock_id, dataHash);
+        console.log('Step 3: Storing hash on blockchain with retry mechanism...');
+        
+        // ✅ NEW: Use retry mechanism for blockchain transaction
+        tx = await retryBlockchainTransaction(async () => {
+          return await storeStockHash(updatedStock.stock_id, dataHash);
+        });
+        
         console.log('Blockchain transaction successful:', tx);
       } else {
         console.log('Skipping blockchain write: non-money operation (unit_cost <= 0)');
@@ -287,23 +317,17 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       // Step 5: Create transaction history record
       console.log('Step 5: Creating transaction history...');
       try {
-        await fetch(`${API_URL}/stock-transactions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            stock_id: updatedStock.stock_id,
-            transaction_type: 'ADDITION',
-            quantity_changed: quantityToAdd,
-            quantity_before: originalRemainingQuantity,
-            quantity_after: newRemainingQuantity,
-            transaction_date: formData.date_received,
-            performed_by_wallet: address.toLowerCase(),
-            blockchain_tx_hash: txHash || null,
-            notes: `Added ${quantityToAdd} units to batch ${selectedBatch.batch_number}`
-          })
+        // ✅ FIXED: Use api instance instead of fetch
+        await api.post('/stock-transactions', {
+          stock_id: updatedStock.stock_id,
+          transaction_type: 'ADDITION',
+          quantity_changed: quantityToAdd,
+          quantity_before: originalRemainingQuantity,
+          quantity_after: newRemainingQuantity,
+          transaction_date: formData.date_received,
+          performed_by_wallet: address.toLowerCase(),
+          blockchain_tx_hash: txHash || null,
+          notes: `Added ${quantityToAdd} units to batch ${selectedBatch.batch_number}`
         });
       } catch (historyErr) {
         console.error('Failed to create transaction history:', historyErr);
@@ -330,16 +354,10 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       if (err.message && !err.message.includes('Transaction succeeded')) {
         try {
           console.log('Rolling back quantity change...');
-          await fetch(`${API_URL}/stocks/${selectedBatch.stock_id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-              quantity: originalQuantity,
-              remaining_quantity: originalRemainingQuantity
-            })
+          // ✅ FIXED: Use api instance instead of fetch
+          await api.patch(`/stocks/${selectedBatch.stock_id}`, {
+            quantity: originalQuantity,
+            remaining_quantity: originalRemainingQuantity
           });
           console.log('Rollback successful');
         } catch (rollbackErr) {
@@ -349,7 +367,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       }
       
       let errorMessage = err.message;
-      if (err.message.includes('user rejected')) {
+      if (err.message.includes('rejected by user')) {
         errorMessage = 'Transaction was rejected in MetaMask. Stock addition has been cancelled.';
       } else if (err.message.includes('insufficient funds')) {
         errorMessage = 'Insufficient funds for gas fees. Stock addition has been cancelled.';
@@ -362,13 +380,14 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     } finally {
       setBlockchainLoading(false);
       setLoading(false);
+      setRetryCount(0);
     }
   };
 
   const newTotalQuantity = selectedBatch && formData.quantity_to_add 
     ? selectedBatch.remaining_quantity + parseInt(formData.quantity_to_add || 0)
     : null;
-  // RENDER - Continues from Part 1
+    // RENDER
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="max-w-5xl mx-auto p-6">
@@ -376,15 +395,15 @@ export default function AddStockForm({ onSuccess, onCancel }) {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 Add Stock to Existing Batch
               </h1>
-              <p className="text-gray-600">Increase quantities for existing medicine batches with blockchain verification</p>
+              <p className="text-gray-800">Increase quantities for existing medicine batches with blockchain verification</p>
             </div>
             {onCancel && (
               <button
                 onClick={onCancel}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -405,8 +424,8 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                   currentStep === step.num 
                     ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
                     : currentStep > step.num
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-green-100 text-green-900'
+                    : 'bg-gray-200 text-gray-600'
                 }`}>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
                     currentStep === step.num ? 'bg-white text-blue-600' : ''
@@ -427,39 +446,54 @@ export default function AddStockForm({ onSuccess, onCancel }) {
 
         {/* Wallet Status */}
         {!address ? (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-5 mb-6 shadow-md">
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-xl p-5 mb-6 shadow-md">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+              <AlertCircle className="w-8 h-8 text-yellow-700 flex-shrink-0" />
               <div>
                 <p className="font-bold text-yellow-900 text-lg mb-1">Wallet Not Connected</p>
-                <p className="text-yellow-800 text-sm">Please connect your MetaMask wallet to add stock with blockchain verification.</p>
+                <p className="text-yellow-900 text-sm">Please connect your MetaMask wallet to add stock with blockchain verification.</p>
               </div>
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-5 mb-6 shadow-md">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl p-5 mb-6 shadow-md">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
+              <CheckCircle2 className="w-6 h-6 text-green-700" />
               <div>
                 <p className="font-semibold text-green-900">Wallet Connected</p>
-                <p className="text-sm text-green-700 font-mono">{address.slice(0, 8)}...{address.slice(-6)}</p>
+                <p className="text-sm text-green-800 font-mono">{address.slice(0, 8)}...{address.slice(-6)}</p>
               </div>
             </div>
           </div>
         )}
 
         {!contractLoaded && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-            <p className="text-sm text-blue-800">Loading smart contract...</p>
+          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
+            <p className="text-sm text-blue-900">Loading smart contract...</p>
+          </div>
+        )}
+
+        {/* Retry Status */}
+        {blockchainLoading && retryCount > 0 && (
+          <div className="bg-blue-50 border-2 border-blue-400 rounded-xl p-5 mb-6 shadow-md animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-700"></div>
+              <div>
+                <p className="font-semibold text-blue-900">Blockchain Transaction Retry</p>
+                <p className="text-sm text-blue-800">
+                  Attempt {retryCount} of {MAX_RETRIES} - Please confirm in MetaMask
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Success Message */}
         {success && (
-          <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl shadow-lg animate-fadeIn">
+          <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl shadow-lg animate-fadeIn">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
+              <CheckCircle2 className="w-8 h-8 text-green-700" />
               <p className="text-green-900 font-bold text-lg">Stock added successfully!</p>
             </div>
           </div>
@@ -467,10 +501,10 @@ export default function AddStockForm({ onSuccess, onCancel }) {
 
         {/* Error Message */}
         {(error || hookError) && (
-          <div className="mb-6 p-5 bg-red-50 border-2 border-red-300 rounded-xl">
+          <div className="mb-6 p-5 bg-red-50 border-2 border-red-400 rounded-xl">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-              <p className="text-red-800 font-medium">{error || hookError}</p>
+              <AlertCircle className="w-6 h-6 text-red-700" />
+              <p className="text-red-900 font-medium">{error || hookError}</p>
             </div>
           </div>
         )}
@@ -480,11 +514,11 @@ export default function AddStockForm({ onSuccess, onCancel }) {
           <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-6 h-6 text-blue-600" />
+                <Package className="w-6 h-6 text-blue-700" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Select Medicine</h3>
-                <p className="text-sm text-gray-600">Choose the medicine you want to add stock for</p>
+                <p className="text-sm text-gray-700">Choose the medicine you want to add stock for</p>
               </div>
             </div>
             
@@ -506,40 +540,39 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                 }`}
                 disabled={loadingMedicines}
               >
-                <option value="">
+                <option value="" className="text-gray-900">
                   {loadingMedicines ? '⏳ Loading medicines...' : '🔍 Choose a medicine...'}
                 </option>
                 {medicines.map(med => (
-                  <option key={med.medicine_id} value={med.medicine_id}>
+                  <option key={med.medicine_id} value={med.medicine_id} className="text-gray-900">
                     {med.medicine_name} {med.strength && `• ${med.strength}`} {med.dosage_form && `• ${med.dosage_form}`}
                   </option>
                 ))}
               </select>
               {formErrors.medicine && (
-                <p className="text-red-600 text-sm flex items-center gap-1 mt-2">
+                <p className="text-red-700 text-sm flex items-center gap-1 mt-2 font-medium">
                   <AlertCircle className="w-4 h-4" />
                   {formErrors.medicine}
                 </p>
               )}
 
-              {/* Medicine Details Card */}
               {selectedMedicine && (
-                <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 animate-fadeIn">
+                <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-4 animate-fadeIn">
                   <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                     <span className="text-lg">ℹ️</span>
                     Selected Medicine Details
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                     <div>
-                      <span className="text-blue-700 font-medium">Type:</span>
+                      <span className="text-blue-800 font-medium">Type:</span>
                       <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.medicine_type || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-blue-700 font-medium">Dosage:</span>
+                      <span className="text-blue-800 font-medium">Dosage:</span>
                       <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.dosage_form || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-blue-700 font-medium">Manufacturer:</span>
+                      <span className="text-blue-800 font-medium">Manufacturer:</span>
                       <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.manufacturer || 'N/A'}</p>
                     </div>
                   </div>
@@ -553,24 +586,24 @@ export default function AddStockForm({ onSuccess, onCancel }) {
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl animate-fadeIn">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
+                  <TrendingUp className="w-6 h-6 text-purple-700" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Choose Stock Batch</h3>
-                  <p className="text-sm text-gray-600">Select which batch to add stock to</p>
+                  <p className="text-sm text-gray-700">Select which batch to add stock to</p>
                 </div>
               </div>
 
               {loadingBatches ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
-                  <p className="ml-3 text-gray-600">Loading stock batches...</p>
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-700"></div>
+                  <p className="ml-3 text-gray-700">Loading stock batches...</p>
                 </div>
               ) : batches.length === 0 ? (
-                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
+                <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6 text-center">
                   <span className="text-4xl mb-3 block">📭</span>
                   <p className="text-yellow-900 font-bold text-lg mb-1">No Active Batches Available</p>
-                  <p className="text-yellow-700 text-sm">Please create a new batch for this medicine first</p>
+                  <p className="text-yellow-800 text-sm">Please create a new batch for this medicine first</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -585,8 +618,8 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                       }}
                       className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
                         selectedBatch?.stock_id === batch.stock_id
-                          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg transform scale-[1.02]'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-md'
+                          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg'
+                          : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -596,35 +629,35 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                               Batch: {batch.batch_number}
                             </span>
                             {selectedBatch?.stock_id === batch.stock_id && (
-                              <span className="px-3 py-1 bg-purple-500 text-white text-xs rounded-full font-bold shadow-md animate-pulse">
+                              <span className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full font-bold">
                                 ✓ SELECTED
                               </span>
                             )}
                           </div>
                           <div className="grid grid-cols-3 gap-4">
                             <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-600 block mb-1">Current Stock</span>
-                              <span className="font-bold text-2xl text-blue-600 block">
+                              <span className="text-xs text-gray-700 block mb-1 font-medium">Current Stock</span>
+                              <span className="font-bold text-2xl text-blue-700 block">
                                 {batch.remaining_quantity}
                               </span>
-                              <span className="text-xs text-gray-500">units</span>
+                              <span className="text-xs text-gray-600">units</span>
                             </div>
                             <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-600 block mb-1">Total Quantity</span>
+                              <span className="text-xs text-gray-700 block mb-1 font-medium">Total Quantity</span>
                               <span className="font-bold text-xl text-gray-900 block">
                                 {batch.quantity}
                               </span>
-                              <span className="text-xs text-gray-500">units</span>
+                              <span className="text-xs text-gray-600">units</span>
                             </div>
                             <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-600 block mb-1">Expiry Date</span>
+                              <span className="text-xs text-gray-700 block mb-1 font-medium">Expiry Date</span>
                               <span className="font-semibold text-sm text-gray-900 block">
                                 {new Date(batch.expiry_date).toLocaleDateString()}
                               </span>
                             </div>
                           </div>
                           {batch.storage_location && (
-                            <div className="mt-3 text-sm text-gray-600">
+                            <div className="mt-3 text-sm text-gray-700">
                               📍 Location: <span className="font-medium text-gray-900">{batch.storage_location}</span>
                             </div>
                           )}
@@ -636,7 +669,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
               )}
               
               {formErrors.batch && (
-                <p className="mt-3 text-red-600 text-sm flex items-center gap-1">
+                <p className="mt-3 text-red-700 text-sm flex items-center gap-1 font-medium">
                   <AlertCircle className="w-4 h-4" />
                   {formErrors.batch}
                 </p>
@@ -648,16 +681,15 @@ export default function AddStockForm({ onSuccess, onCancel }) {
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl animate-fadeIn">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-green-600" />
+                  <Plus className="w-6 h-6 text-green-700" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Addition Details</h3>
-                  <p className="text-sm text-gray-600">Enter the quantity to add to this batch</p>
+                  <p className="text-sm text-gray-700">Enter the quantity to add to this batch</p>
                 </div>
               </div>
               
               <div className="space-y-5">
-                {/* Quantity Input with Enhanced Validation */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     <Package className="w-4 h-4 inline mr-1" />
@@ -670,7 +702,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                       onChange={handleQuantityChange}
                       min="1"
                       placeholder="Enter quantity to add"
-                      className={`w-full px-4 py-4 text-lg border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                      className={`w-full px-4 py-4 text-lg text-gray-900 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                         formErrors.quantity_to_add 
                           ? 'border-red-500 bg-red-50' 
                           : formData.quantity_to_add && !formErrors.quantity_to_add
@@ -678,31 +710,30 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                           : 'border-gray-300'
                       }`}
                     />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-700">
                       units
                     </div>
                   </div>
                   
                   {formErrors.quantity_to_add ? (
-                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-red-600 text-sm flex items-center gap-2">
+                    <div className="mt-2 p-3 bg-red-50 border border-red-300 rounded-lg">
+                      <p className="text-red-800 text-sm flex items-center gap-2 font-medium">
                         <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-medium">{formErrors.quantity_to_add}</span>
+                        <span>{formErrors.quantity_to_add}</span>
                       </p>
                     </div>
                   ) : formData.quantity_to_add && !formErrors.quantity_to_add && newTotalQuantity !== null ? (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-green-700 text-sm flex items-center gap-2">
+                    <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-lg">
+                      <p className="text-green-800 text-sm flex items-center gap-2 font-medium">
                         <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-medium">
-                          Valid quantity • New total will be <span className="text-green-800 font-bold">{newTotalQuantity} units</span>
+                        <span>
+                          Valid quantity • New total will be <span className="text-green-900 font-bold">{newTotalQuantity} units</span>
                         </span>
                       </p>
                     </div>
                   ) : null}
                 </div>
 
-                {/* Date Received */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     <Calendar className="w-4 h-4 inline mr-1" />
@@ -714,7 +745,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                     value={formData.date_received}
                     onChange={handleChange}
                     max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                    className="w-full px-4 py-3 text-gray-900 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   />
                 </div>
               </div>
@@ -723,9 +754,9 @@ export default function AddStockForm({ onSuccess, onCancel }) {
 
           {/* Stock Addition Summary */}
           {selectedMedicine && selectedBatch && formData.quantity_to_add && !formErrors.quantity_to_add && (
-            <div className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-2 border-green-300 rounded-xl p-6 shadow-lg animate-fadeIn">
+            <div className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-2 border-green-400 rounded-xl p-6 shadow-lg animate-fadeIn">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6 text-white" />
                 </div>
                 <h4 className="text-xl font-bold text-green-900">Addition Summary - Please Review</h4>
@@ -733,40 +764,40 @@ export default function AddStockForm({ onSuccess, onCancel }) {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-700 font-medium block mb-2">Medicine</span>
+                  <span className="text-sm text-green-800 font-medium block mb-2">Medicine</span>
                   <p className="font-bold text-green-900 text-lg">{selectedMedicine.medicine_name}</p>
-                  <p className="text-sm text-green-700">{selectedMedicine.strength}</p>
+                  <p className="text-sm text-green-800">{selectedMedicine.strength}</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-700 font-medium block mb-2">Batch Number</span>
+                  <span className="text-sm text-green-800 font-medium block mb-2">Batch Number</span>
                   <p className="font-bold text-green-900 text-lg">{selectedBatch.batch_number}</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-blue-700 font-medium block mb-2">Current Stock</span>
-                  <p className="font-bold text-blue-600 text-3xl">{selectedBatch.remaining_quantity}</p>
-                  <p className="text-sm text-blue-700">units</p>
+                  <span className="text-sm text-blue-800 font-medium block mb-2">Current Stock</span>
+                  <p className="font-bold text-blue-700 text-3xl">{selectedBatch.remaining_quantity}</p>
+                  <p className="text-sm text-blue-800">units</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-700 font-medium block mb-2">Adding</span>
-                  <p className="font-bold text-green-600 text-3xl">+{formData.quantity_to_add}</p>
-                  <p className="text-sm text-green-700">units</p>
+                  <span className="text-sm text-green-800 font-medium block mb-2">Adding</span>
+                  <p className="font-bold text-green-700 text-3xl">+{formData.quantity_to_add}</p>
+                  <p className="text-sm text-green-800">units</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4 md:col-span-2">
-                  <span className="text-sm text-purple-700 font-medium block mb-2">New Total Stock</span>
-                  <p className="font-bold text-purple-600 text-4xl">{newTotalQuantity}</p>
-                  <p className="text-sm text-purple-700">units</p>
+                  <span className="text-sm text-purple-800 font-medium block mb-2">New Total Stock</span>
+                  <p className="font-bold text-purple-700 text-4xl">{newTotalQuantity}</p>
+                  <p className="text-sm text-purple-800">units</p>
                 </div>
               </div>
               
-              <div className="bg-green-100 border border-green-300 rounded-lg p-4">
-                <p className="text-sm text-green-800 flex items-center gap-2">
+              <div className="bg-orange-100 border border-orange-400 rounded-lg p-4">
+                <p className="text-sm text-orange-900 flex items-center gap-2 font-medium">
                   <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium">
-                    This action will create a blockchain transaction requiring MetaMask confirmation
+                  <span>
+                    This will create a blockchain transaction (with automatic retry on failure)
                   </span>
                 </p>
               </div>
@@ -775,8 +806,8 @@ export default function AddStockForm({ onSuccess, onCancel }) {
 
           {/* Error Display */}
           {formErrors.wallet && (
-            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-              <p className="text-red-700 font-medium flex items-center gap-2">
+            <div className="bg-red-50 border-2 border-red-400 rounded-lg p-4">
+              <p className="text-red-900 font-medium flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
                 {formErrors.wallet}
               </p>
@@ -796,7 +827,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                   }
                 }}
                 disabled={loading || blockchainLoading}
-                className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -812,12 +843,12 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                   !formData.quantity_to_add ||
                   Object.keys(formErrors).some(key => formErrors[key])
                 }
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-lg shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+                className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-lg shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all"
               >
                 {blockchainLoading ? (
                   <span className="flex items-center justify-center gap-3">
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing Blockchain Transaction...
+                    {retryCount > 0 ? `Retrying (${retryCount}/${MAX_RETRIES})...` : 'Processing...'}
                   </span>
                 ) : loading ? (
                   <span className="flex items-center justify-center gap-3">
@@ -834,7 +865,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
             </div>
             
             {!address && (
-              <p className="text-center text-sm text-gray-500 mt-3">
+              <p className="text-center text-sm text-gray-700 mt-3 font-medium">
                 ⚠️ Connect your wallet to enable submission
               </p>
             )}
@@ -842,7 +873,6 @@ export default function AddStockForm({ onSuccess, onCancel }) {
         </form>
       </div>
 
-      {/* Add CSS animation */}
       <style jsx>{`
         @keyframes fadeIn {
           from {
