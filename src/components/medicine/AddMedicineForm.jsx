@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAddress } from "@thirdweb-dev/react";
 import { useMedicineInventory } from "../../hooks/useMedicineData";
-import api from "../../../api.js";
+import api from "../../../api.js"; // ✅ USE CONFIGURED API INSTANCE
 import { useRole } from "../auth/RoleProvider";
 
 // Enable blockchain for medicine additions
 const ENABLE_BLOCKCHAIN_FOR_MEDICINE = true;
+
+// ✅ NEW: Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
 
 // Dropdown options
 const MEDICINE_TYPES = [
@@ -130,6 +134,7 @@ export default function AddMedicineForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [retryCount, setRetryCount] = useState(0); // ✅ NEW: Track retry attempts
 
   // Form state with validation
   const [formData, setFormData] = useState({
@@ -174,7 +179,7 @@ export default function AddMedicineForm() {
     });
   }, [address, userRole, userProfile, contractLoaded, hasAccess, checkingAccess, roleLoading]);
 
-  // Fetch data on mount
+  // Fetch data on mount - ✅ ALREADY USING API
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -193,7 +198,7 @@ export default function AddMedicineForm() {
     fetchData();
   }, []);
 
-  // Refresh data after success
+  // Refresh data after success - ✅ ALREADY USING API
   useEffect(() => {
     if (success) {
       setTimeout(async () => {
@@ -215,7 +220,7 @@ export default function AddMedicineForm() {
                          userRole === 'MUNICIPAL_STAFF' || 
                          userRole === 'STAFF';
 
-  // Validation functions
+  // Validation functions (unchanged)
   const validateField = (name, value) => {
     let errorMsg = '';
 
@@ -391,6 +396,42 @@ export default function AddMedicineForm() {
     return '0.00';
   };
 
+  // ✅ NEW: Retry mechanism for blockchain transactions
+  const retryBlockchainTransaction = async (transactionFn, retries = MAX_RETRIES) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        setRetryCount(i + 1);
+        console.log(`📤 Blockchain Attempt ${i + 1}/${retries}...`);
+        
+        const result = await transactionFn();
+        console.log('✅ Blockchain transaction successful');
+        setRetryCount(0);
+        return result;
+      } catch (error) {
+        console.error(`❌ Blockchain attempt ${i + 1} failed:`, error);
+        
+        // Check if user rejected the transaction
+        if (error.message && (
+          error.message.includes('user rejected') || 
+          error.message.includes('User denied') ||
+          error.code === 4001
+        )) {
+          console.log('User rejected transaction');
+          throw new Error('Transaction rejected by user');
+        }
+        
+        // If it's the last retry, throw the error
+        if (i === retries - 1) {
+          throw new Error(`Transaction failed after ${retries} attempts: ${error.message}`);
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, i);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -468,6 +509,7 @@ export default function AddMedicineForm() {
           : (userProfile?.barangay || userProfile?.assigned_barangay || null)
       };
 
+      // ✅ ALREADY USING API - Create medicine in database
       const dbResponse = await api.post("/medicines", medicineData);
       const { medicine, stock } = dbResponse.data;
 
@@ -477,6 +519,7 @@ export default function AddMedicineForm() {
           const existingHash = await getMedicineHash(medicine.medicine_id);
 
           if (existingHash && existingHash.exists) {
+            // ✅ ALREADY USING API - Rollback
             await api.delete(`/medicines/${medicine.medicine_id}`);
             
             setError(
@@ -501,61 +544,35 @@ export default function AddMedicineForm() {
 
           const dataHash = generateMedicineHash(hashData);
           
-          const maxRetries = 3;
+          // ✅ NEW: Use retry mechanism for blockchain transaction
           let txHash = null;
-          let lastError = null;
           
-          for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-              console.log(`📤 Blockchain Attempt ${attempt}/${maxRetries}...`);
-              
-              if (attempt > 1) {
-                setError(`Network issue detected. Retrying transaction (${attempt}/${maxRetries})...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-              }
-              
-              const tx = await storeMedicineHash(medicine.medicine_id, dataHash);
-              txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
-              
-              if (txHash) {
-                console.log('✅ Transaction successful:', txHash);
-                break;
-              }
-              
-            } catch (txError) {
-              lastError = txError;
-              console.warn(`❌ Attempt ${attempt} failed:`, txError.message);
-              
-              if (txError.message?.includes('user rejected') || 
-                  txError.message?.includes('User denied')) {
-                throw new Error('Transaction cancelled by user');
-              }
-              
-              const isTransientError = 
-                txError.message?.includes('Internal JSON-RPC error') ||
-                txError.message?.includes('timeout') ||
-                txError.message?.includes('network');
-              
-              if (!isTransientError && attempt === 1) {
-                throw txError;
-              }
-              
-              if (attempt === maxRetries) {
-                throw lastError || txError;
-              }
+          try {
+            const tx = await retryBlockchainTransaction(async () => {
+              return await storeMedicineHash(medicine.medicine_id, dataHash);
+            });
+            
+            txHash = tx.receipt?.transactionHash || tx.hash || tx.transactionHash;
+            
+            if (!txHash) {
+              throw new Error('Transaction succeeded but no hash was returned');
             }
-          }
-          
-          if (!txHash) {
-            throw lastError || new Error('Transaction failed after multiple attempts');
+            
+            console.log('✅ Transaction successful:', txHash);
+            
+          } catch (txError) {
+            console.error('Blockchain transaction failed:', txError);
+            throw txError;
           }
 
+          // ✅ ALREADY USING API - Update medicine with blockchain info
           await api.patch(`/medicines/${medicine.medicine_id}`, {
             blockchain_hash: dataHash,
             blockchain_tx_hash: txHash,
             transaction_hash: txHash
           });
 
+          // ✅ ALREADY USING API - Update stock with blockchain info
           await api.patch(`/stocks/${stock.stock_id}`, {
             blockchain_hash: dataHash,
             blockchain_tx_hash: txHash
@@ -572,16 +589,19 @@ export default function AddMedicineForm() {
         } catch (blockchainErr) {
           console.error("Blockchain operation failed:", blockchainErr);
           
+          // ✅ ALREADY USING API - Rollback on blockchain failure
           await api.delete(`/medicines/${medicine.medicine_id}`);
           
           let errorMessage = 'Medicine was created in database but blockchain storage failed.\nDatabase entry has been rolled back.\n\n';
           
           if (blockchainErr.message?.includes('user rejected') || 
               blockchainErr.message?.includes('User denied') ||
-              blockchainErr.message?.includes('cancelled by user')) {
+              blockchainErr.message?.includes('rejected by user')) {
             errorMessage += 'Reason: Transaction was cancelled.\n\nPlease try again when ready.';
           } else if (blockchainErr.message?.includes('insufficient funds')) {
             errorMessage += 'Reason: Insufficient MATIC for gas fees.\n\nPlease add MATIC to your wallet.';
+          } else if (blockchainErr.message?.includes(`failed after ${MAX_RETRIES} attempts`)) {
+            errorMessage += `Reason: Network congestion - failed after ${MAX_RETRIES} automatic retries.\n\nPlease try again in a few minutes.`;
           } else {
             errorMessage += `Error: ${blockchainErr.message}`;
           }
@@ -636,17 +656,18 @@ export default function AddMedicineForm() {
       }
     } finally {
       setLoading(false);
+      setRetryCount(0);
     }
   };
 
-  // LOADING STATES
+  // LOADING STATES - ✅ FIXED: All text now dark (text-gray-900)
   if (checkingAccess || roleLoading || !contractLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-black">
+            <p className="text-lg text-gray-900 font-medium">
               {roleLoading ? "Loading user role..." : 
                !contractLoaded ? "Loading contract..." : 
                "Verifying permissions..."}
@@ -665,9 +686,9 @@ export default function AddMedicineForm() {
             <svg className="h-10 w-10 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <h3 className="ml-3 text-lg font-semibold text-black">Wallet Required</h3>
+            <h3 className="ml-3 text-lg font-semibold text-gray-900">Wallet Required</h3>
           </div>
-          <p className="text-black">Please connect your wallet to add medicines to the inventory.</p>
+          <p className="text-gray-800">Please connect your wallet to add medicines to the inventory.</p>
         </div>
       </div>
     );
@@ -682,31 +703,45 @@ export default function AddMedicineForm() {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <div className="ml-3">
-              <h3 className="text-lg font-semibold text-black">Access Denied</h3>
-              <p className="text-black mt-2">You don't have permission to add medicines.</p>
+              <h3 className="text-lg font-semibold text-gray-900">Access Denied</h3>
+              <p className="text-gray-800 mt-2">You don't have permission to add medicines.</p>
             </div>
           </div>
         </div>
       </div>
     );
   }
-
-  // MAIN FORM RENDER
+  // MAIN FORM RENDER - ✅ FIXED: All text now dark and visible
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">Add New Medicine</h1>
-          <p className="text-black text-sm">Enter complete medicine information and stock details</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Medicine</h1>
+          <p className="text-gray-800 text-sm">Enter complete medicine information and stock details</p>
           <div className="mt-3 flex items-center gap-3">
             <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
               Access Granted
             </span>
-            <span className="text-xs text-black">
+            <span className="text-xs text-gray-900 font-mono">
               {address.slice(0, 6)}...{address.slice(-4)}
             </span>
           </div>
         </div>
+
+        {/* ✅ NEW: Retry Status Indicator */}
+        {loading && retryCount > 0 && (
+          <div className="bg-blue-50 border-2 border-blue-400 rounded-xl p-5 mb-6 shadow-md animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-700"></div>
+              <div>
+                <p className="font-semibold text-blue-900">Blockchain Transaction Retry</p>
+                <p className="text-sm text-blue-800">
+                  Attempt {retryCount} of {MAX_RETRIES} - Please confirm in MetaMask
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -714,7 +749,7 @@ export default function AddMedicineForm() {
               <svg className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
-              <span className="text-sm text-black whitespace-pre-line">{error}</span>
+              <span className="text-sm text-gray-900 whitespace-pre-line">{error}</span>
             </div>
           </div>
         )}
@@ -725,7 +760,7 @@ export default function AddMedicineForm() {
               <svg className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="text-sm text-black whitespace-pre-line">{success}</span>
+              <span className="text-sm text-gray-900 whitespace-pre-line">{success}</span>
             </div>
           </div>  
         )}
@@ -733,11 +768,11 @@ export default function AddMedicineForm() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Medicine Information Section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-black mb-6">Medicine Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Medicine Information</h3>
             <div className="space-y-4">
               {/* Medicine Name */}
               <div>
-                <label className="block text-sm font-medium text-black mb-1.5">
+                <label className="block text-sm font-medium text-gray-900 mb-1.5">
                   Medicine Name <span className="text-red-500">*</span>
                 </label>
                 <input 
@@ -746,7 +781,7 @@ export default function AddMedicineForm() {
                   value={formData.medicine_name}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     fieldErrors.medicine_name && touched.medicine_name ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter medicine name"
@@ -758,7 +793,7 @@ export default function AddMedicineForm() {
 
               {/* Medicine Types - Checkboxes */}
               <div>
-                <label className="block text-sm font-medium text-black mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Medicine Type <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -770,7 +805,7 @@ export default function AddMedicineForm() {
                         onChange={() => handleCheckboxChange('medicine_types', type.value)}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                      <span className="text-sm text-black">{type.label}</span>
+                      <span className="text-sm text-gray-900">{type.label}</span>
                     </label>
                   ))}
                 </div>
@@ -782,14 +817,14 @@ export default function AddMedicineForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Generic Name */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">Generic Name</label>
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">Generic Name</label>
                   <input 
                     type="text" 
                     name="generic_name" 
                     value={formData.generic_name}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.generic_name && touched.generic_name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter generic name"
@@ -801,7 +836,7 @@ export default function AddMedicineForm() {
 
                 {/* Dosage Form */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Dosage Form <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -809,7 +844,7 @@ export default function AddMedicineForm() {
                     value={formData.dosage_form}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.dosage_form && touched.dosage_form ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
@@ -825,7 +860,7 @@ export default function AddMedicineForm() {
 
                 {/* Strength */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Strength <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -833,7 +868,7 @@ export default function AddMedicineForm() {
                     value={formData.strength}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.strength && touched.strength ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
@@ -849,7 +884,7 @@ export default function AddMedicineForm() {
 
                 {/* Manufacturer */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Manufacturer <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -857,7 +892,7 @@ export default function AddMedicineForm() {
                     value={formData.manufacturer}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.manufacturer && touched.manufacturer ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
@@ -874,7 +909,7 @@ export default function AddMedicineForm() {
 
               {/* Categories - Checkboxes */}
               <div>
-                <label className="block text-sm font-medium text-black mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Category <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -886,7 +921,7 @@ export default function AddMedicineForm() {
                         onChange={() => handleCheckboxChange('categories', category.value)}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                      <span className="text-sm text-black">{category.label}</span>
+                      <span className="text-sm text-gray-900">{category.label}</span>
                     </label>
                   ))}
                 </div>
@@ -897,7 +932,7 @@ export default function AddMedicineForm() {
 
               {/* Storage Requirements - Checkboxes */}
               <div>
-                <label className="block text-sm font-medium text-black mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Storage Requirements <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -909,7 +944,7 @@ export default function AddMedicineForm() {
                         onChange={() => handleCheckboxChange('storage_requirements', req.value)}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                      <span className="text-sm text-black">{req.label}</span>
+                      <span className="text-sm text-gray-900">{req.label}</span>
                     </label>
                   ))}
                 </div>
@@ -920,13 +955,13 @@ export default function AddMedicineForm() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-black mb-1.5">Description</label>
+                <label className="block text-sm font-medium text-gray-900 mb-1.5">Description</label>
                 <textarea 
                   name="description" 
                   value={formData.description}
                   onChange={handleInputChange}
                   rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter medicine description..."
                 ></textarea>
               </div>
@@ -935,12 +970,12 @@ export default function AddMedicineForm() {
 
           {/* Stock Information Section */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-black mb-6">Stock Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Stock Information</h3>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Batch Number */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Batch Number <span className="text-red-500">*</span>
                   </label>
                   <input 
@@ -949,7 +984,7 @@ export default function AddMedicineForm() {
                     value={formData.batch_number}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.batch_number && touched.batch_number ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter batch number"
@@ -961,7 +996,7 @@ export default function AddMedicineForm() {
 
                 {/* Quantity */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Quantity <span className="text-red-500">*</span>
                   </label>
                   <input 
@@ -971,7 +1006,7 @@ export default function AddMedicineForm() {
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     min="1"
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.quantity && touched.quantity ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter quantity"
@@ -983,14 +1018,14 @@ export default function AddMedicineForm() {
 
                 {/* Packaging Unit */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Packaging Unit <span className="text-red-500">*</span>
                   </label>
                   <select 
                     name="packaging_unit"
                     value={formData.packaging_unit}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {PACKAGING_UNITS.map(unit => (
                       <option key={unit.value} value={unit.value}>
@@ -998,14 +1033,14 @@ export default function AddMedicineForm() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-700">
                     Select how the medicine is packaged
                   </p>
                 </div>
 
                 {/* Cost Per Unit */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Cost Per {PACKAGING_UNITS.find(u => u.value === formData.packaging_unit)?.label || 'Unit'} <span className="text-red-500">*</span>
                   </label>
                   <input 
@@ -1016,7 +1051,7 @@ export default function AddMedicineForm() {
                     onBlur={handleBlur}
                     step="0.01"
                     min="0"
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.cost_per_unit && touched.cost_per_unit ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="0.00"
@@ -1025,7 +1060,7 @@ export default function AddMedicineForm() {
                     <p className="mt-1 text-xs text-red-600">{fieldErrors.cost_per_unit}</p>
                   )}
                   {formData.cost_per_unit && parseFloat(formData.cost_per_unit) > 0 && (
-                    <p className="mt-1 text-xs text-green-600">
+                    <p className="mt-1 text-xs text-green-700 font-medium">
                       💡 Unit Cost: ₱{calculateUnitCost()} per piece
                     </p>
                   )}
@@ -1033,7 +1068,7 @@ export default function AddMedicineForm() {
 
                 {/* Supplier Name */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Supplier Name <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -1041,7 +1076,7 @@ export default function AddMedicineForm() {
                     value={formData.supplier_name}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.supplier_name && touched.supplier_name ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
@@ -1057,7 +1092,7 @@ export default function AddMedicineForm() {
 
                 {/* Expiry Date */}
                 <div>
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Expiry Date <span className="text-red-500">*</span>
                   </label>
                   <input 
@@ -1067,21 +1102,21 @@ export default function AddMedicineForm() {
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     min={getMinExpiryDate()}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.expiry_date && touched.expiry_date ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
                   {fieldErrors.expiry_date && touched.expiry_date && (
                     <p className="mt-1 text-xs text-red-600">{fieldErrors.expiry_date}</p>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-700">
                     Must be a future date
                   </p>
                 </div>
 
                 {/* Storage Location */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-black mb-1.5">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">
                     Storage Location <span className="text-red-500">*</span>
                   </label>
                   <select 
@@ -1089,7 +1124,7 @@ export default function AddMedicineForm() {
                     value={formData.storage_location}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    className={`w-full px-3 py-2 border rounded-md text-sm text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-3 py-2 border rounded-md text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       fieldErrors.storage_location && touched.storage_location ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
@@ -1112,7 +1147,7 @@ export default function AddMedicineForm() {
               type="button"
               onClick={() => window.history.back()}
               disabled={loading}
-              className="px-6 py-2.5 border border-gray-300 rounded-md text-black font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 border border-gray-300 rounded-md text-gray-900 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -1127,7 +1162,7 @@ export default function AddMedicineForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span>Adding Medicine...</span>
+                  <span>{retryCount > 0 ? `Retrying (${retryCount}/${MAX_RETRIES})...` : 'Adding Medicine...'}</span>
                 </>
               ) : (
                 <span>Add Medicine</span>
