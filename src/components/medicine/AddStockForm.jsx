@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Package, Calendar, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Plus, Package, AlertCircle, CheckCircle2, Layers } from 'lucide-react';
 import { useStockManagement } from '../../hooks/useStockManagement';
+import { useMedicineInventory } from '../../hooks/useMedicineData';
 import { useAddress } from '@thirdweb-dev/react';
-import api from '../../../api'; // ✅ USE CONFIGURED API INSTANCE
+import { useRole } from '../auth/RoleProvider';
+import api from '../../../api';
+import BatchEntryRow from './BatchEntryRow'; // ✅ FIXED: Correct import path
+import AddNewMedicineModal from './AddNewMedicineModal'; // ✅ FIXED: Correct import path
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -13,55 +17,47 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     generateStockHash,
     storeStockHash,
     updateStockBlockchainInfo,
-    loading: hookLoading,
-    error: hookError,
-    contractLoaded
+    contractLoaded: stockContractLoaded
   } = useStockManagement();
 
+  const {
+    storeMedicineHash,
+    generateMedicineHash,
+    contractLoaded: medicineContractLoaded
+  } = useMedicineInventory();
+
+  const { userRole, userProfile } = useRole?.() || {};
   const address = useAddress();
 
+  // State
+  const [mode, setMode] = useState('single'); // 'single' or 'bulk'
   const [medicines, setMedicines] = useState([]);
-  const [batches, setBatches] = useState([]);
-  const [selectedMedicine, setSelectedMedicine] = useState(null);
-  const [selectedBatch, setSelectedBatch] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
   const [loadingMedicines, setLoadingMedicines] = useState(true);
-  const [loadingBatches, setLoadingBatches] = useState(false);
   const [blockchainLoading, setBlockchainLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Modal state
+  const [showMedicineModal, setShowMedicineModal] = useState(false);
+  const [currentRowIndex, setCurrentRowIndex] = useState(null);
 
-  const [formData, setFormData] = useState({
-    quantity_to_add: '',
+  // Batch entries for bulk mode
+  const [batchEntries, setBatchEntries] = useState([{
+    medicine_id: '',
+    batch_number: '',
+    quantity: '',
+    expiry_date: '',
+    supplier_name: '',
     date_received: new Date().toISOString().split('T')[0]
-  });
+  }]);
 
-  const [formErrors, setFormErrors] = useState({});
-  const [currentStep, setCurrentStep] = useState(1);
+  const [batchErrors, setBatchErrors] = useState([{}]);
 
   useEffect(() => {
     fetchMedicines();
   }, []);
 
-  useEffect(() => {
-    if (selectedMedicine) {
-      fetchBatches(selectedMedicine.medicine_id);
-      setCurrentStep(2);
-    } else {
-      setBatches([]);
-      setSelectedBatch(null);
-      setCurrentStep(1);
-    }
-  }, [selectedMedicine]);
-
-  useEffect(() => {
-    if (selectedBatch) {
-      setCurrentStep(3);
-    }
-  }, [selectedBatch]);
-
-  // ✅ FIXED: Use api instance instead of fetch
   const fetchMedicines = async () => {
     try {
       setLoadingMedicines(true);
@@ -70,115 +66,13 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       setMedicines(Array.isArray(medicinesData) ? medicinesData.filter(med => med.is_active) : []);
     } catch (err) {
       console.error('Error fetching medicines:', err);
-      setError('Failed to load medicines');
+      setError('Failed to load medicines. Please refresh the page.');
     } finally {
       setLoadingMedicines(false);
     }
   };
 
-  // ✅ FIXED: Use api instance instead of fetch
-  const fetchBatches = async (medicineId) => {
-    try {
-      setLoadingBatches(true);
-      const response = await api.get(`/stocks?medicine_id=${medicineId}&is_active=true`);
-      const stocksData = response.data.data || [];
-      
-      const activeBatches = Array.isArray(stocksData) 
-        ? stocksData
-            .filter(stock => stock.is_active && stock.quantity > 0)
-            .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
-        : [];
-      
-      setBatches(activeBatches);
-      
-      if (activeBatches.length === 1) {
-        setSelectedBatch(activeBatches[0]);
-      }
-
-      if (activeBatches.length === 0) {
-        alert('⚠️ No active batches available for this medicine. Please create a new batch first.');
-      }
-    } catch (err) {
-      console.error('Error fetching batches:', err);
-      setError('Failed to load batches');
-      setBatches([]);
-    } finally {
-      setLoadingBatches(false);
-    }
-  };
-
-  const handleQuantityChange = (e) => {
-    const value = e.target.value;
-    
-    if (value === '') {
-      setFormData(prev => ({ ...prev, quantity_to_add: '' }));
-      setFormErrors(prev => ({ ...prev, quantity_to_add: undefined }));
-      return;
-    }
-
-    const numValue = parseInt(value);
-    if (isNaN(numValue) || numValue < 0) {
-      return;
-    }
-
-    if (numValue === 0) {
-      setFormErrors(prev => ({
-        ...prev,
-        quantity_to_add: 'Quantity must be at least 1'
-      }));
-    } else {
-      setFormErrors(prev => ({ ...prev, quantity_to_add: undefined }));
-    }
-
-    setFormData(prev => ({ ...prev, quantity_to_add: value }));
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: null }));
-    }
-  };
-
-  const validateForm = () => {
-    const errors = {};
-
-    if (!address) {
-      errors.wallet = 'Please connect your MetaMask wallet';
-    }
-    if (!selectedMedicine) {
-      errors.medicine = 'Medicine is required';
-    }
-    if (!selectedBatch) {
-      errors.batch = 'Stock batch is required';
-    }
-    if (!formData.quantity_to_add || formData.quantity_to_add <= 0) {
-      errors.quantity_to_add = 'Valid quantity is required';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const resetForm = () => {
-    setSelectedMedicine(null);
-    setSelectedBatch(null);
-    setBatches([]);
-    setFormData({
-      quantity_to_add: '',
-      date_received: new Date().toISOString().split('T')[0]
-    });
-    setFormErrors({});
-    setCurrentStep(1);
-    setRetryCount(0);
-  };
-
-  // ✅ NEW: Retry mechanism for blockchain transactions
+  // Retry mechanism for blockchain transactions
   const retryBlockchainTransaction = async (transactionFn, retries = MAX_RETRIES) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -192,7 +86,6 @@ export default function AddStockForm({ onSuccess, onCancel }) {
       } catch (error) {
         console.error(`Blockchain attempt ${i + 1} failed:`, error);
         
-        // Check if user rejected the transaction
         if (error.message && (
           error.message.includes('user rejected') || 
           error.message.includes('User denied') ||
@@ -202,12 +95,10 @@ export default function AddStockForm({ onSuccess, onCancel }) {
           throw new Error('Transaction rejected by user');
         }
         
-        // If it's the last retry, throw the error
         if (i === retries - 1) {
           throw new Error(`Transaction failed after ${retries} attempts: ${error.message}`);
         }
         
-        // Wait before retrying (exponential backoff)
         const delay = INITIAL_RETRY_DELAY * Math.pow(2, i);
         console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -215,195 +106,422 @@ export default function AddStockForm({ onSuccess, onCancel }) {
     }
   };
 
+  // Add new batch entry row
+  const addBatchEntry = () => {
+    if (batchEntries.length >= 20) {
+      alert('⚠️ Maximum 20 entries allowed at once.\n\nPlease submit current entries first.');
+      return;
+    }
+    
+    setBatchEntries([...batchEntries, {
+      medicine_id: '',
+      batch_number: '',
+      quantity: '',
+      expiry_date: '',
+      supplier_name: '',
+      date_received: new Date().toISOString().split('T')[0]
+    }]);
+    setBatchErrors([...batchErrors, {}]);
+  };
+
+  // Remove batch entry row
+  const removeBatchEntry = (index) => {
+    if (batchEntries.length === 1) {
+      alert('⚠️ Cannot remove the last entry.\n\nAt least one entry is required.');
+      return;
+    }
+    setBatchEntries(batchEntries.filter((_, i) => i !== index));
+    setBatchErrors(batchErrors.filter((_, i) => i !== index));
+  };
+
+  // Duplicate batch entry row
+  const duplicateBatchEntry = (index) => {
+    if (batchEntries.length >= 20) {
+      alert('⚠️ Maximum 20 entries allowed at once.\n\nPlease submit current entries first.');
+      return;
+    }
+    
+    const entryToDuplicate = { ...batchEntries[index] };
+    setBatchEntries([...batchEntries, entryToDuplicate]);
+    setBatchErrors([...batchErrors, {}]);
+  };
+
+  // Update batch entry
+  const updateBatchEntry = (index, data) => {
+    const newEntries = [...batchEntries];
+    newEntries[index] = data;
+    setBatchEntries(newEntries);
+  };
+
+  // Open "Add New Medicine" modal
+  const handleAddNewMedicine = (rowIndex) => {
+    setCurrentRowIndex(rowIndex);
+    setShowMedicineModal(true);
+  };
+
+  // ✅ FIXED: Handle new medicine submission from modal (modal handles blockchain internally)
+  const handleMedicineSubmit = async (medicineData) => {
+    try {
+      console.log('Medicine added successfully:', medicineData);
+      
+      // Refresh medicines list
+      await fetchMedicines();
+
+      // If modal was opened from a row, auto-select the new medicine
+      if (currentRowIndex !== null) {
+        const newEntries = [...batchEntries];
+        newEntries[currentRowIndex] = {
+          ...newEntries[currentRowIndex],
+          medicine_id: medicineData.medicine_id
+        };
+        setBatchEntries(newEntries);
+      }
+
+      setShowMedicineModal(false);
+      setCurrentRowIndex(null);
+      
+      // Success message with blockchain info
+      const successMsg = medicineData.txHash
+        ? `✅ Medicine "${medicineData.medicine_name}" added successfully!\n\n🔗 Blockchain TX: ${medicineData.txHash.slice(0, 10)}...${medicineData.txHash.slice(-8)}\n\nYou can now select it in the form.`
+        : `✅ Medicine "${medicineData.medicine_name}" added successfully!\n\nYou can now select it in the form.`;
+      
+      alert(successMsg);
+
+    } catch (err) {
+      console.error('Error in medicine submission callback:', err);
+      setError(`Medicine submission error: ${err.message}`);
+    }
+  };
+
+  // Validate batch entries
+  const validateBatchEntries = () => {
+    const errors = batchEntries.map(entry => {
+      const rowErrors = {};
+      
+      if (!entry.medicine_id) {
+        rowErrors.medicine_id = 'Medicine is required';
+      }
+      if (!entry.batch_number || entry.batch_number.trim().length < 3) {
+        rowErrors.batch_number = 'Valid batch number is required (min 3 characters)';
+      }
+      if (!entry.quantity || parseInt(entry.quantity) < 1) {
+        rowErrors.quantity = 'Quantity must be at least 1';
+      }
+      if (!entry.expiry_date) {
+        rowErrors.expiry_date = 'Expiry date is required';
+      } else {
+        const expiry = new Date(entry.expiry_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expiry <= today) {
+          rowErrors.expiry_date = 'Expiry date must be in the future';
+        }
+      }
+      if (!entry.supplier_name) {
+        rowErrors.supplier_name = 'Supplier is required';
+      }
+
+      return rowErrors;
+    });
+
+    setBatchErrors(errors);
+    return errors.every(rowError => Object.keys(rowError).length === 0);
+  };
+
+  // Process single stock addition with blockchain
+  const processSingleStockAddition = async (entry, medicine) => {
+    try {
+      // Check if batch exists
+      const stocksResponse = await api.get(`/stocks?medicine_id=${entry.medicine_id}`);
+      const existingStocks = stocksResponse.data.data || [];
+      const existingBatch = existingStocks.find(
+        s => s.batch_number === entry.batch_number && s.is_active
+      );
+
+      if (existingBatch) {
+        // Add to existing batch
+        const originalQuantity = existingBatch.quantity;
+        const originalRemainingQuantity = existingBatch.remaining_quantity;
+        const quantityToAdd = parseInt(entry.quantity);
+        const newQuantity = originalQuantity + quantityToAdd;
+        const newRemainingQuantity = originalRemainingQuantity + quantityToAdd;
+
+        const updateResponse = await api.patch(`/stocks/${existingBatch.stock_id}`, {
+          quantity: newQuantity,
+          remaining_quantity: newRemainingQuantity,
+          date_received: entry.date_received
+        });
+
+        const updatedStock = updateResponse.data.stock || updateResponse.data.data || updateResponse.data;
+
+        // Generate hash
+        const dataHash = generateStockHash({
+          stock_id: updatedStock.stock_id,
+          medicine_id: updatedStock.medicine_id,
+          batch_number: updatedStock.batch_number,
+          quantity: updatedStock.quantity,
+          expiry_date: updatedStock.expiry_date
+        });
+
+        // Store hash on blockchain with retry
+        let tx = null;
+        const unitCost = parseFloat(existingBatch.unit_cost || 0);
+        
+        if (unitCost > 0) {
+          tx = await retryBlockchainTransaction(async () => {
+            return await storeStockHash(updatedStock.stock_id, dataHash);
+          });
+        }
+
+        const txHash = tx ? (tx.hash || tx.transactionHash || tx.receipt?.transactionHash) : null;
+
+        if (txHash) {
+          await updateStockBlockchainInfo(updatedStock.stock_id, {
+            blockchain_hash: dataHash,
+            blockchain_tx_hash: txHash,
+            added_by_wallet: address.toLowerCase()
+          });
+        }
+
+        // Create transaction history
+        try {
+          await api.post('/stock-transactions', {
+            stock_id: updatedStock.stock_id,
+            transaction_type: 'ADDITION',
+            quantity_changed: quantityToAdd,
+            quantity_before: originalRemainingQuantity,
+            quantity_after: newRemainingQuantity,
+            transaction_date: entry.date_received,
+            performed_by_wallet: address.toLowerCase(),
+            blockchain_tx_hash: txHash || null,
+            notes: `Added ${quantityToAdd} units to batch ${entry.batch_number}`
+          });
+        } catch (historyErr) {
+          console.error('Failed to create transaction history:', historyErr);
+        }
+
+        return {
+          success: true,
+          message: `Added ${quantityToAdd} units to existing batch ${entry.batch_number}`,
+          txHash,
+          medicine: medicine.medicine_name,
+          batch: entry.batch_number,
+          quantity: quantityToAdd,
+          newTotal: newRemainingQuantity
+        };
+
+      } else {
+        // Create new batch (create new stock record)
+        const stockData = {
+          medicine_id: entry.medicine_id,
+          batch_number: entry.batch_number,
+          quantity: parseInt(entry.quantity),
+          remaining_quantity: parseInt(entry.quantity),
+          expiry_date: entry.expiry_date,
+          supplier_name: entry.supplier_name,
+          date_received: entry.date_received,
+          storage_location: medicine.storage_location || 'MUNICIPAL',
+          unit_cost: 0, // Free for RHU
+          is_active: true
+        };
+
+        const createResponse = await api.post('/stocks', stockData);
+        const newStock = createResponse.data.stock || createResponse.data.data || createResponse.data;
+
+        // Generate hash
+        const dataHash = generateStockHash({
+          stock_id: newStock.stock_id,
+          medicine_id: newStock.medicine_id,
+          batch_number: newStock.batch_number,
+          quantity: newStock.quantity,
+          expiry_date: newStock.expiry_date
+        });
+
+        // Store hash on blockchain with retry
+        let tx = null;
+        tx = await retryBlockchainTransaction(async () => {
+          return await storeStockHash(newStock.stock_id, dataHash);
+        });
+
+        const txHash = tx ? (tx.hash || tx.transactionHash || tx.receipt?.transactionHash) : null;
+
+        if (txHash) {
+          await updateStockBlockchainInfo(newStock.stock_id, {
+            blockchain_hash: dataHash,
+            blockchain_tx_hash: txHash,
+            added_by_wallet: address.toLowerCase()
+          });
+        }
+
+        return {
+          success: true,
+          message: `Created new batch ${entry.batch_number}`,
+          txHash,
+          medicine: medicine.medicine_name,
+          batch: entry.batch_number,
+          quantity: parseInt(entry.quantity),
+          newTotal: parseInt(entry.quantity)
+        };
+      }
+    } catch (err) {
+      console.error('Error processing stock addition:', err);
+      throw err;
+    }
+  };
+
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      const errorMessages = Object.values(formErrors).filter(Boolean).join('\n');
-      alert('Please fix the following errors:\n\n' + errorMessages);
+    if (!address) {
+      setError('Please connect your MetaMask wallet');
+      alert('⚠️ Wallet Required\n\nPlease connect your MetaMask wallet to continue.');
       return;
     }
 
-    if (!selectedBatch) {
-      alert('Selected batch not found');
+    if (!stockContractLoaded) {
+      setError('Stock contract not loaded. Please refresh and try again.');
+      alert('⚠️ Contract Not Loaded\n\nPlease refresh the page and try again.');
       return;
     }
 
-    const originalQuantity = selectedBatch.quantity;
-    const originalRemainingQuantity = selectedBatch.remaining_quantity;
-    const quantityToAdd = parseInt(formData.quantity_to_add);
-
-    const newQuantity = originalQuantity + quantityToAdd;
-    const newRemainingQuantity = originalRemainingQuantity + quantityToAdd;
-
-    console.log('Original quantity:', originalQuantity);
-    console.log('Original remaining:', originalRemainingQuantity);
-    console.log('Adding:', quantityToAdd);
-    console.log('New quantity:', newQuantity);
-    console.log('New remaining:', newRemainingQuantity);
+    if (!validateBatchEntries()) {
+      setError('Please fix all validation errors before submitting.');
+      alert('⚠️ Validation Errors\n\nPlease fix all highlighted errors before submitting.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     try {
       setBlockchainLoading(true);
       setError('');
-
-      // Step 1: Update stock quantity in database
-      console.log('Step 1: Updating stock quantity in database...');
       
-      // ✅ FIXED: Use api instance instead of fetch
-      const updateResponse = await api.patch(`/stocks/${selectedBatch.stock_id}`, {
-        quantity: newQuantity,
-        remaining_quantity: newRemainingQuantity,
-        date_received: formData.date_received
-      });
+      const results = [];
+      let successCount = 0;
+      let failCount = 0;
 
-      const updatedStock = updateResponse.data.stock || updateResponse.data.data || updateResponse.data;
-      console.log('Stock updated in database:', updatedStock);
-
-      // Verify the update was correct
-      if (updatedStock.quantity !== newQuantity || updatedStock.remaining_quantity !== newRemainingQuantity) {
-        console.error('Database update mismatch!');
-        console.error('Expected:', { quantity: newQuantity, remaining_quantity: newRemainingQuantity });
-        console.error('Got:', { quantity: updatedStock.quantity, remaining_quantity: updatedStock.remaining_quantity });
-      }
-
-      // Step 2: Generate hash from updated stock data
-      console.log('Step 2: Generating hash...');
-      const dataHash = generateStockHash({
-        stock_id: updatedStock.stock_id,
-        medicine_id: updatedStock.medicine_id,
-        batch_number: updatedStock.batch_number,
-        quantity: updatedStock.quantity,
-        expiry_date: updatedStock.expiry_date
-      });
-
-      console.log('Generated hash:', dataHash);
-
-      // Step 3: Store hash on blockchain with retry mechanism
-      const unitCost = parseFloat(selectedBatch.unit_cost || updatedStock.unit_cost || 0);
-      let tx = null;
-      
-      if (unitCost > 0) {
-        console.log('Step 3: Storing hash on blockchain with retry mechanism...');
+      // Process each batch entry
+      for (let i = 0; i < batchEntries.length; i++) {
+        const entry = batchEntries[i];
+        const medicine = medicines.find(m => m.medicine_id === parseInt(entry.medicine_id));
         
-        // ✅ NEW: Use retry mechanism for blockchain transaction
-        tx = await retryBlockchainTransaction(async () => {
-          return await storeStockHash(updatedStock.stock_id, dataHash);
-        });
-        
-        console.log('Blockchain transaction successful:', tx);
-      } else {
-        console.log('Skipping blockchain write: non-money operation (unit_cost <= 0)');
-      }
-
-      const txHash = tx ? (tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash) : null;
-      if (tx) {
-        if (!txHash) {
-          console.error('No transaction hash found in response:', tx);
-          throw new Error('Transaction succeeded but no hash was returned');
-        }
-        console.log('Transaction hash:', txHash);
-      }
-
-      // Step 4: Update database with blockchain info
-      console.log('Step 4: Updating database with blockchain info...');
-      if (txHash) {
-        await updateStockBlockchainInfo(updatedStock.stock_id, {
-          blockchain_hash: dataHash,
-          blockchain_tx_hash: txHash,
-          added_by_wallet: address.toLowerCase()
-        });
-      }
-
-      // Step 5: Create transaction history record
-      console.log('Step 5: Creating transaction history...');
-      try {
-        // ✅ FIXED: Use api instance instead of fetch
-        await api.post('/stock-transactions', {
-          stock_id: updatedStock.stock_id,
-          transaction_type: 'ADDITION',
-          quantity_changed: quantityToAdd,
-          quantity_before: originalRemainingQuantity,
-          quantity_after: newRemainingQuantity,
-          transaction_date: formData.date_received,
-          performed_by_wallet: address.toLowerCase(),
-          blockchain_tx_hash: txHash || null,
-          notes: `Added ${quantityToAdd} units to batch ${selectedBatch.batch_number}`
-        });
-      } catch (historyErr) {
-        console.error('Failed to create transaction history:', historyErr);
-      }
-
-      setSuccess(true);
-      const message = txHash 
-        ? `✅ Stock added successfully!\n\n📦 Medicine: ${selectedMedicine?.medicine_name}\n🏷️ Batch: ${selectedBatch.batch_number}\n➕ Quantity Added: ${quantityToAdd} units\n📊 New Total: ${newRemainingQuantity} units\n🔗 Transaction Hash:\n${txHash}`
-        : `✅ Stock added successfully!\n\n📦 Medicine: ${selectedMedicine?.medicine_name}\n🏷️ Batch: ${selectedBatch.batch_number}\n➕ Quantity Added: ${quantityToAdd} units\n📊 New Total: ${newRemainingQuantity} units`;
-      
-      alert(message);
-      
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        resetForm();
-      }
-
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error during stock addition:', err);
-      
-      // ROLLBACK
-      if (err.message && !err.message.includes('Transaction succeeded')) {
         try {
-          console.log('Rolling back quantity change...');
-          // ✅ FIXED: Use api instance instead of fetch
-          await api.patch(`/stocks/${selectedBatch.stock_id}`, {
-            quantity: originalQuantity,
-            remaining_quantity: originalRemainingQuantity
+          const result = await processSingleStockAddition(entry, medicine);
+          results.push(result);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to process entry ${i + 1}:`, err);
+          failCount++;
+          
+          // ✅ ENHANCED: Better error messages
+          let errorMsg = err.message;
+          if (err.message.includes('rejected by user')) {
+            errorMsg = 'User cancelled transaction';
+          } else if (err.message.includes('insufficient funds')) {
+            errorMsg = 'Insufficient MATIC for gas fees';
+          } else if (err.message.includes(`failed after ${MAX_RETRIES} attempts`)) {
+            errorMsg = `Network timeout (${MAX_RETRIES} retries failed)`;
+          }
+          
+          results.push({
+            success: false,
+            message: errorMsg,
+            medicine: medicine?.medicine_name || 'Unknown',
+            batch: entry.batch_number
           });
-          console.log('Rollback successful');
-        } catch (rollbackErr) {
-          console.error('Rollback failed:', rollbackErr);
-          alert('❌ Critical Error: Failed to rollback. Please contact administrator.');
         }
       }
+
+      // Show summary
+      const successMessage = results
+        .filter(r => r.success)
+        .map(r => `✅ ${r.medicine} - Batch ${r.batch}: +${r.quantity} units (Total: ${r.newTotal})`)
+        .join('\n');
+
+      const failMessage = results
+        .filter(r => !r.success)
+        .map(r => `❌ ${r.medicine} - Batch ${r.batch}: ${r.message}`)
+        .join('\n');
+
+      const summary = `
+📦 Restock Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Successful: ${successCount}
+${failCount > 0 ? `❌ Failed: ${failCount}` : ''}
+
+${successMessage}
+${failMessage ? `\n${failMessage}` : ''}
+      `.trim();
+
+      alert(summary);
+
+      if (successCount > 0) {
+        setSuccess(true);
+        
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // Reset form
+          setBatchEntries([{
+            medicine_id: '',
+            batch_number: '',
+            quantity: '',
+            expiry_date: '',
+            supplier_name: '',
+            date_received: new Date().toISOString().split('T')[0]
+          }]);
+          setBatchErrors([{}]);
+        }
+
+        setTimeout(() => setSuccess(false), 3000);
+      }
+
+      if (failCount === batchEntries.length) {
+        setError('All entries failed. Please check the errors and try again.');
+      }
+
+    } catch (err) {
+      console.error('Error during restock:', err);
       
+      // ✅ ENHANCED: Better error messages
       let errorMessage = err.message;
       if (err.message.includes('rejected by user')) {
-        errorMessage = 'Transaction was rejected in MetaMask. Stock addition has been cancelled.';
+        errorMessage = 'Transaction was rejected in MetaMask. Restock has been cancelled.';
       } else if (err.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas fees. Stock addition has been cancelled.';
-      } else if (err.message.includes('Wallet not connected')) {
-        errorMessage = 'Please connect your MetaMask wallet';
+        errorMessage = 'Insufficient MATIC for gas fees. Please add MATIC to your wallet.';
+      } else if (err.message.includes(`failed after ${MAX_RETRIES} attempts`)) {
+        errorMessage = `Network congestion - transaction failed after ${MAX_RETRIES} automatic retries. Please try again in a few minutes.`;
       }
       
       setError(errorMessage);
       alert(`❌ Error: ${errorMessage}`);
     } finally {
       setBlockchainLoading(false);
-      setLoading(false);
       setRetryCount(0);
     }
   };
 
-  const newTotalQuantity = selectedBatch && formData.quantity_to_add 
-    ? selectedBatch.remaining_quantity + parseInt(formData.quantity_to_add || 0)
-    : null;
-    // RENDER
+  const contractLoaded = stockContractLoaded && medicineContractLoaded;
+
+  // RENDER - ✅ ALL TEXT DARK (text-gray-900, text-gray-800, text-gray-700)
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Add Stock to Existing Batch
+                🏥 Restock Medicines
               </h1>
-              <p className="text-gray-800">Increase quantities for existing medicine batches with blockchain verification</p>
+              <p className="text-gray-800">Add medicines to inventory or increase existing stock quantities</p>
             </div>
             {onCancel && (
               <button
                 onClick={onCancel}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+                disabled={blockchainLoading}
+                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+                title="Cancel and go back"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -412,35 +530,44 @@ export default function AddStockForm({ onSuccess, onCancel }) {
             )}
           </div>
 
-          {/* Progress Steps */}
-          <div className="flex items-center gap-2">
-            {[
-              { num: 1, label: 'Select Medicine' },
-              { num: 2, label: 'Choose Batch' },
-              { num: 3, label: 'Enter Quantity' }
-            ].map((step, idx) => (
-              <div key={step.num} className="flex items-center flex-1">
-                <div className={`flex items-center gap-2 flex-1 px-4 py-2 rounded-lg transition-all ${
-                  currentStep === step.num 
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                    : currentStep > step.num
-                    ? 'bg-green-100 text-green-900'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                    currentStep === step.num ? 'bg-white text-blue-600' : ''
-                  }`}>
-                    {currentStep > step.num ? '✓' : step.num}
-                  </div>
-                  <span className="font-medium text-sm">{step.label}</span>
-                </div>
-                {idx < 2 && (
-                  <svg className="w-4 h-4 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
+          {/* Mode Toggle */}
+          <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-semibold text-gray-900">Entry Mode:</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('single')}
+                  disabled={blockchainLoading}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 ${
+                    mode === 'single'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Package className="w-4 h-4 inline mr-2" />
+                  Single Entry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('bulk')}
+                  disabled={blockchainLoading}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 ${
+                    mode === 'bulk'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 inline mr-2" />
+                  Bulk Entry ({batchEntries.length})
+                </button>
               </div>
-            ))}
+            </div>
+            <p className="text-xs text-gray-700 mt-2">
+              {mode === 'single' 
+                ? '📦 Add one medicine at a time' 
+                : '📚 Add multiple medicines in one submission (up to 20 entries)'}
+            </p>
           </div>
         </div>
 
@@ -451,7 +578,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
               <AlertCircle className="w-8 h-8 text-yellow-700 flex-shrink-0" />
               <div>
                 <p className="font-bold text-yellow-900 text-lg mb-1">Wallet Not Connected</p>
-                <p className="text-yellow-900 text-sm">Please connect your MetaMask wallet to add stock with blockchain verification.</p>
+                <p className="text-yellow-800 text-sm">Please connect your MetaMask wallet to restock medicines.</p>
               </div>
             </div>
           </div>
@@ -470,7 +597,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
         {!contractLoaded && (
           <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6 flex items-center gap-3">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
-            <p className="text-sm text-blue-900">Loading smart contract...</p>
+            <p className="text-sm text-blue-900">Loading smart contracts...</p>
           </div>
         )}
 
@@ -494,324 +621,53 @@ export default function AddStockForm({ onSuccess, onCancel }) {
           <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl shadow-lg animate-fadeIn">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-8 h-8 text-green-700" />
-              <p className="text-green-900 font-bold text-lg">Stock added successfully!</p>
+              <p className="text-green-900 font-bold text-lg">Restock completed successfully!</p>
             </div>
           </div>
         )}
 
         {/* Error Message */}
-        {(error || hookError) && (
+        {error && (
           <div className="mb-6 p-5 bg-red-50 border-2 border-red-400 rounded-xl">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-6 h-6 text-red-700" />
-              <p className="text-red-900 font-medium">{error || hookError}</p>
+              <p className="text-red-900 font-medium">{error}</p>
             </div>
           </div>
         )}
 
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Step 1: Select Medicine */}
-          <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-6 h-6 text-blue-700" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Select Medicine</h3>
-                <p className="text-sm text-gray-700">Choose the medicine you want to add stock for</p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-gray-900">
-                Medicine <span className="text-red-600">*</span>
-              </label>
-              <select
-                value={selectedMedicine?.medicine_id || ''}
-                onChange={(e) => {
-                  const med = medicines.find(m => m.medicine_id === parseInt(e.target.value));
-                  setSelectedMedicine(med || null);
-                  setSelectedBatch(null);
-                  setFormData(prev => ({ ...prev, quantity_to_add: '' }));
-                  setFormErrors({});
-                }}
-                className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  formErrors.medicine ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                }`}
-                disabled={loadingMedicines}
-              >
-                <option value="" className="text-gray-900">
-                  {loadingMedicines ? '⏳ Loading medicines...' : '🔍 Choose a medicine...'}
-                </option>
-                {medicines.map(med => (
-                  <option key={med.medicine_id} value={med.medicine_id} className="text-gray-900">
-                    {med.medicine_name} {med.strength && `• ${med.strength}`} {med.dosage_form && `• ${med.dosage_form}`}
-                  </option>
-                ))}
-              </select>
-              {formErrors.medicine && (
-                <p className="text-red-700 text-sm flex items-center gap-1 mt-2 font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  {formErrors.medicine}
-                </p>
-              )}
-
-              {selectedMedicine && (
-                <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-4 animate-fadeIn">
-                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <span className="text-lg">ℹ️</span>
-                    Selected Medicine Details
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <span className="text-blue-800 font-medium">Type:</span>
-                      <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.medicine_type || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-800 font-medium">Dosage:</span>
-                      <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.dosage_form || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-800 font-medium">Manufacturer:</span>
-                      <p className="text-blue-900 font-semibold mt-1">{selectedMedicine.manufacturer || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* Batch Entry Rows */}
+          <div className="space-y-4">
+            {batchEntries.map((entry, index) => (
+              <BatchEntryRow
+                key={index}
+                index={index}
+                data={entry}
+                medicines={medicines}
+                onUpdate={updateBatchEntry}
+                onRemove={removeBatchEntry}
+                onDuplicate={duplicateBatchEntry}
+                onAddNewMedicine={handleAddNewMedicine}
+                canRemove={batchEntries.length > 1}
+                errors={batchErrors[index] || {}}
+                showBlockchainIndicator={true}
+              />
+            ))}
           </div>
 
-          {/* Step 2: Select Stock Batch */}
-          {selectedMedicine && (
-            <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl animate-fadeIn">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-700" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Choose Stock Batch</h3>
-                  <p className="text-sm text-gray-700">Select which batch to add stock to</p>
-                </div>
-              </div>
-
-              {loadingBatches ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-700"></div>
-                  <p className="ml-3 text-gray-700">Loading stock batches...</p>
-                </div>
-              ) : batches.length === 0 ? (
-                <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-6 text-center">
-                  <span className="text-4xl mb-3 block">📭</span>
-                  <p className="text-yellow-900 font-bold text-lg mb-1">No Active Batches Available</p>
-                  <p className="text-yellow-800 text-sm">Please create a new batch for this medicine first</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {batches.map(batch => (
-                    <button
-                      key={batch.stock_id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedBatch(batch);
-                        setFormData(prev => ({ ...prev, quantity_to_add: '' }));
-                        setFormErrors(prev => ({ ...prev, batch: undefined, quantity_to_add: undefined }));
-                      }}
-                      className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
-                        selectedBatch?.stock_id === batch.stock_id
-                          ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg'
-                          : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="font-bold text-lg text-gray-900">
-                              Batch: {batch.batch_number}
-                            </span>
-                            {selectedBatch?.stock_id === batch.stock_id && (
-                              <span className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full font-bold">
-                                ✓ SELECTED
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-700 block mb-1 font-medium">Current Stock</span>
-                              <span className="font-bold text-2xl text-blue-700 block">
-                                {batch.remaining_quantity}
-                              </span>
-                              <span className="text-xs text-gray-600">units</span>
-                            </div>
-                            <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-700 block mb-1 font-medium">Total Quantity</span>
-                              <span className="font-bold text-xl text-gray-900 block">
-                                {batch.quantity}
-                              </span>
-                              <span className="text-xs text-gray-600">units</span>
-                            </div>
-                            <div className="bg-white bg-opacity-60 rounded-lg p-3">
-                              <span className="text-xs text-gray-700 block mb-1 font-medium">Expiry Date</span>
-                              <span className="font-semibold text-sm text-gray-900 block">
-                                {new Date(batch.expiry_date).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                          {batch.storage_location && (
-                            <div className="mt-3 text-sm text-gray-700">
-                              📍 Location: <span className="font-medium text-gray-900">{batch.storage_location}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              
-              {formErrors.batch && (
-                <p className="mt-3 text-red-700 text-sm flex items-center gap-1 font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  {formErrors.batch}
-                </p>
-              )}
-            </div>
-          )}
-          {/* Step 3: Addition Details */}
-          {selectedBatch && (
-            <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl animate-fadeIn">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-green-700" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Addition Details</h3>
-                  <p className="text-sm text-gray-700">Enter the quantity to add to this batch</p>
-                </div>
-              </div>
-              
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    <Package className="w-4 h-4 inline mr-1" />
-                    Quantity to Add <span className="text-red-600">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={formData.quantity_to_add}
-                      onChange={handleQuantityChange}
-                      min="1"
-                      placeholder="Enter quantity to add"
-                      className={`w-full px-4 py-4 text-lg text-gray-900 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                        formErrors.quantity_to_add 
-                          ? 'border-red-500 bg-red-50' 
-                          : formData.quantity_to_add && !formErrors.quantity_to_add
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-700">
-                      units
-                    </div>
-                  </div>
-                  
-                  {formErrors.quantity_to_add ? (
-                    <div className="mt-2 p-3 bg-red-50 border border-red-300 rounded-lg">
-                      <p className="text-red-800 text-sm flex items-center gap-2 font-medium">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                        <span>{formErrors.quantity_to_add}</span>
-                      </p>
-                    </div>
-                  ) : formData.quantity_to_add && !formErrors.quantity_to_add && newTotalQuantity !== null ? (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-lg">
-                      <p className="text-green-800 text-sm flex items-center gap-2 font-medium">
-                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                        <span>
-                          Valid quantity • New total will be <span className="text-green-900 font-bold">{newTotalQuantity} units</span>
-                        </span>
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Date Received
-                  </label>
-                  <input
-                    type="date"
-                    name="date_received"
-                    value={formData.date_received}
-                    onChange={handleChange}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 text-gray-900 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Stock Addition Summary */}
-          {selectedMedicine && selectedBatch && formData.quantity_to_add && !formErrors.quantity_to_add && (
-            <div className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-2 border-green-400 rounded-xl p-6 shadow-lg animate-fadeIn">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-white" />
-                </div>
-                <h4 className="text-xl font-bold text-green-900">Addition Summary - Please Review</h4>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Medicine</span>
-                  <p className="font-bold text-green-900 text-lg">{selectedMedicine.medicine_name}</p>
-                  <p className="text-sm text-green-800">{selectedMedicine.strength}</p>
-                </div>
-                
-                <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Batch Number</span>
-                  <p className="font-bold text-green-900 text-lg">{selectedBatch.batch_number}</p>
-                </div>
-                
-                <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-blue-800 font-medium block mb-2">Current Stock</span>
-                  <p className="font-bold text-blue-700 text-3xl">{selectedBatch.remaining_quantity}</p>
-                  <p className="text-sm text-blue-800">units</p>
-                </div>
-                
-                <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Adding</span>
-                  <p className="font-bold text-green-700 text-3xl">+{formData.quantity_to_add}</p>
-                  <p className="text-sm text-green-800">units</p>
-                </div>
-                
-                <div className="bg-white bg-opacity-60 rounded-lg p-4 md:col-span-2">
-                  <span className="text-sm text-purple-800 font-medium block mb-2">New Total Stock</span>
-                  <p className="font-bold text-purple-700 text-4xl">{newTotalQuantity}</p>
-                  <p className="text-sm text-purple-800">units</p>
-                </div>
-              </div>
-              
-              <div className="bg-orange-100 border border-orange-400 rounded-lg p-4">
-                <p className="text-sm text-orange-900 flex items-center gap-2 font-medium">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span>
-                    This will create a blockchain transaction (with automatic retry on failure)
-                  </span>
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {formErrors.wallet && (
-            <div className="bg-red-50 border-2 border-red-400 rounded-lg p-4">
-              <p className="text-red-900 font-medium flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                {formErrors.wallet}
-              </p>
-            </div>
+          {/* Add More Button (Bulk Mode) */}
+          {mode === 'bulk' && batchEntries.length < 20 && (
+            <button
+              type="button"
+              onClick={addBatchEntry}
+              disabled={blockchainLoading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-6 h-6" />
+              Add Another Medicine Entry
+            </button>
           )}
 
           {/* Submit Buttons */}
@@ -826,7 +682,7 @@ export default function AddStockForm({ onSuccess, onCancel }) {
                     window.history.back();
                   }
                 }}
-                disabled={loading || blockchainLoading}
+                disabled={blockchainLoading}
                 className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
@@ -835,30 +691,22 @@ export default function AddStockForm({ onSuccess, onCancel }) {
               <button
                 type="submit"
                 disabled={
-                  loading || 
                   blockchainLoading || 
-                  !selectedBatch || 
                   !address || 
-                  !contractLoaded || 
-                  !formData.quantity_to_add ||
-                  Object.keys(formErrors).some(key => formErrors[key])
+                  !contractLoaded ||
+                  batchEntries.length === 0
                 }
                 className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-lg shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all"
               >
                 {blockchainLoading ? (
                   <span className="flex items-center justify-center gap-3">
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {retryCount > 0 ? `Retrying (${retryCount}/${MAX_RETRIES})...` : 'Processing...'}
-                  </span>
-                ) : loading ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Updating...
+                    {retryCount > 0 ? `Retrying (${retryCount}/${MAX_RETRIES})...` : `Processing ${batchEntries.length} ${batchEntries.length === 1 ? 'entry' : 'entries'}...`}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <Plus className="w-6 h-6" />
-                    Add Stock (Sign with MetaMask)
+                    <Package className="w-6 h-6" />
+                    Restock {batchEntries.length} {batchEntries.length === 1 ? 'Medicine' : 'Medicines'} (Sign with MetaMask)
                   </span>
                 )}
               </button>
@@ -871,7 +719,40 @@ export default function AddStockForm({ onSuccess, onCancel }) {
             )}
           </div>
         </form>
+
+        {/* Info Card */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-6 mt-6">
+          <h3 className="text-lg font-bold text-blue-900 mb-3">💡 How Restocking Works</h3>
+          <ul className="space-y-2 text-sm text-blue-900">
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 font-bold">1.</span>
+              <span>Select an existing medicine OR click <span className="font-bold">"+ New Medicine"</span> to add a new one (with blockchain verification)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 font-bold">2.</span>
+              <span>If the batch exists, quantity will be added to it. If not, a new batch is created</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 font-bold">3.</span>
+              <span>Each entry is recorded on the blockchain with automatic retry (up to 3 attempts)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-600 font-bold">4.</span>
+              <span>Use <span className="font-bold">Bulk Mode</span> to add up to 20 medicines at once</span>
+            </li>
+          </ul>
+        </div>
       </div>
+
+      {/* Add New Medicine Modal */}
+      <AddNewMedicineModal
+        isOpen={showMedicineModal}
+        onClose={() => {
+          setShowMedicineModal(false);
+          setCurrentRowIndex(null);
+        }}
+        onSubmit={handleMedicineSubmit}
+      />
 
       <style jsx>{`
         @keyframes fadeIn {
