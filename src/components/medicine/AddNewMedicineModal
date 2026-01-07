@@ -695,7 +695,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
             <Package className="w-8 h-8" />
             <div>
               <h2 className="text-2xl font-bold">Add New Medicine</h2>
-              <p className="text-white text-sm">Complete all required fields • MetaMask confirmation required</p>
+              <p className="text-white text-sm">Complete all required fields - MetaMask confirmation required</p>
             </div>
           </div>
           <button
