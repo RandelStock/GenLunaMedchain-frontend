@@ -350,14 +350,14 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
     for (let i = 0; i < retries; i++) {
       try {
         setRetryCount(i + 1);
-        console.log(`📤 Blockchain Attempt ${i + 1}/${retries}...`);
+        console.log(`Blockchain Attempt ${i + 1}/${retries}...`);
         
         const result = await transactionFn();
-        console.log('✅ Blockchain transaction successful');
+        console.log('Blockchain transaction successful');
         setRetryCount(0);
         return result;
       } catch (error) {
-        console.error(`❌ Blockchain attempt ${i + 1} failed:`, error);
+        console.error(`Blockchain attempt ${i + 1} failed:`, error);
         
         if (error.message && (
           error.message.includes('user rejected') || 
@@ -382,7 +382,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
   // ========== PART 2 OF 3 - SUBMIT HANDLER & BLOCKCHAIN LOGIC ==========
 // This continues from Part 1
 
-  // ✅ ENHANCED: Submit handler with detailed error alerts
+  //  ENHANCED: Submit handler with detailed error alerts
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -398,7 +398,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
       setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
       setError('Please fix all validation errors before submitting.');
       
-      // ✅ ENHANCED: Show detailed validation alert
+      //  ENHANCED: Show detailed validation alert
       const errorCount = Object.keys(errors).length;
       const errorList = Object.entries(errors)
         .map(([field, msg]) => `• ${field.replace(/_/g, ' ').toUpperCase()}: ${msg}`)
@@ -423,7 +423,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
     if (ENABLE_BLOCKCHAIN_FOR_MEDICINE && !hasAccess) {
       const accessError = 
         "⚠️ Blockchain Access Required\n\n" +
-        "Your database role is: " + userRole + " ✅\n" +
+        "Your database role is: " + userRole + " Checked\n" +
         "But you don't have blockchain permissions.\n\n" +
         "Your wallet: " + address + "\n\n" +
         "Please contact your administrator to grant blockchain access.";
@@ -470,7 +470,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
       const dbResponse = await api.post('/medicines', medicineData);
       const { medicine, stock } = dbResponse.data;
 
-      console.log('✅ Medicine created in database:', medicine.medicine_id);
+      console.log('Medicine created in database:', medicine.medicine_id);
 
       if (ENABLE_BLOCKCHAIN_FOR_MEDICINE) {
         try {
@@ -479,14 +479,14 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
           const existingHash = await getMedicineHash(medicine.medicine_id);
 
           if (existingHash && existingHash.exists) {
-            console.warn('⚠️ Duplicate found on blockchain!');
+            console.warn('WARNING: Duplicate found on blockchain!');
             
-            // ✅ ENHANCED: Rollback with error handling
+            //  ENHANCED: Rollback with error handling
             try {
               await api.delete(`/medicines/${medicine.medicine_id}`);
-              console.log('✅ Database entry rolled back');
+              console.log('Database entry rolled back');
             } catch (rollbackErr) {
-              console.error('❌ Rollback failed:', rollbackErr);
+              console.error('Rollback failed:', rollbackErr);
             }
             
             const duplicateError =
@@ -502,7 +502,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
             return;
           }
 
-          console.log('✅ No duplicates found on blockchain');
+          console.log('Checked No duplicates found on blockchain');
 
           // Step 3: Generate hash
           console.log('Step 3: Generating blockchain hash...');
@@ -517,7 +517,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
           };
 
           const dataHash = generateMedicineHash(hashData);
-          console.log('✅ Hash generated:', dataHash.slice(0, 10) + '...');
+          console.log('Checked Hash generated:', dataHash.slice(0, 10) + '...');
           
           // Step 4: Store hash on blockchain with retry
           console.log('Step 4: Storing hash on blockchain with retry mechanism...');
@@ -534,10 +534,10 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
               throw new Error('Transaction succeeded but no hash was returned');
             }
             
-            console.log('✅ Transaction successful! TX Hash:', txHash);
+            console.log('Transaction successful! TX Hash:', txHash);
             
           } catch (txError) {
-            console.error('❌ Blockchain transaction failed:', txError);
+            console.error('Blockchain transaction failed:', txError);
             throw txError;
           }
 
@@ -550,7 +550,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
               blockchain_tx_hash: txHash,
               transaction_hash: txHash
             });
-            console.log('✅ Medicine updated with blockchain info');
+            console.log(' Medicine updated with blockchain info');
           } catch (updateErr) {
             console.error('⚠️ Failed to update medicine with blockchain info:', updateErr);
           }
@@ -560,13 +560,13 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
               blockchain_hash: dataHash,
               blockchain_tx_hash: txHash
             });
-            console.log('✅ Stock updated with blockchain info');
+            console.log('Stock updated with blockchain info');
           } catch (updateErr) {
             console.error('⚠️ Failed to update stock with blockchain info:', updateErr);
           }
 
-          // ✅ SUCCESS! Close modal and return data
-          console.log('✅ All steps completed successfully!');
+          //  SUCCESS! Close modal and return data
+          console.log('All steps completed successfully!');
           
           onSubmit({
             ...medicine,
@@ -598,22 +598,22 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
           setTouched({});
 
         } catch (blockchainErr) {
-          console.error('❌ Blockchain operation failed:', blockchainErr);
+          console.error(' Blockchain operation failed:', blockchainErr);
           
-          // ✅ ENHANCED: Rollback on blockchain failure with detailed error handling
-          console.log('🔄 Attempting to rollback database entry...');
+          //  ENHANCED: Rollback on blockchain failure with detailed error handling
+          console.log('Attempting to rollback database entry...');
           try {
             await api.delete(`/medicines/${medicine.medicine_id}`);
-            console.log('✅ Database entry rolled back successfully');
+            console.log('Database entry rolled back successfully');
           } catch (rollbackErr) {
-            console.error('❌ Rollback failed:', rollbackErr);
+            console.error('Rollback failed:', rollbackErr);
             alert('⚠️ Critical Error\n\nBlockchain failed AND database rollback failed!\n\nMedicine ID: ' + medicine.medicine_id + '\n\nPlease contact support immediately.');
             setLoading(false);
             return;
           }
           
-          // ✅ ENHANCED: Detailed error messages for different failure types
-          let errorMessage = '❌ Blockchain Storage Failed\n\n';
+          //  ENHANCED: Detailed error messages for different failure types
+          let errorMessage = 'Blockchain Storage Failed\n\n';
           errorMessage += 'Medicine was created in database but blockchain storage failed.\n';
           errorMessage += 'Database entry has been rolled back.\n\n';
           
@@ -645,10 +645,10 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
       }
 
     } catch (err) {
-      console.error('❌ Error adding medicine:', err);
+      console.error('Error adding medicine:', err);
       
-      // ✅ ENHANCED: Detailed error handling for different error types
-      let errorMessage = '❌ Failed to Add Medicine\n\n';
+      //  ENHANCED: Detailed error handling for different error types
+      let errorMessage = 'Failed to Add Medicine\n\n';
       
       if (err.message?.includes('AccessControl')) {
         errorMessage += '🚫 REASON: Access Denied\n\n';
@@ -684,12 +684,11 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
 
   // ========== PART 3 OF 3 - JSX/UI RENDER WITH ALL FORM FIELDS ==========
 // This continues from Part 2
-// ✅ ONLY TEXT COLOR CHANGES: text-blue-100 → text-white, all others already dark
+//  ONLY TEXT COLOR CHANGES: text-blue-100  text-white, all others already dark
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
-        {/* Header - ✅ FIXED: text-blue-100 → text-white */}
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <Package className="w-8 h-8" />
@@ -707,7 +706,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
           </button>
         </div>
 
-        {/* Retry Status - ✅ Already dark text */}
+        {/* Retry Status -  Already dark text */}
         {loading && retryCount > 0 && (
           <div className="bg-blue-50 border-2 border-blue-400 rounded-xl p-5 m-6 shadow-md animate-pulse">
             <div className="flex items-center gap-3">
@@ -722,7 +721,7 @@ export default function AddNewMedicineModal({ isOpen, onClose, onSubmit }) {
           </div>
         )}
 
-        {/* Error Message - ✅ Already dark text */}
+        {/* Error Message -  Already dark text */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 m-6">
             <div className="flex items-start gap-3">
