@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStockRemoval } from '../../hooks/useStockRemoval';
 import { useAddress } from '@thirdweb-dev/react';
 import { User, Package, Calendar, AlertCircle, CheckCircle2, Pill, Heart } from 'lucide-react';
-import api from '../../../api'; // ✅ USE CONFIGURED API INSTANCE
+import api from '../../../api';
 
 // Common medical concerns
 const REMOVAL_REASONS = [
@@ -71,7 +71,6 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
     }
   }, [selectedStock]);
 
-  // ✅ FIXED: Use api instance instead of fetch
   const loadMedicines = async () => {
     try {
       setLoadingMedicines(true);
@@ -79,12 +78,12 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
       setMedicines(response.data.data || []);
     } catch (err) {
       console.error('Failed to load medicines:', err);
+      alert('⚠️ Failed to Load Medicines\n\nPlease refresh the page and try again.');
     } finally {
       setLoadingMedicines(false);
     }
   };
 
-  // ✅ FIXED: Use api instance instead of fetch
   const loadStocksForMedicine = async (medicineId) => {
     try {
       setLoadingStocks(true);
@@ -97,10 +96,11 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
       }
       
       if (availableStocks.length === 0) {
-        alert('⚠️ No available stock for this medicine');
+        alert('⚠️ No Available Stock\n\nThis medicine has no stock available for removal.');
       }
     } catch (err) {
       console.error('Failed to load stocks:', err);
+      alert('⚠️ Failed to Load Stock Batches\n\nPlease try selecting the medicine again.');
       setStocks([]);
     } finally {
       setLoadingStocks(false);
@@ -196,14 +196,14 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
     for (let i = 0; i < retries; i++) {
       try {
         setRetryCount(i + 1);
-        console.log(`Blockchain attempt ${i + 1}/${retries}...`);
+        console.log(`📤 Blockchain Attempt ${i + 1}/${retries}...`);
         
         const result = await transactionFn();
-        console.log('Blockchain transaction successful');
+        console.log('✅ Blockchain transaction successful');
         setRetryCount(0);
         return result;
       } catch (error) {
-        console.error(`Blockchain attempt ${i + 1} failed:`, error);
+        console.error(`❌ Blockchain attempt ${i + 1} failed:`, error);
         
         // Check if user rejected the transaction
         if (error.message && (
@@ -211,7 +211,7 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
           error.message.includes('User denied') ||
           error.code === 4001
         )) {
-          console.log('User rejected transaction');
+          console.log('🚫 User rejected transaction');
           throw new Error('Transaction rejected by user');
         }
         
@@ -222,18 +222,20 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
         
         // Wait before retrying (exponential backoff)
         const delay = INITIAL_RETRY_DELAY * Math.pow(2, i);
-        console.log(`Waiting ${delay}ms before retry...`);
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   };
 
+  // ✅ FIXED: handleSubmit with correct blockchain-first flow
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate form
     if (!validateForm()) {
       const errorMessages = Object.values(formErrors).filter(Boolean).join('\n');
-      alert('Please fix the following errors:\n\n' + errorMessages);
+      alert('⚠️ Validation Errors\n\nPlease fix the following:\n\n' + errorMessages);
       return;
     }
 
@@ -242,8 +244,8 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
     try {
       setBlockchainLoading(true);
 
-      // Step 1: Create removal in database first
-      console.log('Step 1: Creating removal in database...');
+      // ========== STEP 1: Create removal in database (WITHOUT updating stock yet) ==========
+      console.log('Step 1: Creating removal record in database...');
       const removalData = {
         medicine_id: selectedMedicine.medicine_id,
         stock_id: selectedStock.stock_id,
@@ -254,13 +256,12 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
         removed_by_wallet: address.toLowerCase()
       };
 
-      // ✅ FIXED: Use api instance instead of fetch
       const createResponse = await api.post('/removals', removalData);
       savedRemoval = createResponse.data.data;
-      console.log('Removal saved to database:', savedRemoval);
+      console.log('✅ Removal record created:', savedRemoval.removal_id);
 
-      // Step 2: Generate hash
-      console.log('Step 2: Generating hash...');
+      // ========== STEP 2: Generate hash ==========
+      console.log('Step 2: Generating blockchain hash...');
       const dataHash = generateRemovalHash({
         removal_id: savedRemoval.removal_id,
         medicine_id: savedRemoval.medicine_id,
@@ -269,58 +270,76 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
         reason: savedRemoval.reason,
         date_removed: savedRemoval.date_removed
       });
-      console.log('Generated hash:', dataHash);
+      console.log('✅ Hash generated:', dataHash.slice(0, 10) + '...');
 
-      // Step 3: Store hash on blockchain with retry mechanism
+      // ========== STEP 3: Check if blockchain write is needed ==========
+      console.log('Step 3: Checking if blockchain write is required...');
       let tx = null;
+      let txHash = null;
+      
       try {
-        // ✅ FIXED: Use api instance instead of fetch
         const stockResponse = await api.get(`/stocks/${savedRemoval.stock_id}`);
         const stock = stockResponse.data.data || stockResponse.data.stock || stockResponse.data;
         const unitCost = parseFloat(stock?.unit_cost || 0);
         
         if (unitCost > 0) {
-          console.log('Step 3: Storing hash on blockchain with retry mechanism...');
+          console.log('💰 Cost > 0, proceeding with blockchain write...');
           
-          // Use retry mechanism for blockchain transaction
+          // ========== STEP 4: Store hash on blockchain with retry mechanism ==========
+          console.log('Step 4: Storing hash on blockchain (with retry)...');
+          
           tx = await retryBlockchainTransaction(async () => {
             return await storeRemovalHash(savedRemoval.removal_id, dataHash);
           });
           
-          console.log('Blockchain transaction successful:', tx);
+          console.log('✅ Blockchain transaction successful:', tx);
+          
+          // Extract transaction hash
+          txHash = tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash || null;
+          
+          if (!txHash) {
+            console.error('⚠️ No transaction hash found in response:', tx);
+            throw new Error('Transaction succeeded but no hash was returned');
+          }
+          
+          console.log('✅ Transaction hash:', txHash);
+          
         } else {
-          console.log('Skipping blockchain write: non-money operation (unit_cost <= 0)');
+          console.log('💸 Cost = 0, skipping blockchain write (non-money operation)');
         }
       } catch (fetchErr) {
-        console.warn('Could not fetch stock for cost check, skipping blockchain write:', fetchErr);
+        console.warn('⚠️ Could not fetch stock for cost check, skipping blockchain write:', fetchErr);
       }
 
-      // Step 4: Extract transaction hash
-      const txHash = tx ? (tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash) : null;
-      
-      if (tx && !txHash) {
-        console.error('No transaction hash found in response:', tx);
-        throw new Error('Transaction succeeded but no hash was returned');
-      }
-      
+      // ========== STEP 5: Update database with blockchain info (if applicable) ==========
       if (txHash) {
-        console.log('Transaction hash:', txHash);
-      }
-
-      // Step 5: Update database with blockchain info
-      if (txHash) {
-        console.log('Step 4: Updating database with blockchain info...');
+        console.log('Step 5: Updating database with blockchain info...');
         await updateRemovalBlockchainInfo(savedRemoval.removal_id, {
           blockchain_hash: dataHash,
           blockchain_tx_hash: txHash,
           removed_by_wallet: address.toLowerCase(),
         });
+        console.log('✅ Database updated with blockchain info');
       }
 
-      // Success message
+      // ========== STEP 6: NOW update stock quantity (AFTER blockchain success) ==========
+      console.log('Step 6: Updating stock quantity in database...');
+      try {
+        await api.patch(`/stocks/${savedRemoval.stock_id}`, {
+          remaining_quantity: selectedStock.remaining_quantity - parseInt(formData.quantity_removed)
+        });
+        console.log('✅ Stock quantity updated');
+      } catch (stockUpdateErr) {
+        console.error('⚠️ Failed to update stock quantity:', stockUpdateErr);
+        // This is less critical since the removal is already recorded
+      }
+
+      // ========== SUCCESS ==========
+      console.log('✅ All steps completed successfully!');
+      
       const message = txHash 
-        ? `✅ Stock removal recorded successfully!\n\n📝 Removal ID: ${savedRemoval.removal_id}\n🔗 Transaction Hash:\n${txHash}`
-        : `✅ Stock removal recorded successfully!\n\n📝 Removal ID: ${savedRemoval.removal_id}`;
+        ? `✅ Stock Removal Successful!\n\n📝 Removal ID: ${savedRemoval.removal_id}\n🔗 Blockchain TX:\n${txHash}\n\n✅ ${formData.quantity_removed} units removed from inventory`
+        : `✅ Stock Removal Recorded!\n\n📝 Removal ID: ${savedRemoval.removal_id}\n\n✅ ${formData.quantity_removed} units removed from inventory`;
       
       alert(message);
       
@@ -329,32 +348,74 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
       } else {
         resetForm();
       }
+
     } catch (err) {
-      console.error('Error during removal:', err);
+      console.error('❌ Error during removal process:', err);
       
-      // ROLLBACK: Delete the removal if it was created
+      // ========== ROLLBACK: Delete the removal if it was created ==========
       if (savedRemoval && savedRemoval.removal_id) {
+        console.log('🔄 Rolling back database entry...');
         try {
-          console.log('Rolling back database entry...');
           await deleteRemoval(savedRemoval.removal_id);
-          console.log('Rollback successful - removal deleted from database');
+          console.log('✅ Rollback successful - removal deleted from database');
         } catch (rollbackErr) {
-          console.error('Rollback failed:', rollbackErr);
-          alert('❌ Critical Error: Failed to rollback database changes. Please contact administrator.');
+          console.error('❌ CRITICAL: Rollback failed!', rollbackErr);
+          alert(
+            '❌ CRITICAL ERROR\n\n' +
+            'Blockchain transaction failed AND database rollback failed!\n\n' +
+            `Removal ID: ${savedRemoval.removal_id}\n\n` +
+            'Please contact administrator immediately to manually fix database.'
+          );
+          setBlockchainLoading(false);
+          setRetryCount(0);
+          return;
         }
       }
       
-      // Provide specific error messages
-      let errorMessage = err.message;
-      if (err.message.includes('rejected by user')) {
-        errorMessage = 'Transaction was rejected in MetaMask. Removal has been cancelled.';
-      } else if (err.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas fees. Removal has been cancelled.';
-      } else if (err.message.includes('Wallet not connected')) {
-        errorMessage = 'Please connect your MetaMask wallet';
+      // ========== ENHANCED ERROR MESSAGES ==========
+      let errorTitle = '❌ Removal Failed';
+      let errorMessage = '';
+      
+      if (err.message?.includes('rejected by user')) {
+        errorTitle = '🚫 Transaction Cancelled';
+        errorMessage = 
+          'You cancelled the MetaMask transaction.\n\n' +
+          'Removal has been cancelled.\n' +
+          'No changes were made to the database.\n\n' +
+          '💡 TIP: Please try again when ready.';
+      } else if (err.message?.includes('insufficient funds')) {
+        errorTitle = '💰 Insufficient Funds';
+        errorMessage = 
+          'Your wallet does not have enough MATIC for gas fees.\n\n' +
+          'Removal has been cancelled.\n' +
+          'No changes were made to the database.\n\n' +
+          '💡 TIP: Add MATIC to your wallet and try again.';
+      } else if (err.message?.includes(`failed after ${MAX_RETRIES} attempts`)) {
+        errorTitle = '🌐 Network Timeout';
+        errorMessage = 
+          `Transaction failed after ${MAX_RETRIES} automatic retries.\n\n` +
+          'Removal has been cancelled.\n' +
+          'No changes were made to the database.\n\n' +
+          '💡 TIP: The blockchain network may be congested. Please try again in a few minutes.';
+      } else if (err.message?.includes('Wallet not connected')) {
+        errorTitle = '🔌 Wallet Not Connected';
+        errorMessage = 
+          'Please connect your MetaMask wallet.\n\n' +
+          '💡 TIP: Click "Connect Wallet" in the top menu.';
+      } else if (err.message?.includes('Contract not loaded')) {
+        errorTitle = '⚠️ Smart Contract Error';
+        errorMessage = 
+          'The smart contract is not loaded.\n\n' +
+          '💡 TIP: Please refresh the page and try again.';
+      } else {
+        errorTitle = '❌ Unexpected Error';
+        errorMessage = 
+          'An unexpected error occurred.\n\n' +
+          `Error: ${err.message}\n\n` +
+          '💡 TIP: Please try again or contact support if the problem persists.';
       }
       
-      alert(`❌ Error: ${errorMessage}`);
+      alert(`${errorTitle}\n\n${errorMessage}`);
     } finally {
       setBlockchainLoading(false);
       setRetryCount(0);
@@ -364,7 +425,8 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
   const remainingAfterRemoval = selectedStock && formData.quantity_removed 
     ? selectedStock.remaining_quantity - parseInt(formData.quantity_removed || 0)
     : null;
-    // RENDER
+
+  // ========== RENDER JSX ==========
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
       <div className="max-w-5xl mx-auto p-6">
@@ -712,6 +774,7 @@ const AddStockRemovalForm = ({ onSuccess, onCancel }) => {
               </div>
             </div>
           )}
+
           {/* Summary */}
           {selectedMedicine && selectedStock && formData.quantity_removed && !formErrors.quantity_removed && (
             <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-6 shadow-lg animate-fadeIn">
