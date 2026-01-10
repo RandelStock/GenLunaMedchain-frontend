@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaCheck } from 'react-icons/fa';
+import API_BASE_URL from '../../config.js'; // ✅ FIXED: Import from config
 
-// Mock API_BASE_URL for demonstration
-const API_BASE_URL = 'https://api.example.com';
-const API_URL = API_BASE_URL;
+const API_URL = API_BASE_URL; // ✅ FIXED: Use real API URL
 
 const BARANGAYS = [
   { value: 'BACONG_IBABA', label: 'Bacong Ibaba' },
@@ -124,26 +123,52 @@ const ConsultationBookingForm = ({
     }
   }, [formData.scheduled_date, formData.assigned_doctor_id, formData.assigned_nurse_id]);
 
+  // ✅ ENHANCED: Better error handling for API calls
   const loadProviders = async () => {
     try {
+      console.log('Loading providers from:', API_URL); // ✅ Debug log
+      
       const [doctorsRes, nursesRes] = await Promise.all([
-        fetch(`${API_URL}/consultations/available-doctors`),
-        fetch(`${API_URL}/consultations/available-nurses`)
+        fetch(`${API_URL}/consultations/available-doctors`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        }),
+        fetch(`${API_URL}/consultations/available-nurses`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        })
       ]);
+      
+      // ✅ Check for HTTP errors
+      if (!doctorsRes.ok) {
+        throw new Error(`Failed to load doctors: ${doctorsRes.status} ${doctorsRes.statusText}`);
+      }
+      if (!nursesRes.ok) {
+        throw new Error(`Failed to load nurses: ${nursesRes.status} ${nursesRes.statusText}`);
+      }
       
       const doctorsData = await doctorsRes.json();
       const nursesData = await nursesRes.json();
+      
+      console.log('Doctors loaded:', doctorsData.data?.length || 0);
+      console.log('Nurses loaded:', nursesData.data?.length || 0);
       
       setDoctors(doctorsData.data || []);
       setNurses(nursesData.data || []);
     } catch (error) {
       console.error('Error loading providers:', error);
+      // ✅ Show user-friendly error
+      setError(`Failed to load healthcare providers. Please check your connection and try again. (${error.message})`);
     }
   };
 
   const loadAvailableSlots = async () => {
     try {
       setLoadingSlots(true);
+      setError(null); // ✅ Clear previous errors
+      
       const params = new URLSearchParams({ date: formData.scheduled_date });
       
       if (formData.provider_type === 'doctor' && formData.assigned_doctor_id) {
@@ -153,7 +178,17 @@ const ConsultationBookingForm = ({
       }
       
       console.log('Loading slots:', params.toString());
-      const response = await fetch(`${API_URL}/consultations/available-slots?${params}`);
+      const response = await fetch(`${API_URL}/consultations/available-slots?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      // ✅ Check for HTTP errors
+      if (!response.ok) {
+        throw new Error(`Failed to load time slots: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       console.log('Slots response:', data);
@@ -161,6 +196,8 @@ const ConsultationBookingForm = ({
     } catch (error) {
       console.error('Error loading slots:', error);
       setAvailableSlots([]);
+      // ✅ Show user-friendly error for slots
+      setError(`Failed to load available time slots. ${error.message}`);
     } finally {
       setLoadingSlots(false);
     }
@@ -210,11 +247,13 @@ const ConsultationBookingForm = ({
   const handleNext = () => {
     if (validateStep(step)) {
       setStep(step + 1);
+      setError(null); // ✅ Clear errors when moving to next step
     }
   };
 
   const handlePrevious = () => {
     setStep(step - 1);
+    setError(null); // ✅ Clear errors when going back
   };
 
   const handleSubmit = async (e) => {
@@ -236,26 +275,31 @@ const ConsultationBookingForm = ({
         assigned_nurse_id: formData.provider_type === 'nurse' ? formData.assigned_nurse_id : null
       };
       
+      console.log('Submitting consultation:', submissionData); // ✅ Debug log
+      
       const response = await fetch(`${API_URL}/consultations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         },
         body: JSON.stringify(submissionData)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to schedule consultation');
+        throw new Error(errorData.message || `Failed to schedule consultation (${response.status})`);
       }
 
       const result = await response.json();
-      alert('Consultation scheduled successfully!');
+      console.log('Consultation created:', result); // ✅ Debug log
+      
+      alert('✅ Consultation scheduled successfully!');
       onSuccess?.(result.data);
     } catch (err) {
       console.error('Submission error:', err);
       setError(err.message);
+      alert(`❌ Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -277,6 +321,27 @@ const ConsultationBookingForm = ({
         return (
           <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg sm:text-xl font-semibold text-black mb-3 sm:mb-4">Schedule Consultation</h3>
+            
+            {/* ✅ Show connection error at top of form */}
+            {error && (
+              <div className="bg-red-50 border-2 border-red-400 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="font-bold text-red-900 text-sm">{error}</p>
+                    <button
+                      onClick={loadProviders}
+                      className="mt-2 text-xs px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 font-semibold"
+                    >
+                      Retry Connection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {(prefilledData || initialDate) && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -390,8 +455,8 @@ const ConsultationBookingForm = ({
                   <p className="text-black mt-2 text-sm">Loading available slots...</p>
                 </div>
               ) : availableSlots.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-black text-sm">No available time slots for the selected date and provider.</p>
+                <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-300">
+                  <p className="text-black text-sm font-medium">No available time slots for the selected date and provider.</p>
                   <p className="text-xs sm:text-sm text-gray-600 mt-1">Please select a different date or provider.</p>
                 </div>
               ) : (
@@ -643,7 +708,7 @@ const ConsultationBookingForm = ({
               </div>
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
-                  <p className="text-red-800 text-xs sm:text-sm">{error}</p>
+                  <p className="text-red-800 text-xs sm:text-sm font-semibold">{error}</p>
                 </div>
               )}
             </div>

@@ -716,7 +716,6 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                   </div>
                 </div>
 
-                // ========== PART 3 OF 3 - ADDRESS, PROGRAMS, MEDICAL & SUBMIT ==========
 
                 {/* ✅ SECTION 2: ADDRESS - COMPACT */}
                 <div className="bg-white rounded-lg shadow-md border-2 border-gray-300 p-4">
@@ -775,31 +774,6 @@ const AddResidentForm = ({ onSuccess, onCancel, editData = null }) => {
                       </div>
                     </div>
 
-                    {/* Household & Family */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-900 mb-1">Household No.</label>
-                        <input
-                          type="text"
-                          name="household_no"
-                          value={formData.household_no}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 text-sm bg-white border-2 border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="HH-001"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-900 mb-1">Family No.</label>
-                        <input
-                          type="text"
-                          name="family_no"
-                          value={formData.family_no}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 text-sm bg-white border-2 border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="FAM-001"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
 
