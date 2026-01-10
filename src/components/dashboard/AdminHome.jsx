@@ -1,8 +1,9 @@
-// src/components/dashboard/AdminHome.jsx
+// src/components/dashboard/AdminHome.jsx - UPDATED WITH MEDICINE ANALYTICS
 import React, { useState, useEffect } from 'react';
 import { useReceiptCount } from '../receipts/ReceiptsTable';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import MedicineList from '../medicine/MedicineList';
+import MedicineAnalytics from '../medicine/MedicineAnalytics'; // ✅ NEW IMPORT
 import { Link } from "react-router-dom";
 import API_BASE_URL from '../../config.js';
 import { 
@@ -21,7 +22,8 @@ import {
   FaFileAlt,
   FaReceipt,
   FaExchangeAlt,
-  FaHistory
+  FaHistory,
+  FaChartPie // ✅ NEW ICON
 } from 'react-icons/fa';
 
 import {
@@ -39,6 +41,10 @@ const AdminHome = () => {
   const receiptCount = useReceiptCount();
   const { getStats, contractConnected } = useTransactionHistory();
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // ✅ NEW STATE: Toggle for medicine analytics
+  const [showMedicineAnalytics, setShowMedicineAnalytics] = useState(false);
+  
   const [consultationStats, setConsultationStats] = useState({
     totalConsultations: 0,
     scheduledConsultations: 0,
@@ -52,13 +58,12 @@ const AdminHome = () => {
 
   const transactionStats = contractConnected ? getStats() : { total: 0 };
 
-  // Fetch consultation statistics using the same logic as ConsultationStatistics component
+  // Fetch consultation statistics
   useEffect(() => {
     const fetchConsultationStats = async () => {
       if (activeTab === 'consultations') {
         setLoading(true);
         try {
-          // Fetch summary stats from the backend API
           const statsResponse = await fetch(`${API_URL}/consultations/stats/summary`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -68,7 +73,6 @@ const AdminHome = () => {
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
             if (statsData.success) {
-              // Fetch today's consultations to count in-progress status
               const today = new Date();
               const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
               const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString().split('T')[0];
@@ -106,11 +110,6 @@ const AdminHome = () => {
     fetchConsultationStats();
   }, [activeTab]);
 
-  console.log("DEBUG CHECK >>>");
-  console.log("MedicineList:", MedicineList);
-  console.log("ConsultationNotifications:", ConsultationNotifications);
-  console.log("DashboardCards:", { ReceiptsCard, TransactionHistoryCard, AuditLogsCard, StaffCard });
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
       <div className="p-6 max-w-[1600px] mx-auto">
@@ -140,7 +139,10 @@ const AdminHome = () => {
               Overview
             </button>
             <button
-              onClick={() => setActiveTab('medicines')}
+              onClick={() => {
+                setActiveTab('medicines');
+                setShowMedicineAnalytics(false); // ✅ Reset analytics when switching tabs
+              }}
               className={`px-6 py-4 text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'medicines'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -197,7 +199,7 @@ const AdminHome = () => {
               <StaffCard />
             </div>
 
-            {/* Quick Actions - Enhanced */}
+            {/* Quick Actions */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <h3 className="text-lg font-bold text-gray-900 mb-5">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -354,32 +356,63 @@ const AdminHome = () => {
           </div>
         )}
 
-        {/* Medicines Tab */}
+        {/* ✅ MEDICINES TAB - WITH ANALYTICS TOGGLE */}
         {activeTab === 'medicines' && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Medicine Inventory</h2>
-                <p className="text-sm text-gray-600">Manage all medicines and stock levels</p>
-              </div>
-              <div className="flex gap-2">
-                <Link
-                  to="/medicines/new"
-                  className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <FaPlus />
-                  Add Medicine
-                </Link>
-                <Link
-                  to="/stock"
-                  className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <FaBoxes />
-                  Add Stock
-                </Link>
-              </div>
+          <div className="space-y-6">
+            {/* ✅ Analytics Toggle Button */}
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+              <button
+                onClick={() => setShowMedicineAnalytics(!showMedicineAnalytics)}
+                className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-base transition-all ${
+                  showMedicineAnalytics
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg hover:from-purple-700 hover:to-indigo-700'
+                    : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg hover:from-blue-700 hover:to-cyan-700'
+                }`}
+              >
+                {showMedicineAnalytics ? (
+                  <>
+                    <FaCapsules className="text-xl" />
+                    Hide Analytics & Show Inventory
+                  </>
+                ) : (
+                  <>
+                    <FaChartPie className="text-xl" />
+                    Show Medicine Analytics & Insights
+                  </>
+                )}
+              </button>
             </div>
-            <MedicineList />
+
+            {/* ✅ Conditional Rendering: Analytics OR Inventory */}
+            {showMedicineAnalytics ? (
+              <MedicineAnalytics />
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Medicine Inventory</h2>
+                    <p className="text-sm text-gray-600">Manage all medicines and stock levels</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link
+                      to="/medicines/new"
+                      className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                      <FaPlus />
+                      Add Medicine
+                    </Link>
+                    <Link
+                      to="/stock"
+                      className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                      <FaBoxes />
+                      Add Stock
+                    </Link>
+                  </div>
+                </div>
+                <MedicineList />
+              </div>
+            )}
           </div>
         )}
 
@@ -425,7 +458,7 @@ const AdminHome = () => {
 
               <Link
                 to="/provider-management"
-                className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl hover:shadow-md transition-all border border-purple-200"
+                className="group block p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl hover:shadow-md transition-all border border-green-200"
               >
                 <div className="bg-white p-3 rounded-xl inline-block mb-3 group-hover:scale-110 transition-transform shadow-sm">
                   <FaUserMd className="text-2xl text-purple-600" />
