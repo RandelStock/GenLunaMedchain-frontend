@@ -203,15 +203,6 @@ const AdminHome = () => {
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <h3 className="text-lg font-bold text-gray-900 mb-5">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <Link
-                  to="/medicines/new"
-                  className="group flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all border border-blue-200"
-                >
-                  <div className="bg-blue-600 text-white p-3 rounded-xl mb-2 group-hover:scale-110 transition-transform shadow-md">
-                    <FaPlus className="text-xl" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">Add Medicine</span>
-                </Link>
 
                 <Link
                   to="/stock"

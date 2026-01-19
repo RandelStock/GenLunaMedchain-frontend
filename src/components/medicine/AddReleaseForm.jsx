@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMedicineRelease } from '../../hooks/useMedicineRelease';
 import { useAddress } from '@thirdweb-dev/react';
-import { User, Package, Calendar, AlertCircle, CheckCircle2, Pill, Heart } from 'lucide-react';
+import { User, Package, Calendar, AlertCircle, CheckCircle2, Pill, Heart, Clock, Shield } from 'lucide-react';
 import api from '../../../api';
 
 // Common medical concerns
@@ -16,6 +16,13 @@ const MEDICAL_CONCERNS = [
   { value: 'WOUND', label: 'Wound/Injury', icon: '🩹' },
   { value: 'OTHER', label: 'Other', icon: '📋' }
 ];
+
+// ✅ NEW: Release frequency restrictions
+const RESTRICTION_PERIODS = {
+  WEEKLY: { value: 'WEEKLY', label: 'Weekly (7 days)', days: 7 },
+  BIWEEKLY: { value: 'BIWEEKLY', label: 'Bi-Weekly (14 days)', days: 14 },
+  MONTHLY: { value: 'MONTHLY', label: 'Monthly (30 days)', days: 30 }
+};
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -56,6 +63,13 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
   const [blockchainLoading, setBlockchainLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  // ✅ NEW: Frequency restriction states
+  const [restrictionPeriod, setRestrictionPeriod] = useState('WEEKLY'); // Default to weekly
+  const [checkingRestriction, setCheckingRestriction] = useState(false);
+  const [restrictionViolation, setRestrictionViolation] = useState(null);
+  const [lastReleaseInfo, setLastReleaseInfo] = useState(null);
+  const [overrideRestriction, setOverrideRestriction] = useState(false);
+
   useEffect(() => {
     fetchMedicines();
     fetchResidents();
@@ -77,6 +91,16 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
       setCurrentStep(3);
     }
   }, [selectedStock]);
+
+  // ✅ NEW: Check restriction when resident and medicine are selected
+  useEffect(() => {
+    if (selectedMedicine && formData.resident_name.trim()) {
+      checkReleaseRestriction();
+    } else {
+      setRestrictionViolation(null);
+      setLastReleaseInfo(null);
+    }
+  }, [selectedMedicine, formData.resident_name, formData.resident_id, restrictionPeriod]);
 
   const fetchMedicines = async () => {
     try {
@@ -125,6 +149,87 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
       console.error('Error fetching residents:', error);
     } finally {
       setLoadingResidents(false);
+    }
+  };
+
+  // ✅ NEW: Check if resident has received this medicine recently
+  const checkReleaseRestriction = async () => {
+    if (!selectedMedicine || !formData.resident_name.trim()) {
+      setRestrictionViolation(null);
+      setLastReleaseInfo(null);
+      return;
+    }
+
+    try {
+      setCheckingRestriction(true);
+      setRestrictionViolation(null);
+      setLastReleaseInfo(null);
+      setOverrideRestriction(false);
+
+      const period = RESTRICTION_PERIODS[restrictionPeriod];
+      const daysAgo = period.days;
+      const dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - daysAgo);
+
+      // Build query parameters
+      const params = new URLSearchParams({
+        medicine_id: selectedMedicine.medicine_id.toString(),
+        date_from: dateFrom.toISOString().split('T')[0]
+      });
+
+      // Add resident filter - either by ID or by name
+      if (formData.resident_id) {
+        params.append('resident_id', formData.resident_id);
+      } else if (formData.resident_name.trim()) {
+        params.append('resident_name', formData.resident_name.trim());
+      }
+
+      console.log('🔍 Checking release restriction:', {
+        medicine: selectedMedicine.medicine_name,
+        resident: formData.resident_name,
+        period: period.label,
+        dateFrom: dateFrom.toISOString().split('T')[0]
+      });
+
+      const { data } = await api.get(`/releases?${params.toString()}`);
+      const releases = data.data || data || [];
+
+      console.log(`📊 Found ${releases.length} recent releases`);
+
+      if (releases.length > 0) {
+        const lastRelease = releases[0]; // Most recent
+        const lastReleaseDate = new Date(lastRelease.date_released);
+        const daysSince = Math.floor((new Date() - lastReleaseDate) / (1000 * 60 * 60 * 24));
+        const daysUntilAllowed = daysAgo - daysSince;
+
+        setLastReleaseInfo({
+          date: lastReleaseDate.toLocaleDateString(),
+          quantity: lastRelease.quantity_released,
+          daysSince,
+          daysUntilAllowed,
+          releaseId: lastRelease.release_id
+        });
+
+        setRestrictionViolation({
+          message: `This resident received ${selectedMedicine.medicine_name} ${daysSince} day${daysSince !== 1 ? 's' : ''} ago`,
+          severity: 'error',
+          period: period.label,
+          lastRelease: lastRelease
+        });
+
+        console.log('❌ Restriction violation detected:', {
+          daysSince,
+          daysUntilAllowed,
+          lastRelease: lastReleaseDate.toLocaleDateString()
+        });
+      } else {
+        console.log('✅ No restriction violation - resident can receive medicine');
+      }
+    } catch (error) {
+      console.error('Error checking release restriction:', error);
+      // Don't block on error - allow the release to proceed
+    } finally {
+      setCheckingRestriction(false);
     }
   };
 
@@ -245,6 +350,11 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
       errors.date_released = 'Release date is required';
     }
 
+    // ✅ NEW: Check restriction violation (if not overridden)
+    if (restrictionViolation && !overrideRestriction) {
+      errors.restriction = `Frequency restriction: ${restrictionViolation.message}`;
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -272,9 +382,12 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
     setFormErrors({});
     setCurrentStep(1);
     setRetryCount(0);
+    setRestrictionViolation(null);
+    setLastReleaseInfo(null);
+    setOverrideRestriction(false);
   };
 
-  // ✅ NEW: Retry mechanism for blockchain transactions
+  // Retry mechanism for blockchain transactions
   const retryBlockchainTransaction = async (transactionFn, retries = MAX_RETRIES) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -372,7 +485,9 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
   const remainingAfterRelease = selectedStock && formData.quantity_released
     ? selectedStock.remaining_quantity - parseInt(formData.quantity_released || 0)
     : null;
-    // RENDER - Part 2
+
+  // ========== PART 2 OF 3 - JSX RENDER START ==========
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-teal-50 to-emerald-50">
       <div className="max-w-5xl mx-auto p-6">
@@ -383,7 +498,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 Release Medicine
               </h1>
-              <p className="text-gray-800">Distribute medicine to residents with complete documentation</p>
+              <p className="text-gray-800 font-medium">Distribute medicine to residents with frequency monitoring</p>
             </div>
             {onCancel && (
               <button
@@ -417,7 +532,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   }`}>
                     {currentStep > step.num ? '✓' : step.num}
                   </div>
-                  <span className="font-medium text-sm">{step.label}</span>
+                  <span className="font-bold text-sm">{step.label}</span>
                 </div>
                 {idx < 2 && (
                   <svg className="w-4 h-4 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
@@ -436,7 +551,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               <AlertCircle className="w-8 h-8 text-yellow-700 flex-shrink-0" />
               <div>
                 <p className="font-bold text-yellow-900 text-lg mb-1">Wallet Not Connected</p>
-                <p className="text-yellow-900 text-sm">Please connect your MetaMask wallet to release medicine with blockchain verification.</p>
+                <p className="text-yellow-900 text-sm font-medium">Please connect your MetaMask wallet to release medicine with blockchain verification.</p>
               </div>
             </div>
           </div>
@@ -445,8 +560,132 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 text-green-700" />
               <div>
-                <p className="font-semibold text-green-900">Wallet Connected</p>
+                <p className="font-bold text-green-900">Wallet Connected</p>
                 <p className="text-sm text-green-800 font-mono">{address.slice(0, 8)}...{address.slice(-6)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ NEW: Frequency Restriction Period Selector */}
+        <div className="bg-white rounded-xl shadow-lg border-2 border-indigo-300 p-5 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Clock className="w-6 h-6 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Release Frequency Restriction</h3>
+              <p className="text-sm text-gray-800 font-medium">Prevent duplicate releases within time period</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            {Object.values(RESTRICTION_PERIODS).map(period => (
+              <button
+                key={period.value}
+                type="button"
+                onClick={() => setRestrictionPeriod(period.value)}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 font-bold transition-all ${
+                  restrictionPeriod === period.value
+                    ? 'bg-indigo-600 border-indigo-700 text-white shadow-md'
+                    : 'bg-white border-gray-300 text-gray-900 hover:border-indigo-400'
+                }`}
+              >
+                <div className="text-sm">{period.label}</div>
+                <div className="text-xs mt-1 opacity-90">({period.days} days)</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ✅ NEW: Restriction Checking Status */}
+        {checkingRestriction && (
+          <div className="bg-blue-50 border-2 border-blue-400 rounded-xl p-5 mb-6 shadow-md animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-700"></div>
+              <div>
+                <p className="font-bold text-blue-900">Checking Release History...</p>
+                <p className="text-sm text-blue-800 font-medium">Verifying frequency restrictions</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ NEW: Restriction Violation Warning */}
+        {restrictionViolation && !overrideRestriction && (
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-5 mb-6 shadow-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-8 h-8 text-red-700 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-red-900 text-lg">⚠️ Frequency Restriction Violation</h3>
+                  <Shield className="w-6 h-6 text-red-600" />
+                </div>
+                
+                <div className="bg-white bg-opacity-80 rounded-lg p-4 mb-3 border border-red-300">
+                  <p className="font-bold text-red-900 mb-2">{restrictionViolation.message}</p>
+                  {lastReleaseInfo && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-red-800 font-medium">Last Release:</span>
+                        <span className="ml-2 font-bold text-red-900">{lastReleaseInfo.date}</span>
+                      </div>
+                      <div>
+                        <span className="text-red-800 font-medium">Quantity:</span>
+                        <span className="ml-2 font-bold text-red-900">{lastReleaseInfo.quantity} units</span>
+                      </div>
+                      <div>
+                        <span className="text-red-800 font-medium">Days Since:</span>
+                        <span className="ml-2 font-bold text-red-900">{lastReleaseInfo.daysSince} days ago</span>
+                      </div>
+                      <div>
+                        <span className="text-red-800 font-medium">Available In:</span>
+                        <span className="ml-2 font-bold text-orange-700">{lastReleaseInfo.daysUntilAllowed} days</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-start gap-2 bg-yellow-100 border border-yellow-400 rounded-lg p-3 mb-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-800 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-yellow-900 font-medium">
+                    This resident already received this medicine within the <strong>{RESTRICTION_PERIODS[restrictionPeriod].label.toLowerCase()}</strong> restriction period.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setOverrideRestriction(true)}
+                    className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-5 h-5" />
+                    Override & Continue (Admin)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMedicine(null);
+                      setSelectedStock(null);
+                    }}
+                    className="px-4 py-2 bg-white border-2 border-gray-400 text-gray-900 font-bold rounded-lg hover:bg-gray-50 transition-all"
+                  >
+                    Cancel Release
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ NEW: Override Active Notice */}
+        {overrideRestriction && (
+          <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 rounded-xl p-4 mb-6 shadow-md">
+            <div className="flex items-center gap-3">
+              <Shield className="w-6 h-6 text-orange-700" />
+              <div>
+                <p className="font-bold text-orange-900">Admin Override Active</p>
+                <p className="text-sm text-orange-800 font-medium">Frequency restriction has been bypassed. Proceed with caution.</p>
               </div>
             </div>
           </div>
@@ -458,8 +697,8 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-700"></div>
               <div>
-                <p className="font-semibold text-blue-900">Blockchain Transaction Retry</p>
-                <p className="text-sm text-blue-800">
+                <p className="font-bold text-blue-900">Blockchain Transaction Retry</p>
+                <p className="text-sm text-blue-800 font-medium">
                   Attempt {retryCount} of {MAX_RETRIES} - Please confirm in MetaMask
                 </p>
               </div>
@@ -476,13 +715,13 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Select Medicine & Stock Batch</h3>
-                <p className="text-sm text-gray-700">Choose the medicine and batch to release</p>
+                <p className="text-sm text-gray-800 font-medium">Choose the medicine and batch to release</p>
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                <label className="block text-sm font-bold text-gray-900 mb-2">
                   Medicine <span className="text-red-600">*</span>
                 </label>
                 <select
@@ -494,7 +733,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                     setFormData(prev => ({ ...prev, medicine_id: e.target.value, stock_id: '', quantity_released: '' }));
                     setFormErrors(prev => ({ ...prev, medicine: undefined, stock: undefined }));
                   }}
-                  className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                  className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                     formErrors.medicine ? 'border-red-500 bg-red-50' : 'border-gray-300'
                   }`}
                   disabled={loadingMedicines}
@@ -509,7 +748,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   ))}
                 </select>
                 {formErrors.medicine && (
-                  <p className="text-red-600 text-sm flex items-center gap-1 mt-2">
+                  <p className="text-red-700 text-sm font-bold flex items-center gap-1 mt-2">
                     <AlertCircle className="w-4 h-4" />
                     {formErrors.medicine}
                   </p>
@@ -517,7 +756,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                <label className="block text-sm font-bold text-gray-900 mb-2">
                   Stock Batch <span className="text-red-600">*</span>
                 </label>
                 <select
@@ -529,7 +768,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                     setFormErrors(prev => ({ ...prev, stock: undefined, quantity_released: undefined }));
                   }}
                   disabled={!selectedMedicine || loadingStocks}
-                  className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all disabled:bg-gray-100 ${
+                  className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all disabled:bg-gray-100 ${
                     formErrors.stock ? 'border-red-500 bg-red-50' : 'border-gray-300'
                   }`}
                 >
@@ -543,7 +782,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   ))}
                 </select>
                 {formErrors.stock && (
-                  <p className="text-red-700 text-sm flex items-center gap-1 mt-2">
+                  <p className="text-red-700 text-sm font-bold flex items-center gap-1 mt-2">
                     <AlertCircle className="w-4 h-4" />
                     {formErrors.stock}
                   </p>
@@ -555,18 +794,18 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               <div className="mt-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-blue-800 font-medium">Available Stock:</span>
+                    <span className="text-blue-800 font-bold">Available Stock:</span>
                     <span className="ml-2 font-bold text-blue-900 text-lg">{selectedStock.remaining_quantity} units</span>
                   </div>
                   <div>
-                    <span className="text-blue-800 font-medium">Expires:</span>
-                    <span className="ml-2 font-semibold text-blue-900">
+                    <span className="text-blue-800 font-bold">Expires:</span>
+                    <span className="ml-2 font-bold text-blue-900">
                       {new Date(selectedStock.expiry_date).toLocaleDateString()}
                     </span>
                   </div>
                   <div>
-                    <span className="text-blue-800 font-medium">Location:</span>
-                    <span className="ml-2 font-semibold text-blue-900">{selectedStock.storage_location || 'N/A'}</span>
+                    <span className="text-blue-800 font-bold">Location:</span>
+                    <span className="ml-2 font-bold text-blue-900">{selectedStock.storage_location || 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -582,13 +821,13 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Resident Information</h3>
-                  <p className="text-sm text-gray-700">Select from directory or enter manually</p>
+                  <p className="text-sm text-gray-800 font-medium">Select from directory or enter manually</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
                     Select from Directory (Optional)
                   </label>
                   <select
@@ -596,7 +835,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                     value={formData.resident_id}
                     onChange={handleChange}
                     disabled={loadingResidents}
-                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                   >
                     <option value="" className="text-gray-900">
                       {loadingResidents ? '⏳ Loading residents...' : '👤 Select resident or enter manually below'}
@@ -613,7 +852,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
                       Resident Name <span className="text-red-600">*</span>
                     </label>
                     <input
@@ -622,17 +861,17 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                       value={formData.resident_name}
                       onChange={handleChange}
                       placeholder="Enter resident name"
-                      className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                      className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 font-medium placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                         formErrors.resident_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     />
                     {formErrors.resident_name && (
-                      <p className="text-red-600 text-sm mt-1">{formErrors.resident_name}</p>
+                      <p className="text-red-700 text-sm font-bold mt-1">{formErrors.resident_name}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Age</label>
+                    <label className="block text-sm font-bold text-gray-900 mb-2">Age</label>
                     <input
                       type="number"
                       name="resident_age"
@@ -641,14 +880,14 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                       placeholder="Age"
                       min="0"
                       max="150"
-                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                     />
                   </div>
                 </div>
 
                 {/* Medical Concerns with Checkboxes */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
                     Medical Concern <span className="text-red-600">*</span>
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -674,8 +913,8 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                             )}
                           </div>
                           <span className="text-xl">{concern.icon}</span>
-                          <span className={`text-sm font-medium ${
-                            formData.selected_concerns.includes(concern.value) ? 'text-green-900' : 'text-gray-800'
+                          <span className={`text-sm font-bold ${
+                            formData.selected_concerns.includes(concern.value) ? 'text-green-900' : 'text-gray-900'
                           }`}>
                             {concern.label}
                           </span>
@@ -684,7 +923,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                     ))}
                   </div>
                   {formErrors.concern && (
-                    <p className="text-red-600 text-sm flex items-center gap-1 mt-2">
+                    <p className="text-red-700 text-sm font-bold flex items-center gap-1 mt-2">
                       <AlertCircle className="w-4 h-4" />
                       {formErrors.concern}
                     </p>
@@ -694,7 +933,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                 {/* Other Concern Input */}
                 {formData.selected_concerns.includes('OTHER') && (
                   <div className="animate-fadeIn">
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
                       Specify Other Concern <span className="text-red-600">*</span>
                     </label>
                     <input
@@ -703,18 +942,21 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                       value={formData.other_concern}
                       onChange={handleChange}
                       placeholder="e.g., Skin infection, Respiratory issue"
-                      className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                      className={`w-full px-4 py-3 border-2 rounded-lg text-gray-900 font-medium placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                         formErrors.other_concern ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     />
                     {formErrors.other_concern && (
-                      <p className="text-red-600 text-sm mt-1">{formErrors.other_concern}</p>
+                      <p className="text-red-700 text-sm font-bold mt-1">{formErrors.other_concern}</p>
                     )}
                   </div>
                 )}
               </div>
             </div>
           )}
+
+          // ========== PART 3 OF 3 - FINAL JSX SECTIONS ==========
+
           {/* Step 3: Release Details */}
           {selectedStock && formData.resident_name && formData.selected_concerns.length > 0 && (
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 p-6 transition-all hover:shadow-xl animate-fadeIn">
@@ -724,14 +966,14 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Release Details</h3>
-                  <p className="text-sm text-gray-700">Enter quantity and additional information</p>
+                  <p className="text-sm text-gray-800 font-medium">Enter quantity and additional information</p>
                 </div>
               </div>
               
               <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
                       Quantity to Release <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
@@ -742,7 +984,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                         min="1"
                         max={selectedStock.remaining_quantity}
                         placeholder="Enter quantity"
-                        className={`w-full px-4 py-4 pr-20 text-lg text-gray-900 placeholder-gray-500 border-2 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                        className={`w-full px-4 py-4 pr-20 text-lg text-gray-900 font-bold placeholder-gray-500 border-2 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                           formErrors.quantity_released 
                             ? 'border-red-500 bg-red-50' 
                             : formData.quantity_released && !formErrors.quantity_released
@@ -750,24 +992,24 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                             : 'border-gray-300'
                         }`}
                       />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-700">
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-800">
                         / {selectedStock.remaining_quantity}
                       </div>
                     </div>
                     
                     {formErrors.quantity_released ? (
                       <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-800 text-sm flex items-center gap-2">
+                        <p className="text-red-800 text-sm font-bold flex items-center gap-2">
                           <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                          <span className="font-medium">{formErrors.quantity_released}</span>
+                          <span>{formErrors.quantity_released}</span>
                         </p>
                       </div>
                     ) : formData.quantity_released && !formErrors.quantity_released && remainingAfterRelease !== null ? (
                       <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-green-800 text-sm flex items-center gap-2">
+                        <p className="text-green-800 text-sm font-bold flex items-center gap-2">
                           <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                          <span className="font-medium">
-                            Valid • <span className="text-green-900 font-bold">{remainingAfterRelease} units</span> will remain
+                          <span>
+                            Valid • <span className="text-green-900">{remainingAfterRelease} units</span> will remain
                           </span>
                         </p>
                       </div>
@@ -775,7 +1017,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
                       <Calendar className="w-4 h-4 inline mr-1" />
                       Date Released <span className="text-red-600">*</span>
                     </label>
@@ -785,25 +1027,25 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                       value={formData.date_released}
                       onChange={handleChange}
                       max={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-3 border-2 text-gray-900 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                      className={`w-full px-4 py-3 border-2 text-gray-900 font-bold rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                         formErrors.date_released ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                     />
                     {formErrors.date_released && (
-                      <p className="text-red-600 text-sm mt-1">{formErrors.date_released}</p>
+                      <p className="text-red-700 text-sm font-bold mt-1">{formErrors.date_released}</p>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">Additional Notes</label>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Additional Notes</label>
                   <textarea
                     name="notes"
                     value={formData.notes}
                     onChange={handleChange}
                     placeholder="Additional details about the release..."
                     rows="3"
-                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
                   />
                 </div>
               </div>
@@ -819,46 +1061,46 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Prescription Details (Optional)</h3>
-                  <p className="text-sm text-gray-700">Add prescription information if applicable</p>
+                  <p className="text-sm text-gray-800 font-medium">Add prescription information if applicable</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Prescription Number</label>
+                    <label className="block text-sm font-bold text-gray-900 mb-2">Prescription Number</label>
                     <input
                       type="text"
                       name="prescription_number"
                       value={formData.prescription_number}
                       onChange={handleChange}
                       placeholder="RX-12345"
-                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Prescribing Doctor</label>
+                    <label className="block text-sm font-bold text-gray-900 mb-2">Prescribing Doctor</label>
                     <input
                       type="text"
                       name="prescribing_doctor"
                       value={formData.prescribing_doctor}
                       onChange={handleChange}
                       placeholder="Dr. Juan Dela Cruz"
-                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">Dosage Instructions</label>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Dosage Instructions</label>
                   <textarea
                     name="dosage_instructions"
                     value={formData.dosage_instructions}
                     onChange={handleChange}
                     placeholder="e.g., Take 1 tablet twice daily after meals"
                     rows="2"
-                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-900 font-medium placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
                   />
                 </div>
               </div>
@@ -877,54 +1119,80 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Medicine</span>
+                  <span className="text-sm text-green-800 font-bold block mb-2">Medicine</span>
                   <p className="font-bold text-green-900 text-lg">{selectedMedicine.medicine_name}</p>
                   {selectedMedicine.generic_name && (
-                    <p className="text-sm text-green-800">({selectedMedicine.generic_name})</p>
+                    <p className="text-sm text-green-800 font-medium">({selectedMedicine.generic_name})</p>
                   )}
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Batch Number</span>
+                  <span className="text-sm text-green-800 font-bold block mb-2">Batch Number</span>
                   <p className="font-bold text-green-900 text-lg">{selectedStock.batch_number}</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Resident</span>
+                  <span className="text-sm text-green-800 font-bold block mb-2">Resident</span>
                   <p className="font-bold text-green-900 text-lg">{formData.resident_name}</p>
                   {formData.resident_age && (
-                    <p className="text-sm text-green-800">{formData.resident_age} years old</p>
+                    <p className="text-sm text-green-800 font-medium">{formData.resident_age} years old</p>
                   )}
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-green-800 font-medium block mb-2">Medical Concern</span>
-                  <p className="font-semibold text-green-900">{getConcernString()}</p>
+                  <span className="text-sm text-green-800 font-bold block mb-2">Medical Concern</span>
+                  <p className="font-bold text-green-900">{getConcernString()}</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-blue-800 font-medium block mb-2">Current Stock</span>
+                  <span className="text-sm text-blue-800 font-bold block mb-2">Current Stock</span>
                   <p className="font-bold text-blue-900 text-3xl">{selectedStock.remaining_quantity}</p>
-                  <p className="text-sm text-blue-800">units</p>
+                  <p className="text-sm text-blue-800 font-medium">units</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4">
-                  <span className="text-sm text-orange-800 font-medium block mb-2">Releasing</span>
+                  <span className="text-sm text-orange-800 font-bold block mb-2">Releasing</span>
                   <p className="font-bold text-orange-700 text-3xl">-{formData.quantity_released}</p>
-                  <p className="text-sm text-orange-800">units</p>
+                  <p className="text-sm text-orange-800 font-medium">units</p>
                 </div>
                 
                 <div className="bg-white bg-opacity-60 rounded-lg p-4 md:col-span-2">
-                  <span className="text-sm text-purple-800 font-medium block mb-2">Remaining After Release</span>
+                  <span className="text-sm text-purple-800 font-bold block mb-2">Remaining After Release</span>
                   <p className="font-bold text-purple-700 text-4xl">{remainingAfterRelease}</p>
-                  <p className="text-sm text-purple-800">units</p>
+                  <p className="text-sm text-purple-800 font-medium">units</p>
                 </div>
+
+                {/* ✅ NEW: Show restriction info in summary */}
+                {lastReleaseInfo && (
+                  <div className="bg-white bg-opacity-60 rounded-lg p-4 md:col-span-2 border-2 border-orange-300">
+                    <span className="text-sm text-orange-800 font-bold block mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Frequency Status
+                    </span>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-orange-800 font-medium">Last Received:</span>
+                        <span className="ml-2 font-bold text-orange-900">{lastReleaseInfo.date}</span>
+                      </div>
+                      <div>
+                        <span className="text-orange-800 font-medium">Days Ago:</span>
+                        <span className="ml-2 font-bold text-orange-900">{lastReleaseInfo.daysSince} days</span>
+                      </div>
+                    </div>
+                    {overrideRestriction && (
+                      <div className="mt-2 flex items-center gap-2 text-orange-700">
+                        <Shield className="w-4 h-4" />
+                        <span className="text-xs font-bold">Admin Override Active</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="bg-green-100 border border-green-300 rounded-lg p-4">
-                <p className="text-sm text-green-900 flex items-center gap-2">
+                <p className="text-sm text-green-900 font-bold flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium">
+                  <span>
                     This action will create a blockchain transaction (with automatic retry on failure)
                   </span>
                 </p>
@@ -935,9 +1203,19 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
           {/* Error Display */}
           {formErrors.wallet && (
             <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-              <p className="text-red-800 font-medium flex items-center gap-2">
+              <p className="text-red-800 font-bold flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
                 {formErrors.wallet}
+              </p>
+            </div>
+          )}
+
+          {/* ✅ NEW: Restriction Error Display */}
+          {formErrors.restriction && !overrideRestriction && (
+            <div className="bg-red-50 border-2 border-red-400 rounded-lg p-4">
+              <p className="text-red-900 font-bold flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                {formErrors.restriction}
               </p>
             </div>
           )}
@@ -955,7 +1233,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   }
                 }}
                 disabled={loading || blockchainLoading}
-                className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -970,7 +1248,8 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                   !formData.resident_name.trim() ||
                   formData.selected_concerns.length === 0 ||
                   !formData.quantity_released ||
-                  Object.keys(formErrors).some(key => formErrors[key])
+                  Object.keys(formErrors).some(key => formErrors[key]) ||
+                  (restrictionViolation && !overrideRestriction)
                 }
                 className="flex-1 px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-xl font-bold text-lg shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
               >
@@ -982,15 +1261,23 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-6 h-6" />
-                    Release Medicine (Sign with MetaMask)
+                    {restrictionViolation && overrideRestriction ? 'Override & Release (Sign with MetaMask)' : 'Release Medicine (Sign with MetaMask)'}
                   </span>
                 )}
               </button>
             </div>
             
             {!address && (
-              <p className="text-center text-sm text-gray-700 mt-3">
+              <p className="text-center text-sm text-gray-800 font-bold mt-3">
                 ⚠️ Connect your wallet to enable submission
+              </p>
+            )}
+
+            {/* ✅ NEW: Restriction warning on button */}
+            {restrictionViolation && !overrideRestriction && (
+              <p className="text-center text-sm text-red-700 font-bold mt-3 flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Frequency restriction active - Override required to proceed
               </p>
             )}
           </div>
@@ -1019,3 +1306,5 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
 };
 
 export default AddReleaseForm;
+
+  
