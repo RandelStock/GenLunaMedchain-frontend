@@ -625,7 +625,7 @@ const AddReleaseForm = ({ onSuccess, onCancel }) => {
     }
   };
 
-  // ========== PART 2 OF 3 - JSX RENDER START ==========
+ // ========== PART 2 OF 3 - JSX RENDER START ==========
 
   // Calculate totals for summary
   const totalItems = medicineItems.filter(item => item.selectedMedicine).length;
