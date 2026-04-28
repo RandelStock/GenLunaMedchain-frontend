@@ -8,6 +8,7 @@ const CONTRACT_ADDRESS = "0xb00597076d75C504DEcb69c55B146f83819e61C1";
 
 export default function BlockchainHistory() {
   const { contract } = useContract(CONTRACT_ADDRESS, ContractABI.abi);
+  const LIVE_REFRESH_MS = 10000;
   const [blockchainData, setBlockchainData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -52,11 +53,14 @@ export default function BlockchainHistory() {
   }, [searchTerm, filterType, blockchainData]);
 
   // 🚀 OPTIMIZATION 2: Use useCallback to prevent function recreation
-  const fetchBlockchainData = useCallback(async () => {
+  const fetchBlockchainData = useCallback(async (options = {}) => {
+    const { silent = false, bypassCache = false } = options;
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get('/blockchain/hashes');
+      const { data } = await api.get('/blockchain/hashes', {
+        params: bypassCache ? { noCache: 1 } : undefined
+      });
       
       const hashes = data?.hashes || [];
       const counts = data?.counts || {};
@@ -71,7 +75,9 @@ export default function BlockchainHistory() {
         removals: counts.removals || 0
       });
       
-      console.log(`✅ Loaded ${hashes.length} blockchain records from database`);
+      if (!silent) {
+        console.log(`✅ Loaded ${hashes.length} blockchain records from database`);
+      }
     } catch (err) {
       console.error('Error fetching blockchain data:', err);
       const message = err?.response?.data?.error || err?.message || 'Failed to fetch blockchain data';
@@ -216,6 +222,15 @@ export default function BlockchainHistory() {
   // 🚀 OPTIMIZATION 4: Load data once on mount
   useEffect(() => {
     fetchBlockchainData();
+  }, [fetchBlockchainData]);
+
+  // Keep history fresh like audit logs by polling backend
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchBlockchainData({ silent: true, bypassCache: true });
+    }, LIVE_REFRESH_MS);
+
+    return () => clearInterval(interval);
   }, [fetchBlockchainData]);
 
   // 🚀 OPTIMIZATION 5: Memoize helper functions
