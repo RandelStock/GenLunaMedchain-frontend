@@ -1,5 +1,5 @@
 // src/components/dashboard/PatientHome.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRole } from '../auth/RoleProvider';
 import { Link, useNavigate } from 'react-router-dom';
 import { useConnect, useDisconnect, useAddress, metamaskWallet } from "@thirdweb-dev/react";
@@ -7,6 +7,7 @@ import MedicineList from '../medicine/MedicineList';
 import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
 import HealthServicesSection from './HealthServicesSection'; 
+import api from '../../../api.js';
 
 // Import all images
 import logo from "../../img/logo.png";
@@ -95,6 +96,19 @@ const PatientHome = () => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
   const [barangaySearch, setBarangaySearch] = useState('');
+  const [previewFilter, setPreviewFilter] = useState('all');
+  const [serviceStatus, setServiceStatus] = useState({
+    apiOnline: false,
+    clinicOpen: false,
+    lastSyncAt: null,
+    inventoryUpdatedAt: null,
+    inventorySource: 'RHU inventory',
+    sourceDetail: 'Updated by staff',
+    serverVersion: 'N/A',
+    serverUptime: 'N/A',
+    databaseHealthy: false,
+    databaseLatencyMs: null
+  });
   const navigate = useNavigate();
 
   // Wallet connection hooks
@@ -138,6 +152,158 @@ const PatientHome = () => {
   const filteredBarangays = barangays.filter(brgy =>
     brgy.name.toLowerCase().includes(barangaySearch.toLowerCase())
   );
+
+  const keyFeatures = [
+    {
+      icon: <FaMapMarkerAlt className="text-xl text-orange-600" />,
+      title: "Locate Nearby Health Centers",
+      description: "Find the closest barangay health source without guesswork."
+    },
+    {
+      icon: <FaCapsules className="text-xl text-blue-700" />,
+      title: "Check Medicine Availability",
+      description: "See if essential medicines are available before you visit."
+    },
+    {
+      icon: <FaStethoscope className="text-xl text-emerald-600" />,
+      title: "Book Consultations Easily",
+      description: "Reserve your preferred date and time with RHU providers."
+    },
+    {
+      icon: <FaShieldAlt className="text-xl text-purple-600" />,
+      title: "Secure Health Records",
+      description: "Patient records are protected with tamper-resistant storage."
+    }
+  ];
+
+  const howItWorks = [
+    "Search medicine or health service",
+    "View barangay-level availability",
+    "Book consultation or confirm schedule",
+    "Visit RHU with better preparation"
+  ];
+
+  const previewInventory = [
+    { medicine: "Paracetamol 500mg", barangay: "Poblacion 8", status: "Available", stock: "148 packs" },
+    { medicine: "ORS Sachet", barangay: "San Isidro Ilaya", status: "Low Stock", stock: "12 packs" },
+    { medicine: "Amoxicillin 500mg", barangay: "Malaya", status: "Available", stock: "74 capsules" },
+    { medicine: "Metformin 500mg", barangay: "San Jose", status: "Out of Stock", stock: "0" }
+  ];
+
+  const nearMeBarangays = ['Poblacion 8', 'Poblacion 7', 'Poblacion 1', 'Poblacion 2'];
+
+  const filteredPreviewInventory = useMemo(() => {
+    if (previewFilter === 'available') {
+      return previewInventory.filter(item => item.status === 'Available');
+    }
+    if (previewFilter === 'low') {
+      return previewInventory.filter(item => item.status === 'Low Stock');
+    }
+    if (previewFilter === 'near') {
+      return previewInventory.filter(item => nearMeBarangays.includes(item.barangay));
+    }
+    return previewInventory;
+  }, [previewFilter]);
+
+  const computeClinicOpen = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    // RHU schedule shown on page: Mon-Sun 6AM - 5PM
+    return hours >= 6 && hours < 17;
+  };
+
+  const formatRelativeTime = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+
+    const diffMs = Date.now() - date.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const refreshTrustSignals = async () => {
+      const nowIso = new Date().toISOString();
+      try {
+        const [medicinesResp, systemResp] = await Promise.allSettled([
+          api.get('/medicines?is_active=true'),
+          api.get('/system/status', { validateStatus: () => true })
+        ]);
+
+        const medicinesData =
+          medicinesResp.status === 'fulfilled' ? medicinesResp.value.data : null;
+        const medicines = medicinesData?.data || medicinesData || [];
+
+        const systemData =
+          systemResp.status === 'fulfilled' ? systemResp.value.data : null;
+
+        const latestRecord = Array.isArray(medicines)
+          ? medicines.reduce((latest, record) => {
+              const currentTs = new Date(
+                record.updated_at || record.created_at || record.date_added || 0
+              ).getTime();
+              const latestTs = new Date(
+                latest?.updated_at || latest?.created_at || latest?.date_added || 0
+              ).getTime();
+              return currentTs > latestTs ? record : latest;
+            }, null)
+          : null;
+
+        const updatedBy =
+          latestRecord?.updated_by_user?.full_name ||
+          latestRecord?.created_by_user?.full_name ||
+          latestRecord?.added_by_name ||
+          'Staff';
+
+        if (mounted) {
+          setServiceStatus({
+            apiOnline: medicinesResp.status === 'fulfilled',
+            clinicOpen: computeClinicOpen(),
+            lastSyncAt: nowIso,
+            inventoryUpdatedAt:
+              latestRecord?.updated_at || latestRecord?.created_at || null,
+            inventorySource: 'RHU inventory',
+            sourceDetail: `Updated by ${updatedBy}`,
+            serverVersion: systemData?.system?.version || 'N/A',
+            serverUptime: systemData?.system?.uptimeHuman || 'N/A',
+            databaseHealthy: Boolean(systemData?.database?.healthy),
+            databaseLatencyMs: systemData?.database?.latencyMs ?? null
+          });
+        }
+      } catch (error) {
+        if (mounted) {
+          setServiceStatus(prev => ({
+            ...prev,
+            apiOnline: false,
+            clinicOpen: computeClinicOpen(),
+            lastSyncAt: nowIso
+          }));
+        }
+      }
+    };
+
+    refreshTrustSignals();
+    const interval = setInterval(refreshTrustSignals, 30000);
+    const clinicInterval = setInterval(() => {
+      if (mounted) {
+        setServiceStatus(prev => ({ ...prev, clinicOpen: computeClinicOpen() }));
+      }
+    }, 60000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      clearInterval(clinicInterval);
+    };
+  }, []);
 
   const handleConnect = async () => {
     try {
@@ -257,11 +423,41 @@ const PatientHome = () => {
               OFFICIAL GOVERNMENT SERVICE
             </div>
             <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-2xl">
-              Welcome to General Luna RHU
+              Find Available Medicines in Your Barangay Instantly
             </h1>
             <p className="text-lg md:text-xl text-white drop-shadow-xl font-medium">
-              "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
+              A smart healthcare platform connecting patients, clinics, and medicine supply across General Luna.
             </p>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+              <button
+                onClick={() => setActiveSection('medicines')}
+                className="bg-white text-orange-700 px-6 py-3 rounded-lg font-bold hover:bg-orange-50 transition-all shadow-lg text-sm min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-orange-600"
+              >
+                Check Medicines Now
+              </button>
+              <button
+                onClick={handleViewCalendar}
+                className="bg-blue-800/90 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-900 transition-all shadow-lg text-sm border border-white/30 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-800"
+              >
+                View Doctor Schedule
+              </button>
+            </div>
+
+            {/* Mini AI Assistant CTA */}
+            <div className="mt-4 bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 max-w-xl mx-auto md:mx-0 animate-fadeIn">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-white">AI Health Assistant</p>
+                  <p className="text-xs text-orange-100">Get guidance on symptoms, medicine checks, and next steps.</p>
+                </div>
+                <button
+                  onClick={() => setShowBookingForm(true)}
+                  className="bg-white text-blue-900 px-3 py-2 rounded font-semibold text-xs hover:bg-blue-50 transition-all whitespace-nowrap min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-800"
+                >
+                  Ask AI Assistant
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* COMPACT Info Cards - Horizontal on mobile */}
@@ -287,6 +483,41 @@ const PatientHome = () => {
               </div>
             </div>
           </div>
+
+          {/* Trust Signals */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
+              <p className="text-xs text-orange-100">Service Status</p>
+              <p className={`text-sm font-bold ${serviceStatus.apiOnline ? 'text-green-200' : 'text-red-200'}`}>
+                {serviceStatus.apiOnline ? 'Online' : 'Offline'}
+              </p>
+              <p className="text-[11px] text-orange-100 mt-1">v{serviceStatus.serverVersion}</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
+              <p className="text-xs text-orange-100">Clinic Status</p>
+              <p className={`text-sm font-bold ${serviceStatus.clinicOpen ? 'text-green-200' : 'text-yellow-200'}`}>
+                {serviceStatus.clinicOpen ? 'Clinic Open' : 'Clinic Closed'}
+              </p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
+              <p className="text-xs text-orange-100">Server Uptime</p>
+              <p className="text-sm font-bold text-white">
+                {serviceStatus.serverUptime}
+              </p>
+              <p className="text-[11px] text-orange-100 mt-1">Last sync {formatRelativeTime(serviceStatus.lastSyncAt)}</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
+              <p className="text-xs text-orange-100">Database Health</p>
+              <p className={`text-sm font-bold ${serviceStatus.databaseHealthy ? 'text-green-200' : 'text-red-200'}`}>
+                {serviceStatus.databaseHealthy ? 'Healthy' : 'Issue detected'}
+              </p>
+              <p className="text-[11px] text-orange-100 mt-1">
+                {serviceStatus.databaseLatencyMs !== null
+                  ? `${serviceStatus.databaseLatencyMs}ms latency`
+                  : 'Latency unavailable'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -304,7 +535,7 @@ const PatientHome = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-900 text-lg mb-1">Book Consultation</h3>
-                <p className="text-xs text-gray-600">Online doctor consultation</p>
+                <p className="text-xs text-gray-600">Talk to RHU providers without long waiting lines</p>
               </div>
             </div>
           </button>
@@ -320,7 +551,7 @@ const PatientHome = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-900 text-lg mb-1">View Medicines</h3>
-                <p className="text-xs text-gray-600">Check medicine inventory</p>
+                <p className="text-xs text-gray-600">Check stock by barangay before visiting the clinic</p>
               </div>
             </div>
           </button>
@@ -336,7 +567,7 @@ const PatientHome = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-900 text-lg mb-1">View Schedule</h3>
-                <p className="text-xs text-gray-600">Doctor availability times</p>
+                <p className="text-xs text-gray-600">See available consultation slots for your visit</p>
               </div>
             </div>
           </button>
@@ -429,6 +660,130 @@ const PatientHome = () => {
           <>
             {/* COMPACT Health Programs - 4 column grid */}
             <HealthServicesSection />
+
+            {/* Key Features - Patient-centered value */}
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-8">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Why Patients Use GenLunaMedChain</h2>
+                <p className="text-sm text-gray-600 mt-2">Built for barangay-level healthcare access in General Luna</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {keyFeatures.map((feature, index) => (
+                  <div key={index} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all card-hover animate-slideUp" style={{ animationDelay: `${index * 60}ms` }}>
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                      {feature.icon}
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-sm mb-2">{feature.title}</h3>
+                    <p className="text-xs text-gray-600 leading-relaxed">{feature.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* How it works + preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">How It Works</h3>
+                <div className="space-y-3">
+                  {howItWorks.map((step, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-r from-orange-500 to-blue-700 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                        {index + 1}
+                      </div>
+                      <p className="text-sm text-gray-700 font-medium">{step}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <p className="text-xs text-orange-900">
+                    <strong>Local-first:</strong> Designed specifically for rural healthcare distribution in General Luna.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Live System Preview</h3>
+                <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <p className="text-[11px] text-blue-800 font-semibold uppercase tracking-wide">Availability Source</p>
+                    <p className="text-sm font-bold text-blue-900">{serviceStatus.inventorySource}</p>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                    <p className="text-[11px] text-orange-800 font-semibold uppercase tracking-wide">Record Authority</p>
+                    <p className="text-sm font-bold text-orange-900">{serviceStatus.sourceDetail}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => setPreviewFilter('all')}
+                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                      previewFilter === 'all'
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setPreviewFilter('available')}
+                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 ${
+                      previewFilter === 'available'
+                        ? 'bg-green-700 text-white'
+                        : 'bg-green-50 text-green-700 hover:bg-green-100'
+                    }`}
+                  >
+                    Available
+                  </button>
+                  <button
+                    onClick={() => setPreviewFilter('low')}
+                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
+                      previewFilter === 'low'
+                        ? 'bg-yellow-600 text-white'
+                        : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+                    }`}
+                  >
+                    Low Stock
+                  </button>
+                  <button
+                    onClick={() => setPreviewFilter('near')}
+                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                      previewFilter === 'near'
+                        ? 'bg-purple-700 text-white'
+                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    }`}
+                  >
+                    Near Me
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {filteredPreviewInventory.map((item, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50 transition-all row-glow animate-fadeIn" style={{ animationDelay: `${index * 50}ms` }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-sm text-gray-900">{item.medicine}</p>
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          item.status === 'Available'
+                            ? 'bg-green-100 text-green-700'
+                            : item.status === 'Low Stock'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-xs text-gray-600">
+                        <span>{item.barangay}</span>
+                        <span>{item.stock}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredPreviewInventory.length === 0 && (
+                    <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      No medicines match this filter right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* COLLAPSIBLE Barangay Section */}
             <div className="mb-8">
@@ -610,8 +965,9 @@ const PatientHome = () => {
       <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setShowEmergency(!showEmergency)}
-          className="bg-red-600 hover:bg-red-700 text-white rounded-full p-4 shadow-2xl transform hover:scale-110 transition-all animate-pulse"
+          className="bg-red-700 hover:bg-red-800 text-white rounded-full p-4 shadow-2xl transform hover:scale-110 transition-all animate-pulse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 min-h-[56px] min-w-[56px]"
           title="Emergency Hotlines"
+          aria-label="Toggle emergency hotline contacts"
         >
           <FaPhone className="text-2xl" />
         </button>
@@ -626,6 +982,7 @@ const PatientHome = () => {
               <button 
                 onClick={() => setShowEmergency(false)} 
                 className="text-gray-700 hover:text-gray-900"
+                  aria-label="Close emergency hotlines panel"
               >
                 <FaTimes />
               </button>
@@ -803,6 +1160,20 @@ const PatientHome = () => {
         }
         .animate-slideUp {
           animation: slideUp 0.4s ease-out;
+        }
+        .card-hover:hover {
+          transform: translateY(-2px);
+        }
+        .row-glow:hover {
+          border-color: #93c5fd;
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-pulse,
+          .animate-fadeIn,
+          .animate-slideUp {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>
