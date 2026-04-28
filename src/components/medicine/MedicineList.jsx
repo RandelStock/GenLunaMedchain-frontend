@@ -7,7 +7,7 @@ import { ethers } from "ethers";
 const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const STAFF_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STAFF_ROLE"));
 
-export default function MedicineList() {
+export default function MedicineList({ isPatientView = false, initialBarangay = "all" }) {
   const address = useAddress();
   const { contract } = useContract(CONTRACT_ADDRESS);
 
@@ -28,7 +28,7 @@ export default function MedicineList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9;
+  const itemsPerPage = isPatientView ? 6 : 9;
   const [barangayFilter, setBarangayFilter] = useState("all");
   const [barangays, setBarangays] = useState([]);
   const [userBarangay, setUserBarangay] = useState(null);
@@ -175,6 +175,20 @@ export default function MedicineList() {
       .reduce((sum, s) => sum + (s.remaining_quantity || 0), 0);
   };
 
+  const getMedicineAvailability = (medicine) => {
+    const totalStock = getTotalStock(medicine.medicine_id);
+    if (totalStock <= 0) return "out";
+    if (totalStock <= 20) return "low";
+    return "available";
+  };
+
+  useEffect(() => {
+    if (isPatientView && initialBarangay && initialBarangay !== "all") {
+      setBarangayFilter(initialBarangay);
+      setCurrentPage(1);
+    }
+  }, [isPatientView, initialBarangay]);
+
   const filteredAndSortedMedicines = medicines
     .filter((med) => {
       const matchesSearch =
@@ -205,7 +219,16 @@ export default function MedicineList() {
       const hasExpiredStock = med.medicine_stocks?.some(stock => 
         new Date(stock.expiry_date) < new Date()
       );
+      const availability = getMedicineAvailability(med);
       
+      if (isPatientView) {
+        if (filter === "all") return matchesSearch && matchesBarangay;
+        if (filter === "available") return matchesSearch && matchesBarangay && availability === "available";
+        if (filter === "low") return matchesSearch && matchesBarangay && availability === "low";
+        if (filter === "out") return matchesSearch && matchesBarangay && availability === "out";
+        return matchesSearch && matchesBarangay;
+      }
+
       if (filter === "all") return matchesSearch && matchesBarangay;
       if (filter === "active") return matchesSearch && matchesBarangay && !hasExpiredStock;
       if (filter === "expired") return matchesSearch && matchesBarangay && hasExpiredStock;
@@ -227,6 +250,8 @@ export default function MedicineList() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const canManage = !isPatientView && (isAdmin || isStaff);
 
   const ViewModal = () => {
     if (!showViewModal || !selectedMedicine) return null;
@@ -702,12 +727,28 @@ export default function MedicineList() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">Medicine Inventory</h1>
-          <p className="text-xs sm:text-sm text-gray-600">Manage and track your medicine stock</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
+            {isPatientView ? "Available Medicines by Barangay" : "Medicine Inventory"}
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600">
+            {isPatientView
+              ? "Check medicine availability first to avoid unnecessary travel to the clinic."
+              : "Manage and track your medicine stock"}
+          </p>
+          {isPatientView && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                Source: RHU Inventory
+              </span>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                Updated by Staff
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Wallet Info */}
-        {address && (
+        {!isPatientView && address && (
           <div className="bg-white rounded-lg border border-gray-300 p-3 sm:p-4 mb-4 sm:mb-6">
             <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
               <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
@@ -744,7 +785,9 @@ export default function MedicineList() {
         <div className="bg-white rounded-lg border border-gray-300 p-3 sm:p-4 mb-4 sm:mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-900 mb-2">Search Medicine</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">
+                {isPatientView ? "Search Medicine or Batch" : "Search Medicine"}
+              </label>
               <input
                 type="text"
                 placeholder="Search by name or batch..."
@@ -755,7 +798,7 @@ export default function MedicineList() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-900 mb-2">Filter by Location</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Filter by Barangay</label>
               <select
                 value={barangayFilter}
                 onChange={(e) => { setBarangayFilter(e.target.value); setCurrentPage(1); }}
@@ -786,9 +829,19 @@ export default function MedicineList() {
                 onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="all">All Medicines</option>
-                <option value="active">Active Only</option>
-                <option value="expired">Expired Only</option>
+                <option value="all">{isPatientView ? "All Availability" : "All Medicines"}</option>
+                {isPatientView ? (
+                  <>
+                    <option value="available">Available</option>
+                    <option value="low">Low Stock</option>
+                    <option value="out">Out of Stock</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="active">Active Only</option>
+                    <option value="expired">Expired Only</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -807,33 +860,35 @@ export default function MedicineList() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 ${isPatientView ? 'animate-fadeIn' : ''}`}>
           <div className="bg-white rounded-lg border border-gray-300 p-3 sm:p-4">
             <div className="text-xs font-semibold text-gray-600 mb-1">
-              Total Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
+              {isPatientView ? "Listed Medicines" : "Total Medicines"} {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
             <div className="text-xl sm:text-2xl font-semibold text-gray-900">{filteredAndSortedMedicines.length}</div>
           </div>
           <div className="bg-white rounded-lg border border-gray-300 p-3 sm:p-4">
             <div className="text-xs font-semibold text-gray-600 mb-1">
-              Active Medicines {barangayFilter !== "all" && `(${barangayFilter})`}
+              {isPatientView ? "Available Medicines" : "Active Medicines"} {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
             <div className="text-xl sm:text-2xl font-semibold text-green-600">
-              {filteredAndSortedMedicines.filter(m => {
-                const hasExpiredStock = m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date());
-                return !hasExpiredStock;
-              }).length}
+              {filteredAndSortedMedicines.filter(m => (
+                isPatientView
+                  ? getMedicineAvailability(m) === "available"
+                  : !(m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date()))
+              )).length}
             </div>
           </div>
           <div className="bg-white rounded-lg border border-gray-300 p-3 sm:p-4">
             <div className="text-xs font-semibold text-gray-600 mb-1">
-              With Expired Batches {barangayFilter !== "all" && `(${barangayFilter})`}
+              {isPatientView ? "Low/Out Stock" : "With Expired Batches"} {barangayFilter !== "all" && `(${barangayFilter})`}
             </div>
             <div className="text-xl sm:text-2xl font-semibold text-red-600">
-              {filteredAndSortedMedicines.filter(m => {
-                const hasExpiredStock = m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date());
-                return hasExpiredStock;
-              }).length}
+              {filteredAndSortedMedicines.filter(m => (
+                isPatientView
+                  ? ["low", "out"].includes(getMedicineAvailability(m))
+                  : (m.medicine_stocks?.some(s => new Date(s.expiry_date) < new Date()))
+              )).length}
             </div>
           </div>
         </div>
@@ -861,6 +916,7 @@ export default function MedicineList() {
                 const hasExpiredStock = med.medicine_stocks?.some(
                   (s) => new Date(s.expiry_date) < new Date()
                 );
+                const availability = getMedicineAvailability(med);
                 
                 const getEarliestExpiry = () => {
                   if (!med.medicine_stocks || med.medicine_stocks.length === 0) return null;
@@ -918,15 +974,33 @@ export default function MedicineList() {
                         <div>
                           <span className="text-xs text-gray-600">Status:</span>
                           <p className="mt-1">
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                                hasExpiredStock
-                                  ? "bg-red-100 text-red-900"
-                                  : "bg-green-100 text-green-900"
-                              }`}
-                            >
-                              {hasExpiredStock ? "Expired" : "Active"}
-                            </span>
+                            {isPatientView ? (
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                  availability === "available"
+                                    ? "bg-green-100 text-green-900"
+                                    : availability === "low"
+                                      ? "bg-yellow-100 text-yellow-900"
+                                      : "bg-red-100 text-red-900"
+                                }`}
+                              >
+                                {availability === "available"
+                                  ? "Available"
+                                  : availability === "low"
+                                    ? "Low Stock"
+                                    : "Out of Stock"}
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                  hasExpiredStock
+                                    ? "bg-red-100 text-red-900"
+                                    : "bg-green-100 text-green-900"
+                                }`}
+                              >
+                                {hasExpiredStock ? "Expired" : "Active"}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -941,7 +1015,7 @@ export default function MedicineList() {
                         >
                           View
                         </button>
-                        {(isAdmin || isStaff) && (
+                        {canManage && (
                           <>
                             <button
                               onClick={() => {
@@ -993,6 +1067,7 @@ export default function MedicineList() {
                       const hasExpiredStock = med.medicine_stocks?.some(
                         (s) => new Date(s.expiry_date) < new Date()
                       );
+                      const availability = getMedicineAvailability(med);
                       
                       const getEarliestExpiry = () => {
                         if (!med.medicine_stocks || med.medicine_stocks.length === 0) return null;
@@ -1040,15 +1115,33 @@ export default function MedicineList() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                                hasExpiredStock
-                                  ? "bg-red-100 text-red-900"
-                                  : "bg-green-100 text-green-900"
-                              }`}
-                            >
-                              {hasExpiredStock ? "Expired" : "Active"}
-                            </span>
+                            {isPatientView ? (
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                  availability === "available"
+                                    ? "bg-green-100 text-green-900"
+                                    : availability === "low"
+                                      ? "bg-yellow-100 text-yellow-900"
+                                      : "bg-red-100 text-red-900"
+                                }`}
+                              >
+                                {availability === "available"
+                                  ? "Available"
+                                  : availability === "low"
+                                    ? "Low Stock"
+                                    : "Out of Stock"}
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                  hasExpiredStock
+                                    ? "bg-red-100 text-red-900"
+                                    : "bg-green-100 text-green-900"
+                                }`}
+                              >
+                                {hasExpiredStock ? "Expired" : "Active"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <div className="flex items-center gap-2">
@@ -1061,7 +1154,7 @@ export default function MedicineList() {
                               >
                                 View
                               </button>
-                              {(isAdmin || isStaff) && (
+                              {canManage && (
                                 <>
                                   <button
                                     onClick={() => {
@@ -1115,6 +1208,11 @@ export default function MedicineList() {
                     Next
                   </button>
                 </div>
+              </div>
+            )}
+            {isPatientView && (
+              <div className="mt-4 bg-blue-50 border border-blue-200 text-blue-900 px-4 py-3 rounded-lg text-xs">
+                Tip: Use the barangay filter to find where medicines are currently available before visiting the RHU.
               </div>
             )}
           </>

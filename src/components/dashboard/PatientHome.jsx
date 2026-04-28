@@ -96,6 +96,7 @@ const PatientHome = () => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
   const [barangaySearch, setBarangaySearch] = useState('');
+  const [selectedBarangayFocus, setSelectedBarangayFocus] = useState('all');
   const [previewFilter, setPreviewFilter] = useState('all');
   const [serviceStatus, setServiceStatus] = useState({
     apiOnline: false,
@@ -174,13 +175,6 @@ const PatientHome = () => {
       title: "Secure Health Records",
       description: "Patient records are protected with tamper-resistant storage."
     }
-  ];
-
-  const howItWorks = [
-    "Search medicine or health service",
-    "View barangay-level availability",
-    "Book consultation or confirm schedule",
-    "Visit RHU with better preparation"
   ];
 
   const previewInventory = [
@@ -385,8 +379,8 @@ const PatientHome = () => {
                   className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition-all font-semibold text-xs flex items-center"
                 >
                   <FaWallet className="mr-1" />
-                  <span className="hidden sm:inline">Connect Wallet</span>
-                  <span className="sm:hidden">Connect</span>
+                  <span className="hidden sm:inline">Secure Login (Blockchain Enabled)</span>
+                  <span className="sm:hidden">Secure Login</span>
                 </button>
               )}
             </div>
@@ -395,7 +389,7 @@ const PatientHome = () => {
       </nav>
 
       {/* COMPACT Hero Banner with Background Image */}
-      <div className="relative text-white overflow-hidden min-h-[500px] md:min-h-[600px]">
+      <div className="relative text-white overflow-hidden min-h-[360px] md:min-h-[420px]">
         {/* Background Image with Gradient Overlay */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -443,80 +437,6 @@ const PatientHome = () => {
               </button>
             </div>
 
-            {/* Mini AI Assistant CTA */}
-            <div className="mt-4 bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 max-w-xl mx-auto md:mx-0 animate-fadeIn">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold text-white">AI Health Assistant</p>
-                  <p className="text-xs text-orange-100">Get guidance on symptoms, medicine checks, and next steps.</p>
-                </div>
-                <button
-                  onClick={() => setShowBookingForm(true)}
-                  className="bg-white text-blue-900 px-3 py-2 rounded font-semibold text-xs hover:bg-blue-50 transition-all whitespace-nowrap min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-800"
-                >
-                  Ask AI Assistant
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* COMPACT Info Cards - Horizontal on mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-8">
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
-              <FaMapMarkerAlt className="text-2xl flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold">Brgy. Poblacion, General Luna</p>
-              </div>
-            </div>
-
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
-              <FaPhone className="text-2xl flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold">0995-897-2263</p>
-              </div>
-            </div>
-
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-4 flex items-center gap-3 shadow-lg">
-              <FaClock className="text-2xl flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold">Mon-Sun: 6AM - 5PM</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Trust Signals */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
-              <p className="text-xs text-orange-100">Service Status</p>
-              <p className={`text-sm font-bold ${serviceStatus.apiOnline ? 'text-green-200' : 'text-red-200'}`}>
-                {serviceStatus.apiOnline ? 'Online' : 'Offline'}
-              </p>
-              <p className="text-[11px] text-orange-100 mt-1">v{serviceStatus.serverVersion}</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
-              <p className="text-xs text-orange-100">Clinic Status</p>
-              <p className={`text-sm font-bold ${serviceStatus.clinicOpen ? 'text-green-200' : 'text-yellow-200'}`}>
-                {serviceStatus.clinicOpen ? 'Clinic Open' : 'Clinic Closed'}
-              </p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
-              <p className="text-xs text-orange-100">Server Uptime</p>
-              <p className="text-sm font-bold text-white">
-                {serviceStatus.serverUptime}
-              </p>
-              <p className="text-[11px] text-orange-100 mt-1">Last sync {formatRelativeTime(serviceStatus.lastSyncAt)}</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-lg p-3 shadow-lg">
-              <p className="text-xs text-orange-100">Database Health</p>
-              <p className={`text-sm font-bold ${serviceStatus.databaseHealthy ? 'text-green-200' : 'text-red-200'}`}>
-                {serviceStatus.databaseHealthy ? 'Healthy' : 'Issue detected'}
-              </p>
-              <p className="text-[11px] text-orange-100 mt-1">
-                {serviceStatus.databaseLatencyMs !== null
-                  ? `${serviceStatus.databaseLatencyMs}ms latency`
-                  : 'Latency unavailable'}
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -572,6 +492,61 @@ const PatientHome = () => {
             </div>
           </button>
         </div>
+
+        {/* Barangay focus + trust cards moved below hero */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm lg:col-span-1">
+            <label className="block text-xs font-semibold text-gray-700 mb-2">Select Barangay Focus</label>
+            <select
+              value={selectedBarangayFocus}
+              onChange={(e) => setSelectedBarangayFocus(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Barangays</option>
+              {barangays.map((brgy) => (
+                <option key={brgy.name} value={brgy.name}>{brgy.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setActiveSection('medicines')}
+              className="mt-3 w-full bg-blue-700 text-white rounded px-3 py-2 text-sm font-semibold hover:bg-blue-800 transition-colors"
+            >
+              Check Availability
+            </button>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700 font-semibold">Service Status</p>
+                <p className={`text-sm font-bold ${serviceStatus.apiOnline ? 'text-green-700' : 'text-red-700'}`}>
+                  {serviceStatus.apiOnline ? 'Online' : 'Offline'}
+                </p>
+                <p className="text-[11px] text-blue-700 mt-1">v{serviceStatus.serverVersion}</p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <p className="text-xs text-emerald-700 font-semibold">Clinic Status</p>
+                <p className={`text-sm font-bold ${serviceStatus.clinicOpen ? 'text-green-700' : 'text-yellow-700'}`}>
+                  {serviceStatus.clinicOpen ? 'Clinic Open' : 'Clinic Closed'}
+                </p>
+                <p className="text-[11px] text-emerald-700 mt-1">Mon-Sun: 6AM - 5PM</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <p className="text-xs text-orange-700 font-semibold">Server Uptime</p>
+                <p className="text-sm font-bold text-orange-900">{serviceStatus.serverUptime}</p>
+                <p className="text-[11px] text-orange-700 mt-1">Last sync {formatRelativeTime(serviceStatus.lastSyncAt)}</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-xs text-purple-700 font-semibold">Database Health</p>
+                <p className={`text-sm font-bold ${serviceStatus.databaseHealthy ? 'text-green-700' : 'text-red-700'}`}>
+                  {serviceStatus.databaseHealthy ? 'Healthy' : 'Issue detected'}
+                </p>
+                <p className="text-[11px] text-purple-700 mt-1">
+                  {serviceStatus.databaseLatencyMs !== null ? `${serviceStatus.databaseLatencyMs}ms latency` : 'Latency unavailable'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -606,7 +581,7 @@ const PatientHome = () => {
               </button>
             </div>
             <MedicineInventoryCard>
-              <MedicineList isPatientView={true} />
+              <MedicineList isPatientView={true} initialBarangay={selectedBarangayFocus} />
             </MedicineInventoryCard>
           </div>
         )}
@@ -616,8 +591,8 @@ const PatientHome = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Doctor's Consultation Schedule</h2>
-                <p className="text-gray-600 text-sm mt-1">Select your preferred date and time</p>
+                <h2 className="text-2xl font-bold text-gray-900">Consultation Schedule</h2>
+                <p className="text-gray-600 text-sm mt-1">Choose a date and time, then book your consultation in minutes.</p>
               </div>
               <button
                 onClick={() => setActiveSection('home')}
@@ -626,6 +601,21 @@ const PatientHome = () => {
                 <FaArrowRight className="mr-2 rotate-180" />
                 Back
               </button>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs text-green-700 font-semibold">Status</p>
+                <p className="text-sm font-bold text-green-800">Booking Open</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700 font-semibold">Operating Hours</p>
+                <p className="text-sm font-bold text-blue-900">Mon-Sun, 6:00 AM - 5:00 PM</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <p className="text-xs text-orange-700 font-semibold">Need Help?</p>
+                <p className="text-sm font-bold text-orange-900">Call RHU: 0995-897-2263</p>
+              </div>
             </div>
             
             <AvailabilityCalendar 
@@ -646,7 +636,7 @@ const PatientHome = () => {
                       className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition-all font-medium text-xs inline-flex items-center"
                     >
                       <FaWallet className="mr-2" />
-                      Connect Wallet
+                      Secure Login (Blockchain Enabled)
                     </button>
                   </div>
                 </div>
@@ -683,9 +673,14 @@ const PatientHome = () => {
             {/* How it works + preview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">How It Works</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">How GenLunaMedChain Works</h3>
                 <div className="space-y-3">
-                  {howItWorks.map((step, index) => (
+                  {[
+                    "Patient searches medicine",
+                    "System checks barangay inventory",
+                    "Clinic confirms availability",
+                    "Patient visits or books consultation"
+                  ].map((step, index) => (
                     <div key={index} className="flex items-start gap-3">
                       <div className="w-7 h-7 rounded-full bg-gradient-to-r from-orange-500 to-blue-700 text-white text-xs font-bold flex items-center justify-center mt-0.5">
                         {index + 1}
@@ -785,6 +780,25 @@ const PatientHome = () => {
               </div>
             </div>
 
+            {/* Built for Rural Healthcare */}
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Built for Rural Healthcare</h3>
+              <p className="text-sm text-gray-700 mb-4">
+                People in barangays should not travel far only to find out medicine is unavailable. This system helps residents check availability first, then visit the right health center.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-orange-900">Designed for barangay health centers</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-blue-900">Tracks medicine availability in real time</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-green-900">Helps patients avoid unnecessary travel</p>
+                </div>
+              </div>
+            </div>
+
             {/* COLLAPSIBLE Barangay Section */}
             <div className="mb-8">
               <button
@@ -871,7 +885,7 @@ const PatientHome = () => {
                     Blockchain Technology
                   </h3>
                   <p className="text-sm text-gray-700 leading-relaxed">
-                    GenLunaMedChain ensures security, transparency, and integrity of health records with encrypted blockchain storage.
+                    Patient records are secured using blockchain so data cannot be silently altered, helping protect privacy and trust.
                   </p>
                 </div>
               </div>
@@ -886,7 +900,7 @@ const PatientHome = () => {
                   className="bg-white text-orange-600 px-6 py-3 rounded font-bold hover:bg-orange-50 transition-all shadow-lg text-base inline-flex items-center"
                 >
                   <FaWallet className="mr-2 text-lg" />
-                  Connect Wallet Now
+                  Secure Login (Blockchain Enabled)
                 </button>
                 <p className="text-xs text-orange-100 mt-3">Secure • Private • Transparent</p>
               </div>
