@@ -11,10 +11,14 @@ root.render(
     <ThirdwebProvider
       activeChain={{
         chainId: 80002, // ✅ Polygon Amoy
-        rpc: ["https://rpc-amoy.polygon.technology/"],
+        rpc: [
+          "https://rpc-amoy.polygon.technology/",
+          "https://polygon-amoy-bor-rpc.publicnode.com",
+          "https://rpc.ankr.com/polygon_amoy"
+        ],
         nativeCurrency: {
-          name: "MATIC",
-          symbol: "MATIC",
+          name: "POL",
+          symbol: "POL",
           decimals: 18,
         },
         shortName: "amoy",

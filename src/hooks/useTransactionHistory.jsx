@@ -28,6 +28,7 @@ export function useTransactionHistory() {
   const RECONNECT_INTERVAL = 5 * 60 * 1000;
   const REFRESH_INTERVAL = 2 * 60 * 1000;
   const CONNECTION_CHECK_INTERVAL = 30 * 1000;
+  const ENABLE_CHAIN_EVENT_POLLING = false;
 
   // =============== PERSISTENCE FUNCTIONS ===============
   
@@ -689,7 +690,7 @@ export function useTransactionHistory() {
 
   // Real-time event listener setup
   useEffect(() => {
-    if (!contract || !currentNetwork) return;
+    if (!contract || !currentNetwork || !ENABLE_CHAIN_EVENT_POLLING) return;
 
     setupEventListeners();
 
@@ -771,6 +772,7 @@ export function useTransactionHistory() {
 
   // Modified auto-fetch - only fetch if no stored data exists
   useEffect(() => {
+    if (!ENABLE_CHAIN_EVENT_POLLING) return;
     if (contract && address && currentNetwork && isInitializedRef.current) {
       const stored = loadFromStorage();
       if (stored.length === 0 && transactionHistory.length === 0) {

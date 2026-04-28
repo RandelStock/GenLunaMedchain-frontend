@@ -85,6 +85,15 @@ export default function AddStockForm({ onSuccess, onCancel }) {
         return result;
       } catch (error) {
         console.error(`Blockchain attempt ${i + 1} failed:`, error);
+
+        // Stop immediately on MetaMask RPC throttling/backoff
+        if (
+          error?.code === -32002 ||
+          error?.message?.includes('RPC endpoint returned too many errors')
+        ) {
+          setRetryCount(0);
+          throw new Error('RPC is rate-limited, switch endpoint or wait 1 minute.');
+        }
         
         if (error.message && (
           error.message.includes('user rejected') || 
