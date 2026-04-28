@@ -126,21 +126,45 @@ export const useStockManagement = () => {
       // Use updateStockHash if it exists, otherwise use storeStockHash
       const methodName = hashExists ? "updateStockHash" : "storeStockHash";
       console.log(`Using method: ${methodName}`);
-      
-      const tx = await contract.call(methodName, [stockId, dataHash]);
-      console.log("Transaction sent:", tx);
-      
-      const normalizedTx = {
-        hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
-        receipt: tx.receipt || tx,
-        transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
-      };
 
-      if (!normalizedTx.hash) {
-        throw new Error("No transaction hash found in response");
+      try {
+        const tx = await contract.call(methodName, [stockId, dataHash], {
+          gasLimit: 300000,
+        });
+        console.log("Transaction sent via thirdweb:", tx);
+
+        const normalizedTx = {
+          hash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash,
+          receipt: tx.receipt || tx,
+          transactionHash: tx.hash || tx.transactionHash || tx.receipt?.transactionHash || tx.receipt?.hash
+        };
+
+        if (!normalizedTx.hash) {
+          throw new Error("No transaction hash found in thirdweb response");
+        }
+
+        return normalizedTx;
+      } catch (thirdwebErr) {
+        console.warn("Thirdweb transaction path failed, trying direct ethers signer...", thirdwebErr.message);
+
+        if (!signer) {
+          throw thirdwebErr;
+        }
+
+        const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, ContractABI.abi, signer);
+        const tx = await contractWithSigner[methodName](stockId, dataHash, {
+          gasLimit: 300000,
+        });
+        console.log("Transaction sent via ethers signer:", tx.hash);
+        const receipt = await tx.wait();
+        console.log("Transaction confirmed:", receipt.transactionHash);
+
+        return {
+          hash: receipt.transactionHash,
+          receipt,
+          transactionHash: receipt.transactionHash
+        };
       }
-
-      return normalizedTx;
       
     } catch (err) {
       console.error("Error storing stock hash:", err);
@@ -153,6 +177,8 @@ export const useStockManagement = () => {
         throw new Error("This stock has already been recorded on the blockchain. Try refreshing the page.");
       } else if (err.message.includes("caller must have staff or admin role")) {
         throw new Error("Your wallet does not have permission to add stock. Please contact an administrator.");
+      } else if (err.message.includes("missing revert data") || err.message.includes("call exception")) {
+        throw new Error("Blockchain RPC preflight failed. Please retry once; if it persists, refresh wallet connection and try again.");
       }
       
       throw err;
