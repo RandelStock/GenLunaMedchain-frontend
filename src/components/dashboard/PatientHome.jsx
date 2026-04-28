@@ -1,12 +1,12 @@
 // src/components/dashboard/PatientHome.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRole } from '../auth/RoleProvider';
 import { Link, useNavigate } from 'react-router-dom';
 import { useConnect, useDisconnect, useAddress, metamaskWallet } from "@thirdweb-dev/react";
-import MedicineList from '../medicine/MedicineList';
 import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
 import HealthServicesSection from './HealthServicesSection'; 
+import PatientLandingInventory from './PatientLandingInventory';
 import api from '../../../api.js';
 
 // Import all images
@@ -81,7 +81,6 @@ import {
 
 import {
   ConsultationCard,
-  MedicineInventoryCard,
   PatientAppointmentCard,
   PatientPrescriptionCard
 } from './DashboardCards';
@@ -96,8 +95,6 @@ const PatientHome = () => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
   const [barangaySearch, setBarangaySearch] = useState('');
-  const [selectedBarangayFocus, setSelectedBarangayFocus] = useState('all');
-  const [previewFilter, setPreviewFilter] = useState('all');
   const [serviceStatus, setServiceStatus] = useState({
     apiOnline: false,
     clinicOpen: false,
@@ -176,28 +173,6 @@ const PatientHome = () => {
       description: "Patient records are protected with tamper-resistant storage."
     }
   ];
-
-  const previewInventory = [
-    { medicine: "Paracetamol 500mg", barangay: "Poblacion 8", status: "Available", stock: "148 packs" },
-    { medicine: "ORS Sachet", barangay: "San Isidro Ilaya", status: "Low Stock", stock: "12 packs" },
-    { medicine: "Amoxicillin 500mg", barangay: "Malaya", status: "Available", stock: "74 capsules" },
-    { medicine: "Metformin 500mg", barangay: "San Jose", status: "Out of Stock", stock: "0" }
-  ];
-
-  const nearMeBarangays = ['Poblacion 8', 'Poblacion 7', 'Poblacion 1', 'Poblacion 2'];
-
-  const filteredPreviewInventory = useMemo(() => {
-    if (previewFilter === 'available') {
-      return previewInventory.filter(item => item.status === 'Available');
-    }
-    if (previewFilter === 'low') {
-      return previewInventory.filter(item => item.status === 'Low Stock');
-    }
-    if (previewFilter === 'near') {
-      return previewInventory.filter(item => nearMeBarangays.includes(item.barangay));
-    }
-    return previewInventory;
-  }, [previewFilter]);
 
   const computeClinicOpen = () => {
     const now = new Date();
@@ -379,8 +354,8 @@ const PatientHome = () => {
                   className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition-all font-semibold text-xs flex items-center"
                 >
                   <FaWallet className="mr-1" />
-                  <span className="hidden sm:inline">Secure Login (Blockchain Enabled)</span>
-                  <span className="sm:hidden">Secure Login</span>
+                  <span className="hidden sm:inline">Secure Access (Blockchain-Backed Records)</span>
+                  <span className="sm:hidden">Secure Access</span>
                 </button>
               )}
             </div>
@@ -389,6 +364,7 @@ const PatientHome = () => {
       </nav>
 
       {/* COMPACT Hero Banner with Background Image */}
+      {activeSection === 'home' && (
       <div className="relative text-white overflow-hidden min-h-[360px] md:min-h-[420px]">
         {/* Background Image with Gradient Overlay */}
         <div 
@@ -417,31 +393,19 @@ const PatientHome = () => {
               OFFICIAL GOVERNMENT SERVICE
             </div>
             <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-2xl">
-              Find Available Medicines in Your Barangay Instantly
+              Welcome to General Luna RHU
             </h1>
             <p className="text-lg md:text-xl text-white drop-shadow-xl font-medium">
-              A smart healthcare platform connecting patients, clinics, and medicine supply across General Luna.
+              "Masaya, Maunlad, Maaasahan at Nagkakaisang Bayan ng General Luna"
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <button
-                onClick={() => setActiveSection('medicines')}
-                className="bg-white text-orange-700 px-6 py-3 rounded-lg font-bold hover:bg-orange-50 transition-all shadow-lg text-sm min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-orange-600"
-              >
-                Check Medicines Now
-              </button>
-              <button
-                onClick={handleViewCalendar}
-                className="bg-blue-800/90 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-900 transition-all shadow-lg text-sm border border-white/30 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-800"
-              >
-                View Doctor Schedule
-              </button>
-            </div>
 
           </div>
         </div>
       </div>
+      )}
 
       {/* PROMINENT Quick Action Cards - Moved to TOP with negative margin */}
+      {activeSection === 'home' && (
       <div className="max-w-7xl mx-auto px-4 -mt-4 relative z-10 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Book Consultation */}
@@ -492,29 +456,12 @@ const PatientHome = () => {
             </div>
           </button>
         </div>
+      </div>
+      )}
 
-        {/* Barangay focus + trust cards moved below hero */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm lg:col-span-1">
-            <label className="block text-xs font-semibold text-gray-700 mb-2">Select Barangay Focus</label>
-            <select
-              value={selectedBarangayFocus}
-              onChange={(e) => setSelectedBarangayFocus(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Barangays</option>
-              {barangays.map((brgy) => (
-                <option key={brgy.name} value={brgy.name}>{brgy.name}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setActiveSection('medicines')}
-              className="mt-3 w-full bg-blue-700 text-white rounded px-3 py-2 text-sm font-semibold hover:bg-blue-800 transition-colors"
-            >
-              Check Availability
-            </button>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm lg:col-span-2">
+      {activeSection === 'home' && (
+        <div className="max-w-7xl mx-auto px-4 mb-8">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-700 font-semibold">Service Status</p>
@@ -547,7 +494,7 @@ const PatientHome = () => {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 pb-12">
@@ -566,7 +513,7 @@ const PatientHome = () => {
 
         {/* Medicine Inventory Section */}
         {activeSection === 'medicines' && (
-          <div className="mb-8">
+          <div className="mb-8 mt-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">RHU Medicine Inventory</h2>
@@ -580,9 +527,7 @@ const PatientHome = () => {
                 Back
               </button>
             </div>
-            <MedicineInventoryCard>
-              <MedicineList isPatientView={true} initialBarangay={selectedBarangayFocus} />
-            </MedicineInventoryCard>
+            <PatientLandingInventory />
           </div>
         )}
 
@@ -636,7 +581,7 @@ const PatientHome = () => {
                       className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition-all font-medium text-xs inline-flex items-center"
                     >
                       <FaWallet className="mr-2" />
-                      Secure Login (Blockchain Enabled)
+                      Secure Access (Blockchain-Backed Records)
                     </button>
                   </div>
                 </div>
@@ -670,8 +615,8 @@ const PatientHome = () => {
               </div>
             </div>
 
-            {/* How it works + preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* How it works */}
+            <div className="grid grid-cols-1 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">How GenLunaMedChain Works</h3>
                 <div className="space-y-3">
@@ -679,6 +624,7 @@ const PatientHome = () => {
                     "Patient searches medicine",
                     "System checks barangay inventory",
                     "Clinic confirms availability",
+                    "Availability is displayed in real-time",
                     "Patient visits or books consultation"
                   ].map((step, index) => (
                     <div key={index} className="flex items-start gap-3">
@@ -693,89 +639,6 @@ const PatientHome = () => {
                   <p className="text-xs text-orange-900">
                     <strong>Local-first:</strong> Designed specifically for rural healthcare distribution in General Luna.
                   </p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Live System Preview</h3>
-                <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    <p className="text-[11px] text-blue-800 font-semibold uppercase tracking-wide">Availability Source</p>
-                    <p className="text-sm font-bold text-blue-900">{serviceStatus.inventorySource}</p>
-                  </div>
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                    <p className="text-[11px] text-orange-800 font-semibold uppercase tracking-wide">Record Authority</p>
-                    <p className="text-sm font-bold text-orange-900">{serviceStatus.sourceDetail}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <button
-                    onClick={() => setPreviewFilter('all')}
-                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                      previewFilter === 'all'
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setPreviewFilter('available')}
-                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 ${
-                      previewFilter === 'available'
-                        ? 'bg-green-700 text-white'
-                        : 'bg-green-50 text-green-700 hover:bg-green-100'
-                    }`}
-                  >
-                    Available
-                  </button>
-                  <button
-                    onClick={() => setPreviewFilter('low')}
-                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
-                      previewFilter === 'low'
-                        ? 'bg-yellow-600 text-white'
-                        : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
-                    }`}
-                  >
-                    Low Stock
-                  </button>
-                  <button
-                    onClick={() => setPreviewFilter('near')}
-                    className={`px-3 py-2 rounded-full text-xs font-semibold transition-all min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
-                      previewFilter === 'near'
-                        ? 'bg-purple-700 text-white'
-                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                    }`}
-                  >
-                    Near Me
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {filteredPreviewInventory.map((item, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50 transition-all row-glow animate-fadeIn" style={{ animationDelay: `${index * 50}ms` }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-sm text-gray-900">{item.medicine}</p>
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          item.status === 'Available'
-                            ? 'bg-green-100 text-green-700'
-                            : item.status === 'Low Stock'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1 text-xs text-gray-600">
-                        <span>{item.barangay}</span>
-                        <span>{item.stock}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {filteredPreviewInventory.length === 0 && (
-                    <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      No medicines match this filter right now.
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -900,7 +763,7 @@ const PatientHome = () => {
                   className="bg-white text-orange-600 px-6 py-3 rounded font-bold hover:bg-orange-50 transition-all shadow-lg text-base inline-flex items-center"
                 >
                   <FaWallet className="mr-2 text-lg" />
-                  Secure Login (Blockchain Enabled)
+                  Secure Access (Blockchain-Backed Records)
                 </button>
                 <p className="text-xs text-orange-100 mt-3">Secure • Private • Transparent</p>
               </div>
