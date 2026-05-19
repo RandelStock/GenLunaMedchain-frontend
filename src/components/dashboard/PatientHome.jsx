@@ -7,6 +7,7 @@ import ConsultationBookingForm from '../consultation/ConsultationBookingForm';
 import AvailabilityCalendar from '../consultation/AvailabilityCalendar';
 import HealthServicesSection from './HealthServicesSection'; 
 import PatientLandingInventory from './PatientLandingInventory';
+import BarangayExplorer from './BarangayExplorer';
 import api from '../../../api.js';
 
 // Import all images
@@ -72,10 +73,6 @@ import {
   FaMapMarkerAlt,
   FaEnvelope,
   FaTimes,
-  FaImage,
-  FaUsers,
-  FaChevronDown,
-  FaSearch,
   FaExclamationTriangle
 } from 'react-icons/fa';
 
@@ -90,11 +87,8 @@ const PatientHome = () => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
   const [selectedDateTime, setSelectedDateTime] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedBarangay, setSelectedBarangay] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
   const [showEmergency, setShowEmergency] = useState(false);
-  const [barangaySearch, setBarangaySearch] = useState('');
   const [serviceStatus, setServiceStatus] = useState({
     apiOnline: false,
     clinicOpen: false,
@@ -145,11 +139,6 @@ const PatientHome = () => {
     { name: 'Sumilang', area: '529.19 ha', pop: '801 (2020)', households: '183 (2020)', image: Sumilang },
     { name: 'Villarica', area: '287.26 ha', pop: '632 (2020)', households: '160 (2020)', image: Villarica }
   ];
-
-  // Filter barangays based on search
-  const filteredBarangays = barangays.filter(brgy =>
-    brgy.name.toLowerCase().includes(barangaySearch.toLowerCase())
-  );
 
   const keyFeatures = [
     {
@@ -462,7 +451,7 @@ const PatientHome = () => {
       {activeSection === 'home' && (
         <div className="max-w-7xl mx-auto px-4 mb-8">
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-700 font-semibold">Service Status</p>
                 <p className={`text-sm font-bold ${serviceStatus.apiOnline ? 'text-green-700' : 'text-red-700'}`}>
@@ -662,72 +651,13 @@ const PatientHome = () => {
               </div>
             </div>
 
-            {/* COLLAPSIBLE Barangay Section */}
-            <div className="mb-8">
-              <button
-                onClick={() => setExpandedSection(expandedSection === 'barangay' ? null : 'barangay')}
-                className="w-full bg-white rounded-lg shadow-md border-2 border-orange-200 p-5 hover:shadow-lg transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="bg-gradient-to-r from-orange-500 to-blue-700 w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FaMapMarkerAlt className="text-xl text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">27 Barangays of General Luna</h2>
-                      <p className="text-xs text-gray-600">Click to view community profiles</p>
-                    </div>
-                  </div>
-                  <FaChevronDown className={`text-xl text-gray-400 transition-transform ${expandedSection === 'barangay' ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-
-              {expandedSection === 'barangay' && (
-                <div className="mt-4 bg-white rounded-lg border-2 border-orange-200 p-5">
-                  {/* Search Bar */}
-                  <div className="mb-4">
-                    <div className="relative">
-                      <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search barangay..."
-                        value={barangaySearch}
-                        onChange={(e) => setBarangaySearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Barangay Grid - COMPACT */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                    {filteredBarangays.map((barangay, index) => (
-                      <div 
-                        key={index}
-                        className="bg-gradient-to-br from-white to-orange-50 rounded-lg border-2 border-orange-100 hover:border-orange-400 p-3 cursor-pointer hover:shadow-lg transition-all"
-                        onClick={() => {
-                          setSelectedBarangay(barangay);
-                          setShowModal(true);
-                        }}
-                      >
-                        <div className="bg-gradient-to-r from-orange-500 to-blue-700 text-white p-2 rounded-lg mb-2">
-                          <h3 className="font-bold text-xs text-center">{barangay.name}</h3>
-                        </div>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-gray-900 font-medium">Pop:</span>
-                            <span className="font-semibold text-gray-900">{barangay.pop.split(' ')[0]}</span>
-                          </div>
-                          <div className="text-center text-blue-700 font-semibold text-xs flex items-center justify-center gap-1 mt-2">
-                            <FaImage />
-                            <span>View Map</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <BarangayExplorer
+              barangays={barangays}
+              expanded={expandedSection === 'barangay'}
+              onToggleExpanded={() =>
+                setExpandedSection(expandedSection === 'barangay' ? null : 'barangay')
+              }
+            />
 
             {/* COMPACT About & Mission */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-8">
@@ -754,20 +684,25 @@ const PatientHome = () => {
               </div>
             </div>
 
-            {/* Call to Action for Non-Connected Users */}
+            {/* Call to Action — bottom of home (after About & Mission) */}
             {!address && (
-              <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-blue-800 rounded-lg p-6 text-center text-white shadow-lg mb-8">
-                <h2 className="text-2xl font-bold mb-3">Access Your Digital Health Records</h2>
+              <section className="bg-gradient-to-r from-orange-500 via-orange-600 to-blue-800 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center text-white shadow-lg mb-8">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 px-2">Access Your Digital Health Records</h2>
+                <p className="text-sm text-orange-100 mb-4 max-w-lg mx-auto px-2">
+                  Connect your wallet to view consultations and prescriptions secured on the blockchain.
+                </p>
                 <button 
+                  type="button"
                   onClick={handleConnect}
-                  className="bg-white text-orange-600 px-6 py-3 rounded font-bold hover:bg-orange-50 transition-all shadow-lg text-base inline-flex items-center"
+                  className="w-full sm:w-auto bg-white text-orange-600 px-6 py-3.5 rounded-xl font-bold hover:bg-orange-50 transition-all shadow-lg text-sm sm:text-base inline-flex items-center justify-center gap-2 min-h-[48px]"
                 >
-                  <FaWallet className="mr-2 text-lg" />
-                  Secure Access (Blockchain-Backed Records)
+                  <FaWallet className="text-lg flex-shrink-0" />
+                  <span>Secure Access (Blockchain-Backed Records)</span>
                 </button>
-                <p className="text-xs text-orange-100 mt-3">Secure • Private • Transparent</p>
-              </div>
+                <p className="text-xs sm:text-sm text-orange-100 mt-3">Secure • Private • Transparent</p>
+              </section>
             )}
+
           </>
         )}
       </div>
@@ -893,109 +828,6 @@ const PatientHome = () => {
           </div>
         )}
       </div>
-
-      {/* Barangay Image Modal */}
-      {showModal && selectedBarangay && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="relative bg-gradient-to-r from-orange-500 via-orange-600 to-blue-700 p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="inline-block bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-bold text-white mb-1">
-                    BARANGAY PROFILE
-                  </div>
-                  <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <FaMapMarkerAlt />
-                    {selectedBarangay.name}
-                  </h3>
-                  <p className="text-orange-100 text-xs">General Luna, Quezon Province</p>
-                </div>
-                <button 
-                  onClick={() => setShowModal(false)}
-                  className="w-8 h-8 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:rotate-90 transition-all duration-300"
-                >
-                  <FaTimes />
-                </button>
-              </div>
-            </div>
-            
-            {/* Modal Body */}
-            <div className="flex-grow overflow-auto bg-gradient-to-br from-orange-50 via-white to-blue-50 p-4">
-              {/* Image Container */}
-              <div className="bg-white rounded-xl shadow-lg p-4 border-2 border-orange-200 mb-4">
-                <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg overflow-hidden min-h-[300px] relative">
-                  <img 
-                    src={selectedBarangay.image}
-                    alt={`${selectedBarangay.name} map`} 
-                    className="w-full h-auto object-contain max-h-[50vh]"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = logo;
-                    }}
-                  />
-                </div>
-              </div>
-              
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                      <FaMapMarkerAlt className="text-lg" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-orange-100">Land Area</p>
-                      <p className="text-xl font-bold">{selectedBarangay.area}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-br from-blue-700 to-blue-800 rounded-xl p-4 text-white shadow-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                      <FaUsers className="text-lg" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-blue-100">Population</p>
-                      <p className="text-xl font-bold">{selectedBarangay.pop}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-br from-orange-600 to-blue-700 rounded-xl p-4 text-white shadow-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                      <FaHospital className="text-lg" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-orange-100">Households</p>
-                      <p className="text-xl font-bold">{selectedBarangay.households}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Modal Footer */}
-            <div className="border-t-2 border-orange-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium">Census Data: 2020</span>
-                </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="bg-gradient-to-r from-orange-500 to-blue-700 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2 text-sm"
-                >
-                  Close
-                  <FaTimes />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Consultation Booking Form Modal */}
       {showBookingForm && (

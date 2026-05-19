@@ -195,7 +195,7 @@ export default function BlockchainHistory() {
           endpoint = `/stock-transactions/${item.recordId}`;
           break;
         case 'receipt':
-          endpoint = `/receipts/${item.recordId}`;
+          endpoint = `/releases/${item.recordId}`;
           break;
         case 'removal':
           endpoint = `/removals/${item.recordId}`;
@@ -473,32 +473,66 @@ export default function BlockchainHistory() {
         return (
           <div className="mt-4 border-t border-gray-200 pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              📋 Receipt Information
+              📋 Release Information
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Medicine:</span>
-                <p className="font-medium text-gray-900">{data.stock?.medicine?.medicine_name || 'N/A'}</p>
+                <p className="font-medium text-gray-900">{data.medicine?.medicine_name || 'N/A'}</p>
               </div>
               <div>
-                <span className="text-gray-600">Quantity Received:</span>
-                <p className="font-medium text-gray-900">{data.quantity_received || 0}</p>
+                <span className="text-gray-600">Batch Number:</span>
+                <p className="font-medium text-gray-900">{data.stock?.batch_number || 'N/A'}</p>
               </div>
               <div>
-                <span className="text-gray-600">Receipt Date:</span>
+                <span className="text-gray-600">Resident Name:</span>
+                <p className="font-medium text-gray-900">{data.resident_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Age:</span>
+                <p className="font-medium text-gray-900">{data.resident_age ?? 'N/A'}</p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-600">Medical Concern:</span>
+                <p className="font-medium text-gray-900">{data.concern || '-'}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Quantity Released:</span>
+                <p className="font-medium text-gray-900">{data.quantity_released ?? 0}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Date Released:</span>
                 <p className="font-medium text-gray-900">
-                  {data.receipt_date ? new Date(data.receipt_date).toLocaleDateString() : 'N/A'}
+                  {data.date_released ? new Date(data.date_released).toLocaleDateString() : 'N/A'}
                 </p>
-              </div>
-              <div>
-                <span className="text-gray-600">Source:</span>
-                <p className="font-medium text-gray-900">{data.source || 'N/A'}</p>
               </div>
               {data.notes && (
                 <div className="col-span-2">
                   <span className="text-gray-600">Notes:</span>
                   <p className="font-medium text-gray-900">{data.notes}</p>
                 </div>
+              )}
+              {(data.prescription_number || data.prescribing_doctor || data.dosage_instructions) && (
+                <>
+                  {data.prescription_number && (
+                    <div>
+                      <span className="text-gray-600">Prescription Number:</span>
+                      <p className="font-medium text-gray-900">{data.prescription_number}</p>
+                    </div>
+                  )}
+                  {data.prescribing_doctor && (
+                    <div>
+                      <span className="text-gray-600">Prescribing Doctor:</span>
+                      <p className="font-medium text-gray-900">{data.prescribing_doctor}</p>
+                    </div>
+                  )}
+                  {data.dosage_instructions && (
+                    <div className="col-span-2">
+                      <span className="text-gray-600">Dosage Instructions:</span>
+                      <p className="font-medium text-gray-900">{data.dosage_instructions}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
